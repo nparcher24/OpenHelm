@@ -1,0 +1,21 @@
+# Martin Tile Server Configuration for OpenHelm
+# Optimized for Raspberry Pi 5 marine navigation
+
+listen_addresses: "0.0.0.0:3001"
+
+# Performance optimizations for Pi hardware
+worker_processes: 2
+max_feature_count: 10000
+
+# MBTiles sources for offline maps (will auto-discover .mbtiles files)
+mbtiles:
+  paths:
+    - "./tiles"
+
+# PMTiles for modern vector tiles (will auto-discover .pmtiles files) 
+pmtiles:
+  paths: 
+    - "./tiles"
+
+# Cache configuration
+cache_size_mb: 256

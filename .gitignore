@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+.npm
+
+# Log files
+*.log
+api.log
+martin.log
+vite.log
+openhelm.log
+
+# Database files
+data/*.db
+data/*.db-journal
+
+# Tile data
+tiles/**/*.mbtiles
+tiles/**/*.pmtiles
+tiles/**/*.png
+tiles/**/sample-tiles/
+
+# Build outputs
+dist/
+build/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Martin binaries and executables
+martin
+martin-cp
+
+# mbtiles files
+mbtiles
+
+# Environment files
+.env
+.env.local
+.env.production

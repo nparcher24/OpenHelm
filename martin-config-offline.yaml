@@ -1,0 +1,19 @@
+# Martin Offline Configuration for OpenHelm
+listen_addresses: "0.0.0.0:3001"
+
+# Performance optimizations for Pi hardware
+worker_processes: 2
+max_feature_count: 10000
+
+# Serve static tiles directory
+sprite_sources:
+  sample-tiles:
+    path: "./tiles/sample-tiles"
+
+# Enable directory tile serving (if Martin supports it)
+# Otherwise we'll serve through a simple HTTP endpoint
+
+# Cache configuration
+cache_size_mb: 256
+
+# Enable CORS for local access

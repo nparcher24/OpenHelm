@@ -1,0 +1,34 @@
+{
+  "version": 8,
+  "name": "OpenHelm Offline Marine",
+  "metadata": {
+    "maplibre:logo": false
+  },
+  "sources": {
+    "martin-tiles": {
+      "type": "raster",
+      "tiles": ["http://localhost:3001/tiles/{z}/{x}/{y}"],
+      "tileSize": 256,
+      "minzoom": 0,
+      "maxzoom": 18,
+      "attribution": "OpenHelm Marine Navigation"
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#a8cce8"
+      }
+    },
+    {
+      "id": "marine-tiles",
+      "type": "raster",
+      "source": "martin-tiles",
+      "paint": {
+        "raster-opacity": 1
+      }
+    }
+  ]
+}
