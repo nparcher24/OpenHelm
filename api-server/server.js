@@ -22,6 +22,14 @@ app.use(cors())
 app.use(express.json())
 app.use(express.text())
 
+// Static file serving for tiles (BlueTopo, etc.)
+// Serves /tiles/bluetopo/{tile_id}/{z}/{x}/{y}.png
+app.use('/tiles', express.static(path.join(process.cwd(), 'tiles'), {
+  maxAge: '1d', // Cache tiles for 1 day
+  etag: true,
+  lastModified: true
+}))
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'openhelm-api', port: PORT })

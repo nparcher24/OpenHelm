@@ -298,6 +298,87 @@ router.get('/tiles/downloaded', async (req, res) => {
 });
 
 /**
+ * GET /api/bluetopo/tiles/metadata
+ * Get tile metadata (bounds, zoom levels) for map display
+ * Parses tilemapresource.xml from each downloaded tile
+ */
+router.get('/tiles/metadata', async (req, res) => {
+  try {
+    const projectRoot = path.resolve(__dirname, '../..');
+    const tilesDir = path.join(projectRoot, 'tiles', 'bluetopo');
+
+    // Check if tiles directory exists
+    let tileDirectories = [];
+    try {
+      const entries = await fs.readdir(tilesDir, { withFileTypes: true });
+      tileDirectories = entries
+        .filter(entry => entry.isDirectory())
+        .map(entry => entry.name);
+    } catch (error) {
+      return res.json({ success: true, tiles: [] });
+    }
+
+    // Parse tilemapresource.xml for each tile
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: ''
+    });
+
+    const tilesMetadata = await Promise.all(
+      tileDirectories.map(async (tileId) => {
+        const xmlPath = path.join(tilesDir, tileId, 'tilemapresource.xml');
+
+        try {
+          const xmlContent = await fs.readFile(xmlPath, 'utf8');
+          const parsed = parser.parse(xmlContent);
+          const tileMap = parsed.TileMap;
+          const boundingBox = tileMap.BoundingBox;
+          const tileSets = tileMap.TileSets?.TileSet;
+
+          // Get zoom levels from TileSets
+          const zoomLevels = Array.isArray(tileSets)
+            ? tileSets.map(ts => parseInt(ts.order))
+            : [parseInt(tileSets?.order || 8)];
+
+          const minZoom = Math.min(...zoomLevels);
+          const maxZoom = Math.max(...zoomLevels);
+
+          return {
+            tileId,
+            bounds: [
+              parseFloat(boundingBox.minx),
+              parseFloat(boundingBox.miny),
+              parseFloat(boundingBox.maxx),
+              parseFloat(boundingBox.maxy)
+            ],
+            minZoom,
+            maxZoom,
+            srs: tileMap.SRS || 'EPSG:3857'
+          };
+        } catch (error) {
+          // If XML parsing fails, return null (will be filtered out)
+          console.error(`Failed to parse metadata for tile ${tileId}:`, error.message);
+          return null;
+        }
+      })
+    );
+
+    // Filter out any tiles that failed to parse
+    const validTiles = tilesMetadata.filter(t => t !== null);
+
+    res.json({
+      success: true,
+      tiles: validTiles,
+      count: validTiles.length
+    });
+
+  } catch (error) {
+    console.error('Error getting tile metadata:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * DELETE /api/bluetopo/tiles/:tileId
  * Delete a downloaded tile from the device
  */
