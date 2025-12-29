@@ -1,237 +1,164 @@
 # OpenHelm - Marine Navigation Application
 
-## Project Overview
-
-OpenHelm is a high-performance touchscreen marine navigation application designed for Raspberry Pi 5. It provides offline map display capabilities with smooth interaction and fast rendering for marine environments.
-
-## Key Features
-
-- **Multi-format Map Support**: Nautical charts, NOAA BlueTopo, Sea Temperature imagery, and land maps
-- **Tile-based Architecture**: Optimized tile serving with Martin Tileserver
-- **GPS/AHRS Integration**: Plugin receiver interface for position and heading data  
-- **Offline Operation**: All maps and data available without internet connectivity
-- **Touch-optimized UI**: Responsive interface designed for marine touchscreen use
-- **Auto-dismiss Welcome Screen**: 3-second branded splash screen with Parritec logo
-- **Sunlight-readable Interface**: High contrast modes for direct sunlight operation
+High-performance touchscreen marine navigation app for Raspberry Pi 5 with offline map display, GPS integration, and sunlight-readable UI.
 
 ## Technical Stack
 
-### Core Technologies
-- **Frontend**: React with TailwindCSS for responsive UI
-- **Maps**: Leaflet with MapLibre GL JS for high-performance rendering
-- **Tile Server**: Martin Tileserver (optimized configuration)
+- **Frontend**: React 18 + TailwindCSS + React Router
+- **Maps**: MapLibre GL JS (primary) + Leaflet
+- **Tile Server**: Martin Tileserver on port 3001
+- **API Server**: Express.js on port 3002
 - **Runtime**: Chromium frameless browser
-- **Platform**: Raspberry Pi 5 with auto-start on boot
-- **Icons**: Heroicons (open source SVG icon library)
+- **Icons**: Heroicons (`@heroicons/react`)
 
-### UI/UX Design Decisions
-- **Theme System**: Automatic light/dark mode based on browser preference
-- **Sunlight Readability**: Enhanced contrast and font rendering for marine conditions
-- **Touch Optimization**: Minimum 44px touch targets, disabled text selection
-- **Marine Color Palette**: Custom blue tones optimized for nautical environments
-- **Navigation**: Top navbar with Chart, Topo, GPS, and Settings sections
+## Project Structure
 
-### Performance Priorities
-- Smooth map panning and zooming
-- Fast tile loading and caching
-- Optimized memory usage for Pi hardware
-- Minimal UI latency for touch interactions
-- Efficient data structures for map overlays
-
-## Map Data Sources
-- **Nautical Charts**: Standard marine navigation charts
-- **NOAA BlueTopo**: Topographical data in native format
-- **Sea Temperature**: NOAA thermal imagery tiles
-- **Land Maps**: Terrestrial navigation backup
-
-## Hardware Requirements
-- Raspberry Pi 5
-- GPS/AHRS plugin receiver
-- Marine-grade touchscreen display
-- High-speed SD card for map data storage
-
-## Development Guidelines
-- Performance-first approach to all implementations
-- Minimize bundle size and memory footprint  
-- Optimize for touch interaction patterns
-- Ensure reliable offline operation
-- Follow marine UI/UX best practices
-- Support both light and dark themes for varying lighting conditions
-
-## Application Logging
-
-The application uses a custom logging system that writes to `openhelm.log` in the project root. This log captures frontend application events, API calls, and debugging information.
-
-**Viewing logs in real-time:**
-```bash
-tail -f openhelm.log
+```
+/home/hic/OpenHelm/
+├── src/
+│   ├── App.jsx                 # Main app with routing
+│   ├── components/
+│   │   ├── BlueTopoTilesView.jsx    # Tile management UI
+│   │   ├── BlueTopoDownloader.jsx   # Tile download with progress
+│   │   ├── ChartView.jsx            # Nautical chart display
+│   │   ├── SettingsView.jsx         # App settings
+│   │   ├── RegionSelector.jsx       # Geographic region picker
+│   │   └── Navbar.jsx               # Top navigation bar
+│   ├── services/
+│   │   ├── blueTopoService.js       # BlueTopo tile API client
+│   │   ├── blueTopoDownloadService.js
+│   │   └── encCatalogueService.js   # ENC chart catalogue
+│   ├── hooks/                  # Custom React hooks (useJobProgress)
+│   └── utils/                  # Utility functions
+├── api-server/
+│   ├── server.js               # Express server entry point
+│   ├── routes/                 # API route handlers
+│   └── services/               # Backend business logic
+├── tiles/                      # Downloaded map tiles (Martin serves from here)
+├── BlueTopo_Tile_Scheme_*.gpkg # NOAA tile metadata (GeoPackage)
+├── start-openhelm.sh           # Main startup script
+└── martin-config.yaml          # Martin tileserver config
 ```
 
-**Important:** After reading the log file, clear it to ensure future logs start with a clean file:
+## Startup Commands
+
 ```bash
-> openhelm.log  # Clear the log file
+# Full application (Martin + API + Vite + Chromium)
+npm start                    # or ./start-openhelm.sh
+
+# Individual services
+npm run dev                  # Vite dev server (port 3000)
+npm run tiles                # Martin tileserver (port 3001)
+node api-server/server.js    # API server (port 3002)
+
+# Stop all services
+npm run stop
 ```
 
-This keeps the log focused on current session activity and prevents the file from growing too large during development.
+## Design Constraints
 
-## MapLibre GL Interaction Patterns
+- **Touch targets**: Minimum 44px for marine touchscreen use
+- **Themes**: Auto light/dark mode via browser preference
+- **Offline-first**: All maps and data must work without internet
+- **Performance**: Optimize for Pi 5 hardware (memory, rendering)
+- **Navigation**: Top navbar with Chart, Topo, GPS, Settings sections
 
-**Lasso Selection Implementation:**
+## Architecture Patterns
+
+### MapLibre GL Interactions
+
+**Lasso Selection:**
 - Disable ALL map interactions in lasso mode: `dragPan`, `scrollZoom`, `boxZoom`, `doubleClickZoom`, `touchZoomRotate`, `dragRotate`, `keyboard`, `touchPitch`
-- Add `e.stopPropagation()` to lasso event handlers to prevent map event bubbling
-- Use feature states for visual selection: `map.setFeatureState({source, id}, {selected: true})`
-- Point-in-polygon: Ray casting algorithm tests tile centers against drawn polygon
-- Prevent unwanted auto-zoom: Use flag (e.g., `hasInitiallyFit`) to ensure `fitBounds()` only runs once on initial load
+- Add `e.stopPropagation()` to lasso handlers to prevent bubbling
+- Use `map.setFeatureState({source, id}, {selected: true})` for visual selection
+- Prevent auto-zoom: Use `hasInitiallyFit` flag so `fitBounds()` runs only once
 
 **Tile Management:**
-- BlueTopo tiles: Stored as PNG directory tiles in `/tiles/bluetopo/{tile_id}/z/x/y.png`
-- Metadata: GeoPackage at project root contains official NOAA tile scheme data
-- Martin auto-discovers tiles from `/tiles/` directory, no database needed
-- Downloaded tiles endpoint: Combines filesystem scan with GeoPackage query via `ogrinfo`
+- BlueTopo tiles: `/tiles/bluetopo/{tile_id}/z/x/y.png`
+- Metadata: GeoPackage at project root, query via `ogrinfo`
+- Martin auto-discovers tiles from `/tiles/` directory
 
-**Job Progress Pattern:**
-- `useJobProgress` hook handles WebSocket + HTTP polling fallback
-- Backend: Store job state in `global.activeJobs`, broadcast via `global.broadcastProgress()`
-- Frontend: Single source of truth for download/conversion progress tracking
+### Backend API Server
 
-## Backend API Server
-
-OpenHelm includes a local Express.js API server (port 3002) that handles external data fetching to avoid CORS issues and provide caching. The API server runs alongside the frontend and tile server.
-
-**Architecture:**
 ```
 Frontend (3000) → API Server (3002) → External APIs (NOAA, etc.)
 ```
 
-**Current Endpoints:**
-- `GET /api/enc/catalogue` - Fetch ENC catalogue from NOAA with 30min caching
-- `GET /api/enc/cache/status` - View cache status and memory usage  
-- `DELETE /api/enc/cache` - Clear the API cache
+**Endpoints:**
+- `GET /api/enc/catalogue` - ENC catalogue from NOAA (30min cache)
+- `GET /api/enc/cache/status` - Cache status
+- `DELETE /api/enc/cache` - Clear cache
 
-**Adding New Backend Functionality:**
-1. Create route file in `api-server/routes/` (e.g., `weather.js`)
-2. Create service file in `api-server/services/` (e.g., `weatherService.js`) 
-3. Add route to `api-server/server.js`: `app.use('/api/weather', weatherRoutes)`
-4. Update frontend service to use `http://localhost:3002/api/weather/...`
+**Adding new routes:**
+1. Create `api-server/routes/newRoute.js`
+2. Create `api-server/services/newService.js`
+3. Register in `api-server/server.js`: `app.use('/api/new', newRoutes)`
 
-**Logs:** `tail -f api.log` to view API server logs
+### Job Progress Pattern
 
-## Chrome DevTools MCP for UI Testing
+- Frontend: `useJobProgress` hook (WebSocket + HTTP polling fallback)
+- Backend: `global.activeJobs` state, `global.broadcastProgress()` for updates
 
-OpenHelm development leverages Chrome DevTools MCP (Model Context Protocol) for automated browser testing, UI validation, and performance analysis. This provides AI-assisted debugging with full browser inspection capabilities.
+## Logging
 
-### Opening OpenHelm in Chrome MCP
+```bash
+tail -f openhelm.log    # Frontend logs
+tail -f api.log         # API server logs
 
-**Always open in fullscreen for accurate marine display testing:**
-```javascript
-// Create new page and resize to fullscreen
-await mcp__chrome-devtools__new_page({ url: "http://localhost:3000", timeout: 10000 });
-await mcp__chrome-devtools__resize_page({ width: 1920, height: 1080 });
+# Clear logs for fresh session
+> openhelm.log && > api.log
 ```
+
+## MCP Tools
+
+### Context7 - Library Documentation
+
+Use before implementing features with external libraries. Query specific functionality, not generic docs.
+
+**Library IDs:**
+| Library | Context7 ID |
+|---------|-------------|
+| React | `/facebook/react` |
+| MapLibre GL JS | `/maplibre/maplibre-gl-js` |
+| Leaflet | `/leaflet/leaflet` |
+| TailwindCSS | `/tailwindlabs/tailwindcss` |
+| Express.js | `/expressjs/express` |
+
+### Brave Search - Marine Domain Research
+
+Use for: NOAA APIs, chart datums (WGS84/NAD83), GPS protocols (NMEA 0183/2000), maritime standards (S-57/S-63), AIS protocols.
+
+Tip: Use specific terms ("EPSG:3857" not "map projection"), include year for API docs.
+
+### Chrome DevTools - UI Testing
 
 **Standard workflow:**
-1. Open page: `new_page({ url: "http://localhost:3000" })`
-2. Set fullscreen: `resize_page({ width: 1920, height: 1080 })`
-3. Take snapshot: `take_snapshot()` for DOM/accessibility tree
-4. Take screenshot: `take_screenshot()` for visual confirmation
-
-### Best Practices
-
-**Snapshot vs Screenshot:**
-- **Use `take_snapshot()`** for: DOM inspection, element identification (uid), accessibility testing, finding interactive elements
-- **Use `take_screenshot()`** for: Visual regression testing, UI layout verification, documentation, presenting results to users
-
-**Page Interaction Patterns:**
 ```javascript
-// Navigation testing
-await click({ uid: "1_3" });  // Click Topo button
-await wait_for({ text: "BlueTopo", timeout: 5000 });
-
-// Form interaction
-await fill({ uid: "input_uid", value: "test value" });
-await fill_form({ elements: [{uid: "1_2", value: "test"}] });
-
-// Map interaction testing
-await hover({ uid: "map_element" });
-await drag({ from_uid: "1_5", to_uid: "1_10" });
+await new_page({ url: "http://localhost:3000" });
+await resize_page({ width: 1920, height: 1080 });  // Fullscreen
+await take_snapshot();   // DOM/accessibility tree
+await take_screenshot(); // Visual confirmation
 ```
 
-**Performance Testing:**
-```javascript
-// Start performance trace with page reload
-await performance_start_trace({ reload: true, autoStop: false });
-// Interact with application...
-await performance_stop_trace();
-// Analyze specific insights
-await performance_analyze_insight({ 
-  insightSetId: "set_id", 
-  insightName: "LCPBreakdown" 
-});
-```
+**Key operations:**
+- `click({ uid })` / `fill({ uid, value })` - Interact with elements
+- `list_network_requests({ resourceTypes: ["fetch", "xhr"] })` - Monitor API calls
+- `list_console_messages({ types: ["error", "warn"] })` - Check for errors
+- `emulate({ networkConditions: "Offline" })` - Test offline mode
+- `emulate({ geolocation: { latitude: 36.85, longitude: -75.98 } })` - Mock GPS
+- `performance_start_trace({ reload: true, autoStop: false })` - Performance analysis
 
-**Network and Console Debugging:**
-```javascript
-// Monitor network requests
-await list_network_requests({ 
-  resourceTypes: ["fetch", "xhr"],
-  pageSize: 50 
-});
-await get_network_request({ reqid: 123 });
+**OpenHelm-specific tests:**
+- Verify 44px touch targets via snapshot inspection
+- Test Chart → Topo → GPS → Settings navigation flow
+- Monitor tile loading requests during map pan/zoom
+- Compare light/dark theme screenshots
 
-// Check console for errors
-await list_console_messages({ 
-  types: ["error", "warn"],
-  includePreservedMessages: false 
-});
-```
+### Iconify - Icon Discovery
 
-**Emulation for Marine Testing:**
-```javascript
-// Test offline scenarios
-await emulate({ 
-  networkConditions: "Offline",
-  cpuThrottling: 4  // Simulate slower hardware
-});
+Search across 200+ icon sets when Heroicons lacks needed icons:
+- Marine: `"anchor compass buoy ship"`
+- GPS: `"satellite location navigation"`
+- Weather: `"wind waves temperature"`
 
-// Test GPS location features
-await emulate({
-  geolocation: { latitude: 36.8508, longitude: -75.9776 }  // Virginia Beach
-});
-```
-
-### OpenHelm-Specific Testing Scenarios
-
-**Touch Interface Validation:**
-- Verify 44px minimum touch targets with `take_snapshot()` and element inspection
-- Test touch gestures on map (pan, zoom, rotate)
-- Validate button tap responsiveness across all pages
-
-**Map Performance:**
-- Record traces during map pan/zoom operations
-- Monitor tile loading network requests
-- Check Core Web Vitals (LCP, FID, CLS) for map rendering
-
-**Theme Testing:**
-- Test light/dark mode switching
-- Verify sunlight-readable contrast ratios
-- Screenshot comparison across themes
-
-**Navigation Flow:**
-- Automate testing of Chart → Topo → GPS → Settings navigation
-- Verify data persistence across page changes
-- Test back button and deep linking
-
-### Security Considerations
-
-Chrome DevTools MCP exposes full browser content to AI assistants. For OpenHelm development:
-- Use isolated mode for sensitive testing: `--isolated` flag creates temporary profile
-- Default user data directory is separate from personal Chrome profile
-- Avoid testing with real GPS coordinates or personal marine data
-- Clear browser data between sensitive test sessions
-
-### References
-
-- [Chrome DevTools MCP GitHub](https://github.com/ChromeDevTools/chrome-devtools-mcp)
-- [Official Chrome for Developers Blog](https://developer.chrome.com/blog/chrome-devtools-mcp)
-- [Chrome DevTools MCP Complete Guide 2025](https://vladimirsiedykh.com/blog/chrome-devtools-mcp-ai-browser-debugging-complete-guide-2025)
-- [Chrome DevTools MCP Tutorial](https://www.datacamp.com/tutorial/chrome-devtools-mcp)
+Verify licensing before using non-Heroicons in production.
