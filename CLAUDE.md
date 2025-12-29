@@ -74,6 +74,26 @@ tail -f openhelm.log
 
 This keeps the log focused on current session activity and prevents the file from growing too large during development.
 
+## MapLibre GL Interaction Patterns
+
+**Lasso Selection Implementation:**
+- Disable ALL map interactions in lasso mode: `dragPan`, `scrollZoom`, `boxZoom`, `doubleClickZoom`, `touchZoomRotate`, `dragRotate`, `keyboard`, `touchPitch`
+- Add `e.stopPropagation()` to lasso event handlers to prevent map event bubbling
+- Use feature states for visual selection: `map.setFeatureState({source, id}, {selected: true})`
+- Point-in-polygon: Ray casting algorithm tests tile centers against drawn polygon
+- Prevent unwanted auto-zoom: Use flag (e.g., `hasInitiallyFit`) to ensure `fitBounds()` only runs once on initial load
+
+**Tile Management:**
+- BlueTopo tiles: Stored as PNG directory tiles in `/tiles/bluetopo/{tile_id}/z/x/y.png`
+- Metadata: GeoPackage at project root contains official NOAA tile scheme data
+- Martin auto-discovers tiles from `/tiles/` directory, no database needed
+- Downloaded tiles endpoint: Combines filesystem scan with GeoPackage query via `ogrinfo`
+
+**Job Progress Pattern:**
+- `useJobProgress` hook handles WebSocket + HTTP polling fallback
+- Backend: Store job state in `global.activeJobs`, broadcast via `global.broadcastProgress()`
+- Frontend: Single source of truth for download/conversion progress tracking
+
 ## Backend API Server
 
 OpenHelm includes a local Express.js API server (port 3002) that handles external data fetching to avoid CORS issues and provide caching. The API server runs alongside the frontend and tile server.
