@@ -115,3 +115,123 @@ Frontend (3000) → API Server (3002) → External APIs (NOAA, etc.)
 4. Update frontend service to use `http://localhost:3002/api/weather/...`
 
 **Logs:** `tail -f api.log` to view API server logs
+
+## Chrome DevTools MCP for UI Testing
+
+OpenHelm development leverages Chrome DevTools MCP (Model Context Protocol) for automated browser testing, UI validation, and performance analysis. This provides AI-assisted debugging with full browser inspection capabilities.
+
+### Opening OpenHelm in Chrome MCP
+
+**Always open in fullscreen for accurate marine display testing:**
+```javascript
+// Create new page and resize to fullscreen
+await mcp__chrome-devtools__new_page({ url: "http://localhost:3000", timeout: 10000 });
+await mcp__chrome-devtools__resize_page({ width: 1920, height: 1080 });
+```
+
+**Standard workflow:**
+1. Open page: `new_page({ url: "http://localhost:3000" })`
+2. Set fullscreen: `resize_page({ width: 1920, height: 1080 })`
+3. Take snapshot: `take_snapshot()` for DOM/accessibility tree
+4. Take screenshot: `take_screenshot()` for visual confirmation
+
+### Best Practices
+
+**Snapshot vs Screenshot:**
+- **Use `take_snapshot()`** for: DOM inspection, element identification (uid), accessibility testing, finding interactive elements
+- **Use `take_screenshot()`** for: Visual regression testing, UI layout verification, documentation, presenting results to users
+
+**Page Interaction Patterns:**
+```javascript
+// Navigation testing
+await click({ uid: "1_3" });  // Click Topo button
+await wait_for({ text: "BlueTopo", timeout: 5000 });
+
+// Form interaction
+await fill({ uid: "input_uid", value: "test value" });
+await fill_form({ elements: [{uid: "1_2", value: "test"}] });
+
+// Map interaction testing
+await hover({ uid: "map_element" });
+await drag({ from_uid: "1_5", to_uid: "1_10" });
+```
+
+**Performance Testing:**
+```javascript
+// Start performance trace with page reload
+await performance_start_trace({ reload: true, autoStop: false });
+// Interact with application...
+await performance_stop_trace();
+// Analyze specific insights
+await performance_analyze_insight({ 
+  insightSetId: "set_id", 
+  insightName: "LCPBreakdown" 
+});
+```
+
+**Network and Console Debugging:**
+```javascript
+// Monitor network requests
+await list_network_requests({ 
+  resourceTypes: ["fetch", "xhr"],
+  pageSize: 50 
+});
+await get_network_request({ reqid: 123 });
+
+// Check console for errors
+await list_console_messages({ 
+  types: ["error", "warn"],
+  includePreservedMessages: false 
+});
+```
+
+**Emulation for Marine Testing:**
+```javascript
+// Test offline scenarios
+await emulate({ 
+  networkConditions: "Offline",
+  cpuThrottling: 4  // Simulate slower hardware
+});
+
+// Test GPS location features
+await emulate({
+  geolocation: { latitude: 36.8508, longitude: -75.9776 }  // Virginia Beach
+});
+```
+
+### OpenHelm-Specific Testing Scenarios
+
+**Touch Interface Validation:**
+- Verify 44px minimum touch targets with `take_snapshot()` and element inspection
+- Test touch gestures on map (pan, zoom, rotate)
+- Validate button tap responsiveness across all pages
+
+**Map Performance:**
+- Record traces during map pan/zoom operations
+- Monitor tile loading network requests
+- Check Core Web Vitals (LCP, FID, CLS) for map rendering
+
+**Theme Testing:**
+- Test light/dark mode switching
+- Verify sunlight-readable contrast ratios
+- Screenshot comparison across themes
+
+**Navigation Flow:**
+- Automate testing of Chart → Topo → GPS → Settings navigation
+- Verify data persistence across page changes
+- Test back button and deep linking
+
+### Security Considerations
+
+Chrome DevTools MCP exposes full browser content to AI assistants. For OpenHelm development:
+- Use isolated mode for sensitive testing: `--isolated` flag creates temporary profile
+- Default user data directory is separate from personal Chrome profile
+- Avoid testing with real GPS coordinates or personal marine data
+- Clear browser data between sensitive test sessions
+
+### References
+
+- [Chrome DevTools MCP GitHub](https://github.com/ChromeDevTools/chrome-devtools-mcp)
+- [Official Chrome for Developers Blog](https://developer.chrome.com/blog/chrome-devtools-mcp)
+- [Chrome DevTools MCP Complete Guide 2025](https://vladimirsiedykh.com/blog/chrome-devtools-mcp-ai-browser-debugging-complete-guide-2025)
+- [Chrome DevTools MCP Tutorial](https://www.datacamp.com/tutorial/chrome-devtools-mcp)

@@ -35,6 +35,7 @@ function BlueTopoDownloader() {
 
   // Downloaded tiles metadata
   const [downloadedTilesMetadata, setDownloadedTilesMetadata] = useState(new Map())
+  const [loadingDownloadedTiles, setLoadingDownloadedTiles] = useState(true)
 
   // Multi-select state for deletion
   const [selectedTilesForDeletion, setSelectedTilesForDeletion] = useState(new Set())
@@ -59,6 +60,7 @@ function BlueTopoDownloader() {
 
     async function loadDownloadedTiles() {
       try {
+        setLoadingDownloadedTiles(true)
         const result = await getDownloadedTiles()
         if (result.success && result.tiles) {
           // Create a map for quick lookup: tileId -> metadata
@@ -71,6 +73,8 @@ function BlueTopoDownloader() {
         }
       } catch (error) {
         console.error('Failed to load downloaded tiles:', error)
+      } finally {
+        setLoadingDownloadedTiles(false)
       }
     }
 
@@ -444,25 +448,34 @@ function BlueTopoDownloader() {
         )}
 
         {/* Downloaded Tiles Table */}
-        {downloadedTilesMetadata.size > 0 && (
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Downloaded Tiles ({downloadedTilesMetadata.size})
-              </h2>
+        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              Downloaded Tiles {!loadingDownloadedTiles && `(${downloadedTilesMetadata.size})`}
+            </h2>
 
-              {selectedTilesForDeletion.size > 0 && (
-                <button
-                  onClick={handleDeleteSelected}
-                  disabled={isDeleting}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
-                >
-                  <XCircleIcon className="h-5 w-5" />
-                  <span>Delete {selectedTilesForDeletion.size} Selected</span>
-                </button>
-              )}
+            {!loadingDownloadedTiles && selectedTilesForDeletion.size > 0 && (
+              <button
+                onClick={handleDeleteSelected}
+                disabled={isDeleting}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+              >
+                <XCircleIcon className="h-5 w-5" />
+                <span>Delete {selectedTilesForDeletion.size} Selected</span>
+              </button>
+            )}
+          </div>
+
+          {loadingDownloadedTiles ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-marine-600 dark:border-marine-400 mb-4"></div>
+              <p className="text-slate-600 dark:text-slate-400">Loading downloaded tiles...</p>
             </div>
-
+          ) : downloadedTilesMetadata.size === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-slate-600 dark:text-slate-400">No tiles downloaded yet. Select tiles from the chart selector to begin.</p>
+            </div>
+          ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="text-xs uppercase bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
@@ -528,8 +541,8 @@ function BlueTopoDownloader() {
                 </tbody>
               </table>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Overall Progress */}
         {isStarted && jobProgress && (
