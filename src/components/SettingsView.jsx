@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import ChartManager from './ChartManager'
+import ErrorBoundary from './ErrorBoundary'
 
 function SettingsView() {
   const [activeSection, setActiveSection] = useState('general')
@@ -15,7 +16,11 @@ function SettingsView() {
   const renderContent = () => {
     switch (activeSection) {
       case 'charts':
-        return <ChartManager />
+        return (
+          <ErrorBoundary>
+            <ChartManager />
+          </ErrorBoundary>
+        )
       
       case 'general':
         return (

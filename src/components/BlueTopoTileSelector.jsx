@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 function BlueTopoTileSelector({ isOpen, onClose, onSelectTiles }) {
+  const navigate = useNavigate()
   const mapContainer = useRef(null)
   const map = useRef(null)
   const [mapLoaded, setMapLoaded] = useState(false)
@@ -415,8 +417,14 @@ function BlueTopoTileSelector({ isOpen, onClose, onSelectTiles }) {
   const handleDone = () => {
     const selectedTileData = tiles.filter(tile => selectedTiles.has(tile.tile))
     console.log('Selected tiles for download:', selectedTileData)
-    onSelectTiles(selectedTileData)
+
+    // Close modal
     onClose()
+
+    // Navigate to downloader page with selected tiles
+    navigate('/bluetopo-downloader', {
+      state: { tiles: selectedTileData }
+    })
   }
 
   const handleClearSelection = () => {

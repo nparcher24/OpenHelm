@@ -14,7 +14,7 @@ const COAST_GUARD_DISTRICTS = {
   '17': 'Alaska'
 }
 
-function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catalogueLoading }) {
+function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catalogueLoading, catalogueUpdateStatus }) {
   const [selectedRegions, setSelectedRegions] = useState(new Set())
   const [searchTerm, setSearchTerm] = useState('')
   const [regions, setRegions] = useState([])
@@ -354,6 +354,23 @@ function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catal
           )}
         </div>
       </div>
+
+      {/* Catalogue Update Status */}
+      {catalogueUpdateStatus && (
+        <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-xl p-4 mb-6">
+          <div className="flex items-center space-x-3">
+            <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <div>
+              <h4 className="font-medium text-blue-800 dark:text-blue-200">
+                Updating Chart Database
+              </h4>
+              <p className="text-sm text-blue-600 dark:text-blue-300">
+                {catalogueUpdateStatus}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search and Controls */}
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600 p-4 mb-6">
