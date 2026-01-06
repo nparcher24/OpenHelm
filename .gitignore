@@ -8,10 +8,13 @@ api.log
 martin.log
 vite.log
 openhelm.log
+logs/
 
 # Database files
 data/*.db
 data/*.db-journal
+api-server/*.db
+api-server/*.db-journal
 
 # Tile data
 tiles/**/*.mbtiles

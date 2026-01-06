@@ -2,6 +2,25 @@
 
 High-performance touchscreen marine navigation app for Raspberry Pi 5 with offline map display, GPS integration, and sunlight-readable UI.
 
+## Session Memory (IMPORTANT - Read First)
+
+**`memory.md` contains session-to-session learnings**. Always review at conversation start.
+
+**Update memory.md when:**
+- Completing features (log key decisions/patterns)
+- Discovering non-obvious behaviors or gotchas
+- Finding edge cases or surprising API quirks
+- Making architectural decisions (why X over Y)
+
+**Prune memory.md aggressively:**
+- Remove facts now obvious from reading code
+- Remove temporary notes after issues fixed
+- Remove duplicates of patterns documented here in CLAUDE.md
+- Keep only: recent work, edge cases, active concerns, architecture decisions
+- Target: Under 400 tokens (~120 lines max)
+
+**Memory is git-tracked** - it evolves with the codebase and helps all contributors.
+
 ## Technical Stack
 
 - **Frontend**: React 18 + TailwindCSS + React Router
@@ -153,6 +172,52 @@ await take_screenshot(); // Visual confirmation
 - Test Chart → Topo → GPS → Settings navigation flow
 - Monitor tile loading requests during map pan/zoom
 - Compare light/dark theme screenshots
+
+### Chromium Browser - Visual UI Testing
+
+Use this MCP to visually verify UI changes after implementing new features.
+
+**Standard workflow for testing UI changes:**
+```bash
+# 1. Ensure OpenHelm is running
+./start-openhelm.sh
+
+# 2. Navigate to the app
+mcp__chromium-arm64__navigate({ url: "http://localhost:3000" })
+
+# 3. Take a screenshot to verify visual appearance
+mcp__chromium-arm64__screenshot({ name: "feature_name.png" })
+
+# 4. Read the screenshot to inspect the UI
+Read({ file_path: "/tmp/feature_name.png" })
+```
+
+**When to use:**
+- After implementing new UI components or features
+- To verify responsive design and touch target sizes (44px minimum)
+- To check theme rendering (light/dark mode)
+- To confirm navigation flows work correctly
+- To visually inspect map tile rendering
+- To verify button/icon placement and spacing
+
+**Example - Testing new navigation button:**
+```bash
+# Navigate to app
+mcp__chromium-arm64__navigate({ url: "http://localhost:3000/topo" })
+
+# Take screenshot
+mcp__chromium-arm64__screenshot({ name: "topo_view.png" })
+
+# Verify the UI visually by reading the screenshot
+Read({ file_path: "/tmp/topo_view.png" })
+```
+
+**Tips:**
+- Always take screenshots after UI changes to catch visual regressions
+- Use descriptive filenames (e.g., "settings_modal_open.png")
+- Screenshot paths are saved to `/tmp/` by default
+- You can interact with the page using `click()`, `fill()`, `hover()`, `select()` tools
+- Use `get_console_errors()` to check for JavaScript errors after interactions
 
 ### Iconify - Icon Discovery
 
