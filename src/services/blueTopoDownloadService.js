@@ -152,3 +152,88 @@ export async function deleteTilesBatch(tileIds) {
     throw error;
   }
 }
+
+/**
+ * Get list of all raw GeoTIFF files
+ * @returns {Promise<{files: Array}>}
+ */
+export async function getRawFiles() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/raw-files`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch raw files: ${response.statusText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching raw files:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete a single raw GeoTIFF file
+ * @param {string} tileId - Tile ID whose raw file to delete
+ */
+export async function deleteRawFile(tileId) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/raw-files/${tileId}`, {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to delete raw file: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error deleting raw file:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete multiple raw files at once
+ * @param {Array<string>} tileIds - Array of tile IDs whose raw files to delete
+ */
+export async function deleteRawFilesBatch(tileIds) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/raw-files/delete-batch`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ tileIds })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to delete raw files: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error deleting raw files:', error);
+    throw error;
+  }
+}
+
+/**
+ * Reprocess all available raw GeoTIFF files
+ * @returns {Promise<{jobId: string, message: string}>}
+ */
+export async function reprocessAllRawFiles() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/raw-files/reprocess-all`, {
+      method: 'POST'
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Failed to start reprocessing: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error reprocessing raw files:', error);
+    throw error;
+  }
+}

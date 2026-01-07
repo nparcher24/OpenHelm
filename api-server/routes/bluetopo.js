@@ -189,7 +189,12 @@ import {
   getStorageInfo,
   startDownloadJob,
   getJobStatus,
-  cancelJob
+  cancelJob,
+  checkRawFileExists,
+  deleteRawFile,
+  deleteRawFilesBatch,
+  getRawFiles,
+  reprocessAllRawFiles
 } from '../services/blueTopoDownloadService.js';
 
 // Import for GeoPackage querying
@@ -252,6 +257,9 @@ router.get('/tiles/downloaded', async (req, res) => {
         const stats = await fs.stat(tilePath);
         const downloadedDate = stats.mtime.toISOString();
 
+        // Check if raw file exists
+        const rawFileInfo = await checkRawFileExists(tileId);
+
         // Query GeoPackage for tile metadata
         try {
           const query = `ogrinfo -al -where "tile='${tileId}'" "${tileSchemePath}" 2>/dev/null | grep -E "(Delivered_Date|GeoTIFF_Link)"`;
@@ -269,7 +277,8 @@ router.get('/tiles/downloaded', async (req, res) => {
             downloadedDate,
             publishedDate,
             version,
-            tileSchemeVersion
+            tileSchemeVersion,
+            rawFile: rawFileInfo
           };
         } catch (error) {
           // If query fails, return partial info
@@ -279,6 +288,7 @@ router.get('/tiles/downloaded', async (req, res) => {
             publishedDate: null,
             version: null,
             tileSchemeVersion,
+            rawFile: rawFileInfo,
             error: 'Metadata not found'
           };
         }
@@ -550,6 +560,72 @@ router.delete('/download/jobs/:jobId', (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Error cancelling job:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/bluetopo/raw-files
+ * Get list of all raw GeoTIFF files
+ */
+router.get('/raw-files', async (req, res) => {
+  try {
+    const result = await getRawFiles();
+    res.json(result);
+  } catch (error) {
+    console.error('Error getting raw files:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/bluetopo/raw-files/:tileId
+ * Delete a raw GeoTIFF file
+ */
+router.delete('/raw-files/:tileId', async (req, res) => {
+  try {
+    const { tileId } = req.params;
+    const result = await deleteRawFile(tileId);
+    res.json(result);
+  } catch (error) {
+    console.error('Error deleting raw file:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/bluetopo/raw-files/delete-batch
+ * Delete multiple raw files at once
+ */
+router.post('/raw-files/delete-batch', async (req, res) => {
+  try {
+    const { tileIds } = req.body;
+
+    if (!tileIds || !Array.isArray(tileIds) || tileIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing or invalid tileIds array'
+      });
+    }
+
+    const result = await deleteRawFilesBatch(tileIds);
+    res.json(result);
+  } catch (error) {
+    console.error('Error in batch delete raw files:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/bluetopo/raw-files/reprocess-all
+ * Reprocess all available raw GeoTIFF files
+ */
+router.post('/raw-files/reprocess-all', async (req, res) => {
+  try {
+    const result = await reprocessAllRawFiles();
+    res.json(result);
+  } catch (error) {
+    console.error('Error reprocessing raw files:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

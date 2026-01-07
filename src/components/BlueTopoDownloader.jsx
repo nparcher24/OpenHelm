@@ -9,7 +9,10 @@ import {
   getTileDownloadStatus,
   getDownloadedTiles,
   deleteTile,
-  deleteTilesBatch
+  deleteTilesBatch,
+  deleteRawFile,
+  deleteRawFilesBatch,
+  reprocessAllRawFiles
 } from '../services/blueTopoDownloadService'
 
 function BlueTopoDownloader() {
@@ -40,6 +43,10 @@ function BlueTopoDownloader() {
   // Multi-select state for deletion
   const [selectedTilesForDeletion, setSelectedTilesForDeletion] = useState(new Set())
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Raw file operations state
+  const [isReprocessing, setIsReprocessing] = useState(false)
+  const [reprocessJobId, setReprocessJobId] = useState(null)
 
   // Use existing job progress hook with BlueTopo status fetcher
   const jobProgress = useJobProgress(jobId, !!jobId, getTileDownloadStatus)
@@ -81,6 +88,41 @@ function BlueTopoDownloader() {
     loadStorage()
     loadDownloadedTiles()
   }, [])
+
+  // Reload EVERYTHING on EVERY progress update during downloads
+  useEffect(() => {
+    if (!jobProgress.tiles || !isStarted) return
+
+    console.log('[BlueTopoDownloader] Progress update - reloading ALL data')
+
+    // Reload downloaded tiles list
+    ;(async () => {
+      try {
+        const result = await getDownloadedTiles()
+        if (result.success && result.tiles) {
+          const metadataMap = new Map()
+          result.tiles.forEach(tile => {
+            metadataMap.set(tile.tileId, tile)
+          })
+          setDownloadedTilesMetadata(metadataMap)
+          console.log('[BlueTopoDownloader] Reloaded tiles, count:', result.tiles.length)
+        }
+      } catch (error) {
+        console.error('[BlueTopoDownloader] Failed to reload tiles:', error)
+      }
+    })()
+
+    // Reload storage info
+    ;(async () => {
+      try {
+        const info = await getStorageInfo()
+        setStorageInfo(info)
+        console.log('[BlueTopoDownloader] Reloaded storage info')
+      } catch (error) {
+        console.error('[BlueTopoDownloader] Failed to reload storage:', error)
+      }
+    })()
+  }, [jobProgress, isStarted])
 
   // Don't redirect - allow viewing downloaded tiles even without selection
   // useEffect(() => {
@@ -227,6 +269,77 @@ function BlueTopoDownloader() {
       setError(`Failed to delete tiles: ${error.message}`)
     } finally {
       setIsDeleting(false)
+    }
+  }
+
+  // Delete a single raw file
+  async function handleDeleteRawFile(tileId) {
+    if (!confirm(`Are you sure you want to delete the raw GeoTIFF file for ${tileId}? This will NOT affect the processed tiles.`)) {
+      return
+    }
+
+    setIsDeleting(true)
+    try {
+      await deleteRawFile(tileId)
+      await reloadDownloadedTiles()
+    } catch (error) {
+      console.error('Failed to delete raw file:', error)
+      setError(`Failed to delete raw file: ${error.message}`)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  // Delete raw files for selected tiles
+  async function handleDeleteSelectedRawFiles() {
+    // Filter to only tiles that have raw files
+    const tilesWithRawFiles = Array.from(selectedTilesForDeletion).filter(tileId => {
+      const tile = downloadedTilesMetadata.get(tileId)
+      return tile?.rawFile?.exists
+    })
+
+    if (tilesWithRawFiles.length === 0) {
+      setError('None of the selected tiles have raw files')
+      return
+    }
+
+    if (!confirm(`Are you sure you want to delete ${tilesWithRawFiles.length} raw GeoTIFF file${tilesWithRawFiles.length > 1 ? 's' : ''}? This will NOT affect the processed tiles.`)) {
+      return
+    }
+
+    setIsDeleting(true)
+    try {
+      const result = await deleteRawFilesBatch(tilesWithRawFiles)
+
+      if (result.results.failed.length > 0) {
+        setError(`Deleted ${result.results.deleted.length} raw files, but ${result.results.failed.length} failed`)
+      }
+
+      await reloadDownloadedTiles()
+    } catch (error) {
+      console.error('Failed to delete raw files:', error)
+      setError(`Failed to delete raw files: ${error.message}`)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  // Start reprocessing all raw files
+  async function handleReprocessRawFiles() {
+    if (!confirm('This will reprocess all available raw GeoTIFF files and regenerate tile data. This may take some time. Continue?')) {
+      return
+    }
+
+    try {
+      setIsReprocessing(true)
+      setError(null)
+      const result = await reprocessAllRawFiles()
+      console.log('[BlueTopoDownloader] Reprocess started, jobId:', result.jobId)
+      setReprocessJobId(result.jobId)
+    } catch (error) {
+      console.error('[BlueTopoDownloader] Failed to start reprocessing:', error)
+      setError(error.message)
+      setIsReprocessing(false)
     }
   }
 
@@ -454,16 +567,47 @@ function BlueTopoDownloader() {
               Downloaded Tiles {!loadingDownloadedTiles && `(${downloadedTilesMetadata.size})`}
             </h2>
 
-            {!loadingDownloadedTiles && selectedTilesForDeletion.size > 0 && (
-              <button
-                onClick={handleDeleteSelected}
-                disabled={isDeleting}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
-              >
-                <XCircleIcon className="h-5 w-5" />
-                <span>Delete {selectedTilesForDeletion.size} Selected</span>
-              </button>
-            )}
+            <div className="flex items-center space-x-2">
+              {/* Reprocess Raw Files Button */}
+              {!isStarted && !isReprocessing && (
+                <button
+                  onClick={handleReprocessRawFiles}
+                  disabled={loadingDownloadedTiles}
+                  className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                  title="Reprocess all raw GeoTIFF files"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span>Reprocess Raw Files</span>
+                </button>
+              )}
+
+              {/* Delete buttons when tiles are selected */}
+              {!loadingDownloadedTiles && selectedTilesForDeletion.size > 0 && (
+                <>
+                  <button
+                    onClick={handleDeleteSelectedRawFiles}
+                    disabled={isDeleting}
+                    className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                    title="Delete raw GeoTIFF files only (keeps processed tiles)"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>Delete Raw Files ({selectedTilesForDeletion.size})</span>
+                  </button>
+                  <button
+                    onClick={handleDeleteSelected}
+                    disabled={isDeleting}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                  >
+                    <XCircleIcon className="h-5 w-5" />
+                    <span>Delete Tiles ({selectedTilesForDeletion.size})</span>
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
           {loadingDownloadedTiles ? (
@@ -493,6 +637,7 @@ function BlueTopoDownloader() {
                     <th className="px-4 py-3">Downloaded Date</th>
                     <th className="px-4 py-3">Published Date</th>
                     <th className="px-4 py-3">Tile Scheme</th>
+                    <th className="px-4 py-3">Raw File</th>
                     <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -527,14 +672,38 @@ function BlueTopoDownloader() {
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs">
                         {tile.tileSchemeVersion || 'N/A'}
                       </td>
+                      <td className="px-4 py-3">
+                        {tile.rawFile && tile.rawFile.exists ? (
+                          <div className="flex items-center space-x-2">
+                            <CheckCircleIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            <span className="text-xs text-slate-600 dark:text-slate-400">
+                              {tile.rawFile.sizeMB} MB
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-500 dark:text-slate-500">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => handleDeleteTile(tile.tileId)}
-                          disabled={isDeleting}
-                          className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Delete
-                        </button>
+                        <div className="flex items-center justify-end space-x-3">
+                          {tile.rawFile && tile.rawFile.exists && (
+                            <button
+                              onClick={() => handleDeleteRawFile(tile.tileId)}
+                              disabled={isDeleting}
+                              className="text-yellow-600 hover:text-yellow-700 dark:text-yellow-400 dark:hover:text-yellow-300 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Delete raw GeoTIFF file"
+                            >
+                              Del Raw
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteTile(tile.tileId)}
+                            disabled={isDeleting}
+                            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

@@ -18,6 +18,7 @@ const __dirname = path.dirname(__filename);
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const TILES_DIR = path.join(PROJECT_ROOT, 'tiles', 'bluetopo');
+const RAW_FILES_DIR = path.join(PROJECT_ROOT, 'tiles', 'bluetopo_raw');
 const TEMP_DIR = '/tmp/bluetopo_downloads';
 
 /**
@@ -329,6 +330,7 @@ export class DownloadQueue {
     const timestamp = Date.now();
     const tempPath = path.join(TEMP_DIR, `${tile.tile}_${timestamp}.tiff`);
     const outputDir = path.join(TILES_DIR, tile.tile);
+    const rawFilePath = path.join(RAW_FILES_DIR, `${tile.tile}.tiff`);
 
     const job = global.activeJobs.get(this.jobId);
     const tileState = job?.tiles.find(t => t.tileId === tile.tile);
@@ -375,14 +377,30 @@ export class DownloadQueue {
       // Convert to directory tiles
       await convertToTiles(tempPath, outputDir);
 
-      // Cleanup temp file
-      await fs.unlink(tempPath);
+      // Copy temp file to raw files directory for retention (development mode)
+      try {
+        await fs.mkdir(RAW_FILES_DIR, { recursive: true });
+        await fs.copyFile(tempPath, rawFilePath);
+        console.log(`[BlueTopo Job ${this.jobId}] Retained raw file at ${rawFilePath}`);
+
+        // Delete temp file after successful copy
+        await fs.unlink(tempPath);
+      } catch (rawFileError) {
+        console.error(`[BlueTopo Job ${this.jobId}] Failed to retain raw file:`, rawFileError);
+        // Don't fail the job, just clean up temp file
+        try {
+          await fs.unlink(tempPath);
+        } catch (cleanupError) {
+          // Ignore cleanup errors
+        }
+      }
 
       // Update state: completed
       if (tileState) {
         tileState.status = 'completed';
         tileState.progress = 100;
         tileState.convertedPath = outputDir;
+        tileState.rawFilePath = rawFilePath;
         tileState.endTime = Date.now();
       }
 
@@ -557,4 +575,247 @@ export function cancelJob(jobId) {
   job.status = 'cancelled';
 
   return { success: true, message: 'Job cancelled' };
+}
+
+/**
+ * Check if a raw file exists for a tile
+ */
+export async function checkRawFileExists(tileId) {
+  try {
+    const rawFilePath = path.join(RAW_FILES_DIR, `${tileId}.tiff`);
+    await fs.access(rawFilePath);
+    const stats = await fs.stat(rawFilePath);
+    return {
+      exists: true,
+      path: rawFilePath,
+      sizeMB: parseFloat((stats.size / 1024 / 1024).toFixed(2))
+    };
+  } catch (error) {
+    return { exists: false };
+  }
+}
+
+/**
+ * Delete a raw file for a tile
+ */
+export async function deleteRawFile(tileId) {
+  try {
+    const rawFilePath = path.join(RAW_FILES_DIR, `${tileId}.tiff`);
+    await fs.unlink(rawFilePath);
+    console.log(`[BlueTopo] Deleted raw file: ${rawFilePath}`);
+    return { success: true };
+  } catch (error) {
+    console.error(`[BlueTopo] Failed to delete raw file for ${tileId}:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Delete multiple raw files in batch
+ */
+export async function deleteRawFilesBatch(tileIds) {
+  const results = {
+    deleted: [],
+    failed: []
+  };
+
+  for (const tileId of tileIds) {
+    const result = await deleteRawFile(tileId);
+    if (result.success) {
+      results.deleted.push(tileId);
+    } else {
+      results.failed.push({ tileId, error: result.error });
+    }
+  }
+
+  return {
+    success: true,
+    results
+  };
+}
+
+/**
+ * Get all raw files that exist
+ */
+export async function getRawFiles() {
+  try {
+    await fs.mkdir(RAW_FILES_DIR, { recursive: true });
+    const files = await fs.readdir(RAW_FILES_DIR);
+
+    const rawFiles = [];
+    for (const file of files) {
+      if (file.endsWith('.tiff')) {
+        const tileId = file.replace('.tiff', '');
+        const filePath = path.join(RAW_FILES_DIR, file);
+        const stats = await fs.stat(filePath);
+
+        rawFiles.push({
+          tileId,
+          path: filePath,
+          sizeMB: parseFloat((stats.size / 1024 / 1024).toFixed(2)),
+          modifiedDate: stats.mtime
+        });
+      }
+    }
+
+    return { success: true, files: rawFiles };
+  } catch (error) {
+    console.error('[BlueTopo] Failed to get raw files:', error);
+    return { success: false, error: error.message, files: [] };
+  }
+}
+
+/**
+ * Reprocess a single raw file (convert to tiles without re-downloading)
+ */
+async function reprocessRawFile(tileId) {
+  const rawFilePath = path.join(RAW_FILES_DIR, `${tileId}.tiff`);
+  const outputDir = path.join(TILES_DIR, tileId);
+
+  try {
+    // Check if raw file exists
+    await fs.access(rawFilePath);
+
+    console.log(`[BlueTopo] Reprocessing ${tileId} from ${rawFilePath}`);
+
+    // Convert to tiles
+    await convertToTiles(rawFilePath, outputDir);
+
+    console.log(`[BlueTopo] Reprocessing complete: ${tileId}`);
+    return { success: true, tileId, outputPath: outputDir };
+
+  } catch (error) {
+    console.error(`[BlueTopo] Failed to reprocess ${tileId}:`, error);
+    return { success: false, tileId, error: error.message };
+  }
+}
+
+/**
+ * Reprocess all available raw files
+ */
+export async function reprocessAllRawFiles() {
+  const jobId = crypto.randomBytes(8).toString('hex');
+  console.log(`[BlueTopo] Starting reprocess job ${jobId}`);
+
+  // Get all raw files
+  const rawFilesResult = await getRawFiles();
+  if (!rawFilesResult.success || rawFilesResult.files.length === 0) {
+    return {
+      success: false,
+      error: 'No raw files available to reprocess',
+      jobId
+    };
+  }
+
+  const rawFiles = rawFilesResult.files;
+  console.log(`[BlueTopo] Found ${rawFiles.length} raw files to reprocess`);
+
+  // Initialize job
+  if (!global.activeJobs) {
+    global.activeJobs = new Map();
+  }
+
+  const controller = new AbortController();
+  global.activeJobs.set(jobId, {
+    controller,
+    startTime: Date.now(),
+    status: 'processing',
+    tiles: rawFiles.map(file => ({
+      tileId: file.tileId,
+      status: 'waiting',
+      progress: 0
+    })),
+    summary: {
+      totalTiles: rawFiles.length,
+      completedTiles: 0,
+      failedTiles: 0
+    }
+  });
+
+  // Initialize progress tracker
+  if (!global.progressTrackers) {
+    global.progressTrackers = new Map();
+  }
+
+  global.progressTrackers.set(jobId, {
+    progress: 0,
+    status: 'processing',
+    clients: new Set()
+  });
+
+  // Process files asynchronously
+  setImmediate(async () => {
+    const job = global.activeJobs.get(jobId);
+    const results = {
+      completed: [],
+      failed: []
+    };
+
+    for (let i = 0; i < rawFiles.length; i++) {
+      if (controller.signal.aborted) {
+        console.log(`[BlueTopo Job ${jobId}] Cancelled`);
+        break;
+      }
+
+      const file = rawFiles[i];
+      const tileState = job.tiles.find(t => t.tileId === file.tileId);
+
+      if (tileState) {
+        tileState.status = 'converting';
+        tileState.progress = 50;
+      }
+
+      const result = await reprocessRawFile(file.tileId);
+
+      if (result.success) {
+        results.completed.push(file.tileId);
+        job.summary.completedTiles++;
+        if (tileState) {
+          tileState.status = 'completed';
+          tileState.progress = 100;
+        }
+      } else {
+        results.failed.push({ tileId: file.tileId, error: result.error });
+        job.summary.failedTiles++;
+        if (tileState) {
+          tileState.status = 'failed';
+          tileState.error = result.error;
+        }
+      }
+
+      // Broadcast progress
+      const progress = Math.round(((i + 1) / rawFiles.length) * 100);
+      if (global.broadcastProgress) {
+        global.broadcastProgress(
+          jobId,
+          progress,
+          'processing',
+          `Reprocessed ${i + 1}/${rawFiles.length} tiles`
+        );
+      }
+    }
+
+    // Mark job as complete
+    const finalStatus = results.failed.length > 0 ? 'completed_with_errors' : 'completed';
+    job.status = finalStatus;
+    job.result = results;
+
+    if (global.broadcastProgress) {
+      global.broadcastProgress(
+        jobId,
+        100,
+        finalStatus,
+        `Reprocessed ${results.completed.length} tiles` +
+          (results.failed.length > 0 ? `, ${results.failed.length} failed` : '')
+      );
+    }
+
+    console.log(`[BlueTopo Job ${jobId}] Reprocess complete:`, results);
+  });
+
+  return {
+    success: true,
+    jobId,
+    message: `Started reprocessing ${rawFiles.length} raw files`
+  };
 }
