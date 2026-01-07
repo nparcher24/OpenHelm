@@ -58,37 +58,37 @@ function ChartView() {
   }, [])
 
   return (
-    <div className="relative h-full w-full bg-slate-100 dark:bg-slate-900">
+    <div className="relative h-full w-full bg-terminal-bg">
       {/* Map Container */}
-      <div 
+      <div
         ref={mapContainer}
         className="h-full w-full"
         style={{ position: 'relative' }}
       />
-      
+
       {/* Loading Indicator */}
       {!mapLoaded && (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-50 dark:bg-slate-800 z-10">
+        <div className="absolute inset-0 flex items-center justify-center bg-terminal-bg z-10">
           <div className="text-center space-y-4">
-            <div className="w-8 h-8 border-4 border-marine-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="text-slate-600 dark:text-slate-300">Loading nautical chart...</p>
+            <div className="w-8 h-8 border-4 border-terminal-green border-t-transparent rounded-full animate-spin mx-auto shadow-glow-green"></div>
+            <p className="text-terminal-green-dim">Loading nautical chart...</p>
           </div>
         </div>
       )}
 
       {/* Map Info Overlay */}
-      <div className="absolute top-4 left-4 bg-white dark:bg-slate-800 rounded-lg shadow-lg p-3 max-w-xs z-20 border border-slate-200 dark:border-slate-600">
-        <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-2">Chart Information</h3>
-        <div className="text-sm space-y-1 text-slate-600 dark:text-slate-300">
-          <div><strong>Area:</strong> Virginia Beach, VA</div>
-          <div><strong>Coverage:</strong> VA, NC, MD</div>
-          <div><strong>Source:</strong> OpenStreetMap</div>
-          <div className={`inline-flex items-center px-2 py-1 rounded text-xs ${
-            mapLoaded 
-              ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' 
-              : 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
+      <div className="absolute top-4 left-4 bg-terminal-surface rounded-lg shadow-glow-green-sm p-3 max-w-xs z-20 border border-terminal-border">
+        <h3 className="font-semibold text-terminal-green mb-2 uppercase tracking-wide text-sm">Chart Information</h3>
+        <div className="text-sm space-y-1 text-terminal-green-dim font-mono">
+          <div><span className="text-terminal-green">Area:</span> Virginia Beach, VA</div>
+          <div><span className="text-terminal-green">Coverage:</span> VA, NC, MD</div>
+          <div><span className="text-terminal-green">Source:</span> OpenStreetMap</div>
+          <div className={`inline-flex items-center px-2 py-1 rounded text-xs mt-2 ${
+            mapLoaded
+              ? 'bg-terminal-green/10 text-terminal-green border border-terminal-green/30'
+              : 'bg-terminal-amber/10 text-terminal-amber border border-terminal-amber/30'
           }`}>
-            {mapLoaded ? '● Connected' : '● Loading...'}
+            {mapLoaded ? '[OK] Connected' : '[..] Loading...'}
           </div>
         </div>
       </div>
@@ -97,19 +97,19 @@ function ChartView() {
       <div className="absolute bottom-20 right-4 flex flex-col space-y-2 z-20">
         <button
           onClick={() => map.current?.zoomIn()}
-          className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg p-3 shadow-lg touch-manipulation transition-colors"
+          className="bg-terminal-surface hover:bg-terminal-green/10 border border-terminal-border hover:border-terminal-green rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all"
           aria-label="Zoom in"
         >
-          <svg className="w-6 h-6 text-slate-700 dark:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
         </button>
         <button
           onClick={() => map.current?.zoomOut()}
-          className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg p-3 shadow-lg touch-manipulation transition-colors"
+          className="bg-terminal-surface hover:bg-terminal-green/10 border border-terminal-border hover:border-terminal-green rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all"
           aria-label="Zoom out"
         >
-          <svg className="w-6 h-6 text-slate-700 dark:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 12H6" />
           </svg>
         </button>

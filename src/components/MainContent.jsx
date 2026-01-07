@@ -13,18 +13,18 @@ function MainContent({ activeTab }) {
         return (
           <div className="flex items-center justify-center h-full">
             <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-marine-200 dark:bg-marine-800 rounded-full flex items-center justify-center mx-auto">
-                <span className="text-2xl">📍</span>
+              <div className="w-16 h-16 bg-terminal-surface border border-terminal-border rounded-full flex items-center justify-center mx-auto">
+                <span className="text-2xl text-terminal-green">[GPS]</span>
               </div>
-              <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">GPS Status</h2>
+              <h2 className="text-2xl font-bold text-terminal-green text-glow uppercase tracking-wider">GPS Status</h2>
               <div className="space-y-2">
-                <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-600">
-                  <div className="text-sm text-slate-500 dark:text-slate-400">Status</div>
-                  <div className="text-lg text-red-500 font-semibold">No Signal</div>
+                <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
+                  <div className="text-sm text-terminal-green-dim uppercase tracking-wide">Status</div>
+                  <div className="text-lg text-terminal-red font-semibold">NO SIGNAL</div>
                 </div>
-                <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-600">
-                  <div className="text-sm text-slate-500 dark:text-slate-400">Satellites</div>
-                  <div className="text-lg text-slate-700 dark:text-slate-300">0/0</div>
+                <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
+                  <div className="text-sm text-terminal-green-dim uppercase tracking-wide">Satellites</div>
+                  <div className="text-lg text-terminal-green font-semibold">0/0</div>
                 </div>
               </div>
             </div>
@@ -38,7 +38,7 @@ function MainContent({ activeTab }) {
   }
 
   return (
-    <main className="flex-1 bg-slate-50 dark:bg-slate-800">
+    <main className="flex-1 bg-terminal-bg overflow-hidden">
       {renderContent()}
     </main>
   )

@@ -13,7 +13,7 @@ function App() {
 
   return (
     <div
-      className="h-screen w-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 flex flex-col"
+      className="h-screen w-screen bg-terminal-bg text-terminal-green font-mono flex flex-col"
       onContextMenu={handleContextMenu}
     >
       <Routes>

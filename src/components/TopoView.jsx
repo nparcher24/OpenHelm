@@ -308,7 +308,7 @@ function TopoView() {
   }
 
   return (
-    <div className="relative h-full w-full bg-slate-100 dark:bg-slate-900">
+    <div className="relative h-full w-full bg-terminal-bg">
       {/* Map Container */}
       <div
         ref={mapContainer}
@@ -350,10 +350,10 @@ function TopoView() {
 
       {/* Loading Indicator */}
       {(!mapLoaded || !tilesLoaded) && (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-50 dark:bg-slate-800 z-10">
+        <div className="absolute inset-0 flex items-center justify-center bg-terminal-bg z-10">
           <div className="text-center space-y-4">
-            <div className="w-8 h-8 border-4 border-marine-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="text-slate-600 dark:text-slate-300">
+            <div className="w-8 h-8 border-4 border-terminal-green border-t-transparent rounded-full animate-spin mx-auto shadow-glow-green"></div>
+            <p className="text-terminal-green-dim">
               {!mapLoaded ? 'Loading map...' : 'Loading BlueTopo tiles...'}
             </p>
           </div>
@@ -361,23 +361,23 @@ function TopoView() {
       )}
 
       {/* Map Info Overlay */}
-      <div className="absolute top-4 left-4 bg-white dark:bg-slate-800 rounded-lg shadow-lg p-3 max-w-xs z-20 border border-slate-200 dark:border-slate-600">
-        <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-2">BlueTopo Bathymetry</h3>
-        <div className="text-sm space-y-1 text-slate-600 dark:text-slate-300">
-          <div><strong>Source:</strong> NOAA BlueTopo</div>
-          <div><strong>Coverage:</strong> {tileCount} tiles loaded</div>
-          <div><strong>Resolution:</strong> 2m - 16m</div>
+      <div className="absolute top-4 left-4 bg-terminal-surface rounded-lg shadow-glow-green-sm p-3 max-w-xs z-20 border border-terminal-border">
+        <h3 className="font-semibold text-terminal-green mb-2 uppercase tracking-wide text-sm">BlueTopo Bathymetry</h3>
+        <div className="text-sm space-y-1 text-terminal-green-dim font-mono">
+          <div><span className="text-terminal-green">Source:</span> NOAA BlueTopo</div>
+          <div><span className="text-terminal-green">Coverage:</span> {tileCount} tiles loaded</div>
+          <div><span className="text-terminal-green">Resolution:</span> 2m - 16m</div>
           {error && (
-            <div className="text-red-500 text-xs mt-2">{error}</div>
+            <div className="text-terminal-red text-xs mt-2">{error}</div>
           )}
           <div className={`inline-flex items-center px-2 py-1 rounded text-xs mt-2 ${
             tilesLoaded && tileCount > 0
-              ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
+              ? 'bg-terminal-green/10 text-terminal-green border border-terminal-green/30'
               : tilesLoaded && tileCount === 0
-              ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
-              : 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
+              ? 'bg-terminal-amber/10 text-terminal-amber border border-terminal-amber/30'
+              : 'bg-terminal-cyan/10 text-terminal-cyan border border-terminal-cyan/30'
           }`}>
-            {!tilesLoaded ? '● Loading...' : tileCount > 0 ? '● Data Loaded' : '● No Tiles'}
+            {!tilesLoaded ? '[..] Loading...' : tileCount > 0 ? '[OK] Data Loaded' : '[!] No Tiles'}
           </div>
         </div>
       </div>
@@ -386,19 +386,19 @@ function TopoView() {
       <div className="absolute bottom-20 right-4 flex flex-col space-y-2 z-20">
         <button
           onClick={() => map.current?.zoomIn()}
-          className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg p-3 shadow-lg touch-manipulation transition-colors"
+          className="bg-terminal-surface hover:bg-terminal-green/10 border border-terminal-border hover:border-terminal-green rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all"
           aria-label="Zoom in"
         >
-          <svg className="w-6 h-6 text-slate-700 dark:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
         </button>
         <button
           onClick={() => map.current?.zoomOut()}
-          className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg p-3 shadow-lg touch-manipulation transition-colors"
+          className="bg-terminal-surface hover:bg-terminal-green/10 border border-terminal-border hover:border-terminal-green rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all"
           aria-label="Zoom out"
         >
-          <svg className="w-6 h-6 text-slate-700 dark:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 12H6" />
           </svg>
         </button>
@@ -416,10 +416,10 @@ function TopoView() {
             />
 
             {/* Menu Content */}
-            <div className="absolute bottom-14 left-0 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-600 overflow-hidden z-40 min-w-[200px]">
+            <div className="absolute bottom-14 left-0 bg-terminal-surface rounded-lg shadow-glow-green border border-terminal-border overflow-hidden z-40 min-w-[200px]">
               <button
                 onClick={clearCacheAndReload}
-                className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center space-x-3 text-slate-700 dark:text-slate-200"
+                className="w-full px-4 py-3 text-left hover:bg-terminal-green/10 transition-colors flex items-center space-x-3 text-terminal-green"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -433,10 +433,10 @@ function TopoView() {
         {/* Settings Button */}
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg p-3 shadow-lg touch-manipulation transition-colors"
+          className="bg-terminal-surface hover:bg-terminal-green/10 border border-terminal-border hover:border-terminal-green rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all"
           aria-label="Map settings"
         >
-          <SettingsIcon className="w-6 h-6 text-slate-700 dark:text-slate-200" />
+          <SettingsIcon className="w-6 h-6 text-terminal-green" />
         </button>
       </div>
     </div>

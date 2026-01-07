@@ -443,21 +443,21 @@ function BlueTopoTileSelector({ isOpen, onClose, onSelectTiles }) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full h-full max-w-7xl max-h-[90vh] m-4 flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80">
+      <div className="bg-terminal-surface rounded-lg shadow-glow-green w-full h-full max-w-7xl max-h-[90vh] m-4 flex flex-col border border-terminal-green">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-600">
+        <div className="flex items-center justify-between p-4 border-b border-terminal-border">
           <div>
-            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+            <h2 className="text-2xl font-bold text-terminal-green text-glow uppercase tracking-wider">
               Select BlueTopo Tiles
             </h2>
-            <p className="text-sm text-slate-600 dark:text-slate-300">
+            <p className="text-sm text-terminal-green-dim">
               Global coverage - Click tiles or use lasso mode to select regions
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-2"
+            className="text-terminal-green-dim hover:text-terminal-green p-2"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -469,7 +469,7 @@ function BlueTopoTileSelector({ isOpen, onClose, onSelectTiles }) {
         <div className="flex-1 relative">
           {/* Lasso Mode Indicator Border */}
           {lassoMode && (
-            <div className="absolute inset-0 pointer-events-none z-30 border-4 border-green-500 animate-pulse" />
+            <div className="absolute inset-0 pointer-events-none z-30 border-4 border-terminal-green shadow-glow-green animate-pulse" />
           )}
 
           <div
@@ -479,10 +479,10 @@ function BlueTopoTileSelector({ isOpen, onClose, onSelectTiles }) {
           />
 
           {(loading || !mapLoaded) && (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-50 dark:bg-slate-800 z-10">
+            <div className="absolute inset-0 flex items-center justify-center bg-terminal-bg z-10">
               <div className="text-center space-y-4">
-                <div className="w-8 h-8 border-4 border-marine-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                <p className="text-slate-600 dark:text-slate-300">
+                <div className="w-8 h-8 border-4 border-terminal-green border-t-transparent rounded-full animate-spin mx-auto shadow-glow-green"></div>
+                <p className="text-terminal-green-dim">
                   {loading ? 'Loading tile data...' : 'Loading map...'}
                 </p>
               </div>
@@ -491,45 +491,45 @@ function BlueTopoTileSelector({ isOpen, onClose, onSelectTiles }) {
 
           {/* Selection Info Panel */}
           {!loading && (
-            <div className="absolute top-4 left-4 bg-white dark:bg-slate-800 rounded-lg shadow-lg p-4 max-w-xs z-20 border border-slate-200 dark:border-slate-600">
-              <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-3">Selection Tools</h3>
+            <div className="absolute top-4 left-4 bg-terminal-surface rounded-lg shadow-glow-green-sm p-4 max-w-xs z-20 border border-terminal-border">
+              <h3 className="font-semibold text-terminal-green mb-3 uppercase tracking-wide text-sm">Selection Tools</h3>
 
               {/* Lasso Mode Button */}
               <button
                 onClick={() => setLassoMode(!lassoMode)}
-                className={`w-full mb-3 px-4 py-3 rounded-lg font-medium transition-colors touch-manipulation ${
+                className={`w-full mb-3 px-4 py-3 rounded-lg font-medium transition-all touch-manipulation ${
                   lassoMode
-                    ? 'bg-green-600 hover:bg-green-700 text-white'
-                    : 'bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200'
+                    ? 'bg-terminal-green text-terminal-bg shadow-glow-green'
+                    : 'bg-terminal-bg border border-terminal-border hover:border-terminal-green text-terminal-green'
                 }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
                   </svg>
-                  <span>{lassoMode ? 'Lasso Mode Active' : 'Enable Lasso Mode'}</span>
+                  <span>{lassoMode ? '[*] Lasso Active' : 'Enable Lasso Mode'}</span>
                 </div>
               </button>
 
-              <div className="text-sm space-y-2 text-slate-600 dark:text-slate-300">
-                <div><strong>Selected:</strong> {selectedTiles.size} / {stats.total} tiles</div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 mt-2 pt-2 border-t border-slate-200 dark:border-slate-600">
+              <div className="text-sm space-y-2 text-terminal-green-dim font-mono">
+                <div><span className="text-terminal-green">Selected:</span> {selectedTiles.size} / {stats.total} tiles</div>
+                <div className="text-xs text-terminal-green-dim mt-2 pt-2 border-t border-terminal-border">
                   {lassoMode ? (
                     <>
-                      <div className="flex items-center space-x-1 text-green-600 dark:text-green-400 font-medium mb-1">
+                      <div className="flex items-center space-x-1 text-terminal-green font-medium mb-1">
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                         </svg>
-                        <span>Lasso mode enabled</span>
+                        <span>[OK] Lasso mode enabled</span>
                       </div>
-                      • Draw on map to select tiles<br/>
-                      • Drag to create selection area<br/>
-                      • Click button to exit lasso mode
+                      &gt; Draw on map to select tiles<br/>
+                      &gt; Drag to create selection area<br/>
+                      &gt; Click button to exit lasso mode
                     </>
                   ) : (
                     <>
-                      • Click tiles to select individually<br/>
-                      • Enable lasso mode for area selection
+                      &gt; Click tiles to select individually<br/>
+                      &gt; Enable lasso mode for area selection
                     </>
                   )}
                 </div>
@@ -539,27 +539,27 @@ function BlueTopoTileSelector({ isOpen, onClose, onSelectTiles }) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-4 border-t border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900">
-          <div className="text-sm text-slate-600 dark:text-slate-300">
+        <div className="flex items-center justify-between p-4 border-t border-terminal-border bg-terminal-bg">
+          <div className="text-sm text-terminal-green-dim font-mono">
             {selectedTiles.size} tile{selectedTiles.size !== 1 ? 's' : ''} selected
           </div>
           <div className="flex space-x-3">
             <button
               onClick={handleClearSelection}
-              className="px-4 py-2 text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-lg transition-colors"
+              className="terminal-btn"
               disabled={selectedTiles.size === 0}
             >
               Clear Selection
             </button>
             <button
               onClick={onClose}
-              className="px-4 py-2 text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-lg transition-colors"
+              className="terminal-btn"
             >
               Cancel
             </button>
             <button
               onClick={handleDone}
-              className="px-6 py-2 bg-marine-600 hover:bg-marine-700 text-white rounded-lg font-medium transition-colors"
+              className="terminal-btn-primary"
               disabled={selectedTiles.size === 0}
             >
               Done

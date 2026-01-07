@@ -532,10 +532,10 @@ function BlueTopoTilesView() {
     };
 
     return (
-        <div className="relative h-full w-full bg-slate-100 dark:bg-slate-900">
+        <div className="relative h-full w-full bg-terminal-bg">
             {/* Lasso Mode Indicator Border */}
             {lassoMode && (
-                <div className="absolute inset-0 pointer-events-none z-30 border-4 border-green-500 animate-pulse" />
+                <div className="absolute inset-0 pointer-events-none z-30 border-4 border-terminal-green shadow-glow-green animate-pulse" />
             )}
 
             {/* Map Container */}
@@ -547,10 +547,10 @@ function BlueTopoTilesView() {
 
             {/* Loading Indicator */}
             {(loading || !mapLoaded) && (
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-50 dark:bg-slate-800 z-10">
+                <div className="absolute inset-0 flex items-center justify-center bg-terminal-bg z-10">
                     <div className="text-center space-y-4">
-                        <div className="w-8 h-8 border-4 border-marine-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                        <p className="text-slate-600 dark:text-slate-300">
+                        <div className="w-8 h-8 border-4 border-terminal-green border-t-transparent rounded-full animate-spin mx-auto shadow-glow-green"></div>
+                        <p className="text-terminal-green-dim">
                             {loading
                                 ? "Loading tile data..."
                                 : "Loading map..."}
@@ -562,11 +562,11 @@ function BlueTopoTilesView() {
             {/* Back Button */}
             <button
                 onClick={() => navigate("/bluetopo-downloader")}
-                className="absolute top-4 left-4 z-30 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg shadow-lg p-3 border border-slate-200 dark:border-slate-600 transition-colors touch-manipulation"
+                className="absolute top-4 left-4 z-30 bg-terminal-surface hover:bg-terminal-green/10 rounded-lg shadow-glow-green-sm p-3 border border-terminal-border hover:border-terminal-green transition-colors touch-manipulation"
                 title="Back to BlueTopo Downloader"
             >
                 <svg
-                    className="w-6 h-6 text-slate-700 dark:text-slate-200"
+                    className="w-6 h-6 text-terminal-green"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -582,18 +582,18 @@ function BlueTopoTilesView() {
 
             {/* Tile Statistics and Selection Tools Panel */}
             {!loading && (
-                <div className="absolute top-16 left-4 bg-white dark:bg-slate-800 rounded-lg shadow-lg p-4 max-w-sm z-20 border border-slate-200 dark:border-slate-600">
-                    <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-3">
+                <div className="absolute top-16 left-4 bg-terminal-surface rounded-lg shadow-glow-green-sm p-4 max-w-sm z-20 border border-terminal-border">
+                    <h3 className="font-semibold text-terminal-green mb-3 uppercase tracking-wide text-sm">
                         Selection Tools
                     </h3>
 
                     {/* Lasso Mode Button */}
                     <button
                         onClick={() => setLassoMode(!lassoMode)}
-                        className={`w-full mb-3 px-4 py-3 rounded-lg font-medium transition-colors touch-manipulation ${
+                        className={`w-full mb-3 px-4 py-3 rounded-lg font-medium transition-all touch-manipulation ${
                             lassoMode
-                                ? "bg-green-600 hover:bg-green-700 text-white"
-                                : "bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200"
+                                ? "bg-terminal-green text-terminal-bg shadow-glow-green"
+                                : "bg-terminal-bg border border-terminal-border hover:border-terminal-green text-terminal-green"
                         }`}
                     >
                         <div className="flex items-center justify-center space-x-2">
@@ -612,20 +612,20 @@ function BlueTopoTilesView() {
                             </svg>
                             <span>
                                 {lassoMode
-                                    ? "Lasso Mode Active"
+                                    ? "[*] Lasso Active"
                                     : "Enable Lasso Mode"}
                             </span>
                         </div>
                     </button>
 
-                    <div className="text-sm space-y-2 text-slate-600 dark:text-slate-300">
+                    <div className="text-sm space-y-2 text-terminal-green-dim font-mono">
                         <div>
-                            <strong>Selected:</strong> {selectedTiles.size} /{" "}
+                            <span className="text-terminal-green">Selected:</span> {selectedTiles.size} /{" "}
                             {stats.total} tiles
                         </div>
                         <div className="space-y-1">
                             <div>
-                                <strong>Resolution:</strong>
+                                <span className="text-terminal-green">Resolution:</span>
                             </div>
                             {Object.entries(stats.resolutions).map(
                                 ([res, count]) => (
@@ -636,14 +636,14 @@ function BlueTopoTilesView() {
                                         <div
                                             className={`w-3 h-3 rounded ${
                                                 res === "2m"
-                                                    ? "bg-red-500"
+                                                    ? "bg-terminal-red"
                                                     : res === "4m"
-                                                      ? "bg-blue-500"
+                                                      ? "bg-terminal-cyan"
                                                       : res === "8m"
-                                                        ? "bg-green-500"
+                                                        ? "bg-terminal-green"
                                                         : res === "16m"
-                                                          ? "bg-yellow-500"
-                                                          : "bg-gray-400"
+                                                          ? "bg-terminal-amber"
+                                                          : "bg-terminal-border"
                                             }`}
                                         ></div>
                                         <span>
@@ -653,10 +653,10 @@ function BlueTopoTilesView() {
                                 ),
                             )}
                         </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-3 pt-3 border-t border-slate-200 dark:border-slate-600">
+                        <div className="text-xs text-terminal-green-dim mt-3 pt-3 border-t border-terminal-border">
                             {lassoMode ? (
                                 <>
-                                    <div className="flex items-center space-x-1 text-green-600 dark:text-green-400 font-medium mb-1">
+                                    <div className="flex items-center space-x-1 text-terminal-green font-medium mb-1">
                                         <svg
                                             className="w-4 h-4"
                                             fill="currentColor"
@@ -668,17 +668,17 @@ function BlueTopoTilesView() {
                                                 clipRule="evenodd"
                                             />
                                         </svg>
-                                        <span>Lasso mode enabled</span>
+                                        <span>[OK] Lasso mode enabled</span>
                                     </div>
-                                    • Draw on map to select tiles
+                                    &gt; Draw on map to select tiles
                                     <br />
-                                    • Drag to create selection area
-                                    <br />• Click button to exit lasso mode
+                                    &gt; Drag to create selection area
+                                    <br />&gt; Click button to exit lasso mode
                                 </>
                             ) : (
                                 <>
-                                    • Click tiles to select individually
-                                    <br />• Enable lasso mode for area selection
+                                    &gt; Click tiles to select individually
+                                    <br />&gt; Enable lasso mode for area selection
                                 </>
                             )}
                         </div>
@@ -688,18 +688,18 @@ function BlueTopoTilesView() {
 
             {/* Highlighted Tiles Banner */}
             {highlightedTiles.length > 0 && (
-                <div className="absolute top-4 right-4 bg-yellow-50 dark:bg-yellow-900/30 border-2 border-yellow-400 dark:border-yellow-600 rounded-lg shadow-lg p-4 max-w-sm z-20">
+                <div className="absolute top-4 right-4 bg-terminal-amber/10 border-2 border-terminal-amber rounded-lg shadow-glow-amber p-4 max-w-sm z-20">
                     <div className="flex items-center space-x-3">
-                        <div className="flex items-center justify-center w-10 h-10 bg-yellow-400 rounded-full">
-                            <span className="text-lg font-bold text-yellow-900">
+                        <div className="flex items-center justify-center w-10 h-10 bg-terminal-amber rounded-full">
+                            <span className="text-lg font-bold text-terminal-bg">
                                 {highlightedTiles.length}
                             </span>
                         </div>
                         <div>
-                            <h3 className="font-semibold text-slate-800 dark:text-slate-100">
+                            <h3 className="font-semibold text-terminal-amber">
                                 Selected Tiles Highlighted
                             </h3>
-                            <p className="text-xs text-slate-600 dark:text-slate-400">
+                            <p className="text-xs text-terminal-green-dim">
                                 Shown with gold outline
                             </p>
                         </div>
@@ -709,14 +709,14 @@ function BlueTopoTilesView() {
 
             {/* Selected Tile Info Panel */}
             {selectedTile && (
-                <div className="absolute bottom-4 left-4 bg-white dark:bg-slate-800 rounded-lg shadow-lg p-4 max-w-md z-20 border border-slate-200 dark:border-slate-600">
+                <div className="absolute bottom-4 left-4 bg-terminal-surface rounded-lg shadow-glow-green-sm p-4 max-w-md z-20 border border-terminal-border">
                     <div className="flex justify-between items-start mb-2">
-                        <h3 className="font-semibold text-slate-800 dark:text-slate-100">
+                        <h3 className="font-semibold text-terminal-green font-mono">
                             Tile: {selectedTile.tile}
                         </h3>
                         <button
                             onClick={() => setSelectedTile(null)}
-                            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                            className="text-terminal-green-dim hover:text-terminal-green"
                         >
                             <svg
                                 className="w-5 h-5"
@@ -733,24 +733,24 @@ function BlueTopoTilesView() {
                             </svg>
                         </button>
                     </div>
-                    <div className="text-sm space-y-2 text-slate-600 dark:text-slate-300">
+                    <div className="text-sm space-y-2 text-terminal-green-dim font-mono">
                         <div>
-                            <strong>Resolution:</strong>{" "}
+                            <span className="text-terminal-green">Resolution:</span>{" "}
                             {selectedTile.resolution}
                         </div>
                         <div>
-                            <strong>Delivery Date:</strong>{" "}
+                            <span className="text-terminal-green">Delivery Date:</span>{" "}
                             {new Date(selectedTile.date).toLocaleDateString()}
                         </div>
                         <div>
-                            <strong>UTM Zone:</strong> {selectedTile.utm}
+                            <span className="text-terminal-green">UTM Zone:</span> {selectedTile.utm}
                         </div>
                         <div className="pt-2">
                             <a
                                 href={selectedTile.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-marine-600 dark:text-marine-400 hover:underline text-xs break-all"
+                                className="text-terminal-cyan hover:underline text-xs break-all"
                             >
                                 Download URL →
                             </a>
@@ -761,15 +761,15 @@ function BlueTopoTilesView() {
 
             {/* Selection Action Panel */}
             {selectedTiles.size > 0 && (
-                <div className="absolute bottom-4 right-4 bg-white dark:bg-slate-800 rounded-lg shadow-lg p-4 z-20 border border-slate-200 dark:border-slate-600">
+                <div className="absolute bottom-4 right-4 bg-terminal-surface rounded-lg shadow-glow-green p-4 z-20 border border-terminal-green">
                     <div className="flex items-center space-x-3">
                         <div className="flex items-center space-x-2">
-                            <div className="flex items-center justify-center w-10 h-10 bg-green-500 rounded-full">
-                                <span className="text-lg font-bold text-white">
+                            <div className="flex items-center justify-center w-10 h-10 bg-terminal-green rounded-full shadow-glow-green-sm">
+                                <span className="text-lg font-bold text-terminal-bg">
                                     {selectedTiles.size}
                                 </span>
                             </div>
-                            <div className="text-sm text-slate-600 dark:text-slate-300">
+                            <div className="text-sm text-terminal-green-dim font-mono">
                                 tile{selectedTiles.size !== 1 ? "s" : ""}{" "}
                                 selected
                             </div>
@@ -777,13 +777,13 @@ function BlueTopoTilesView() {
                         <div className="flex space-x-2">
                             <button
                                 onClick={handleClearSelection}
-                                className="px-4 py-2 text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-lg transition-colors text-sm font-medium"
+                                className="terminal-btn"
                             >
                                 Clear
                             </button>
                             <button
                                 onClick={handleViewSelected}
-                                className="px-4 py-2 bg-marine-600 hover:bg-marine-700 text-white rounded-lg transition-colors text-sm font-medium"
+                                className="terminal-btn-primary"
                             >
                                 View Selected
                             </button>

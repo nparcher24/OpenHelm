@@ -85,7 +85,7 @@ export default function DepthInfoCard({
 
       {/* Info Card */}
       <div
-        className="absolute bg-white dark:bg-slate-800 rounded-lg shadow-2xl border-2 border-marine-600 dark:border-marine-400 z-50"
+        className="absolute bg-terminal-surface rounded-lg shadow-glow-green border-2 border-terminal-green z-50"
         style={{
           left: `${left}px`,
           top: `${top}px`,
@@ -94,11 +94,11 @@ export default function DepthInfoCard({
         }}
       >
         {/* Header */}
-        <div className="bg-marine-600 dark:bg-marine-700 px-4 py-3 rounded-t-lg flex items-center justify-between">
-          <h3 className="font-semibold text-white">Depth Measurement</h3>
+        <div className="bg-terminal-green/20 px-4 py-3 rounded-t-lg flex items-center justify-between border-b border-terminal-green/30">
+          <h3 className="font-semibold text-terminal-green text-glow uppercase tracking-wide text-sm">Depth Measurement</h3>
           <button
             onClick={onClose}
-            className="text-white hover:text-marine-200 transition-colors touch-manipulation"
+            className="text-terminal-green hover:text-terminal-green-bright transition-colors touch-manipulation"
             style={{ minWidth: '44px', minHeight: '44px' }}
             aria-label="Close"
           >
@@ -112,19 +112,19 @@ export default function DepthInfoCard({
         <div className="p-4 space-y-3">
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="w-8 h-8 border-4 border-marine-600 border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-8 h-8 border-4 border-terminal-green border-t-transparent rounded-full animate-spin shadow-glow-green"></div>
             </div>
           ) : error ? (
-            <div className="text-red-600 dark:text-red-400 text-sm">
-              <div className="font-semibold mb-1">No Data</div>
+            <div className="text-terminal-red text-sm">
+              <div className="font-semibold mb-1">[ERROR] No Data</div>
               <div>{error}</div>
             </div>
           ) : (
             <>
               {/* Position */}
               <div className="space-y-1">
-                <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase">Position</div>
-                <div className="font-mono text-sm text-slate-800 dark:text-slate-200">
+                <div className="text-xs text-terminal-green-dim font-semibold uppercase tracking-wide">Position</div>
+                <div className="font-mono text-sm text-terminal-green">
                   <div>{formatLatitude(lat)}</div>
                   <div>{formatLongitude(lon)}</div>
                 </div>
@@ -132,12 +132,12 @@ export default function DepthInfoCard({
 
               {/* Depth */}
               <div className="space-y-1">
-                <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase">Depth</div>
-                <div className="text-2xl font-bold text-marine-700 dark:text-marine-400">
+                <div className="text-xs text-terminal-green-dim font-semibold uppercase tracking-wide">Depth</div>
+                <div className="text-2xl font-bold text-terminal-cyan text-glow">
                   {formatDepth(depth)}
                 </div>
                 {uncertainty && uncertainty > 0 && (
-                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                  <div className="text-xs text-terminal-green-dim">
                     ± {formatDepth(uncertainty)} uncertainty
                   </div>
                 )}
@@ -145,7 +145,7 @@ export default function DepthInfoCard({
 
               {/* Source */}
               {tileId && (
-                <div className="text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-700">
+                <div className="text-xs text-terminal-green-dim pt-2 border-t border-terminal-border">
                   Source: BlueTopo {tileId}
                 </div>
               )}

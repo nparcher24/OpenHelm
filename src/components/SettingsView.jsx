@@ -28,12 +28,12 @@ function SettingsView() {
   }, [activeSection])
 
   const sections = [
-    { id: 'general', name: 'General', icon: '⚙️' },
-    { id: 'charts', name: 'Chart Manager', icon: '🗺️' },
-    { id: 'bluetopo', name: 'BlueTopo', icon: '🌊' },
-    { id: 'gps', name: 'GPS/AHRS', icon: '📍' },
-    { id: 'display', name: 'Display', icon: '🖥️' },
-    { id: 'system', name: 'System', icon: '💾' }
+    { id: 'general', name: 'General', icon: '[>]' },
+    { id: 'charts', name: 'Chart Manager', icon: '[M]' },
+    { id: 'bluetopo', name: 'BlueTopo', icon: '[~]' },
+    { id: 'gps', name: 'GPS/AHRS', icon: '[*]' },
+    { id: 'display', name: 'Display', icon: '[#]' },
+    { id: 'system', name: 'System', icon: '[S]' }
   ]
 
   const renderContent = () => {
@@ -55,28 +55,28 @@ function SettingsView() {
       case 'general':
         return (
           <div className="p-6">
-            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-6">General Settings</h2>
+            <h2 className="text-2xl font-bold text-terminal-green text-glow mb-6 uppercase tracking-wider">General Settings</h2>
             <div className="space-y-6">
-              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-600">
-                <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-2">Application</h3>
-                <div className="text-sm text-slate-600 dark:text-slate-300">Version: 1.0.0</div>
-                <div className="text-sm text-slate-600 dark:text-slate-300">Build: 2024-12-28</div>
+              <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
+                <h3 className="font-semibold text-terminal-green mb-2 uppercase tracking-wide">Application</h3>
+                <div className="text-sm text-terminal-green-dim">Version: 1.0.0</div>
+                <div className="text-sm text-terminal-green-dim">Build: 2024-12-28</div>
               </div>
-              
-              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-600">
-                <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-2">Units</h3>
+
+              <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
+                <h3 className="font-semibold text-terminal-green mb-2 uppercase tracking-wide">Units</h3>
                 <div className="space-y-3">
                   <label className="flex items-center justify-between">
-                    <span className="text-slate-700 dark:text-slate-200">Distance</span>
-                    <select className="bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded px-3 py-1 text-slate-800 dark:text-slate-100">
+                    <span className="text-terminal-green">Distance</span>
+                    <select className="bg-terminal-bg border border-terminal-border rounded px-3 py-1 text-terminal-green focus:border-terminal-green focus:shadow-glow-green-sm outline-none">
                       <option>Nautical Miles</option>
                       <option>Kilometers</option>
                       <option>Miles</option>
                     </select>
                   </label>
                   <label className="flex items-center justify-between">
-                    <span className="text-slate-700 dark:text-slate-200">Speed</span>
-                    <select className="bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded px-3 py-1 text-slate-800 dark:text-slate-100">
+                    <span className="text-terminal-green">Speed</span>
+                    <select className="bg-terminal-bg border border-terminal-border rounded px-3 py-1 text-terminal-green focus:border-terminal-green focus:shadow-glow-green-sm outline-none">
                       <option>Knots</option>
                       <option>km/h</option>
                       <option>mph</option>
@@ -91,23 +91,23 @@ function SettingsView() {
       case 'gps':
         return (
           <div className="p-6">
-            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-6">GPS/AHRS Settings</h2>
+            <h2 className="text-2xl font-bold text-terminal-green text-glow mb-6 uppercase tracking-wider">GPS/AHRS Settings</h2>
             <div className="space-y-4">
-              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-600">
-                <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-2">Connection Status</h3>
+              <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
+                <h3 className="font-semibold text-terminal-green mb-2 uppercase tracking-wide">Connection Status</h3>
                 <div className="flex items-center space-x-2 mb-2">
-                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                  <span className="text-slate-700 dark:text-slate-200">Not Connected</span>
+                  <div className="w-3 h-3 bg-terminal-red rounded-full shadow-glow-red"></div>
+                  <span className="text-terminal-red">NOT CONNECTED</span>
                 </div>
-                <div className="text-sm text-slate-600 dark:text-slate-300">No GPS receiver detected</div>
+                <div className="text-sm text-terminal-green-dim">No GPS receiver detected</div>
               </div>
-              
-              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-600">
-                <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-2">Receiver Settings</h3>
+
+              <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
+                <h3 className="font-semibold text-terminal-green mb-2 uppercase tracking-wide">Receiver Settings</h3>
                 <div className="space-y-3">
                   <label className="flex items-center justify-between">
-                    <span className="text-slate-700 dark:text-slate-200">Port</span>
-                    <select className="bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded px-3 py-1 text-slate-800 dark:text-slate-100">
+                    <span className="text-terminal-green">Port</span>
+                    <select className="bg-terminal-bg border border-terminal-border rounded px-3 py-1 text-terminal-green focus:border-terminal-green focus:shadow-glow-green-sm outline-none">
                       <option>/dev/ttyUSB0</option>
                       <option>/dev/ttyUSB1</option>
                       <option>/dev/ttyACM0</option>
@@ -115,8 +115,8 @@ function SettingsView() {
                     </select>
                   </label>
                   <label className="flex items-center justify-between">
-                    <span className="text-slate-700 dark:text-slate-200">Baud Rate</span>
-                    <select className="bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded px-3 py-1 text-slate-800 dark:text-slate-100">
+                    <span className="text-terminal-green">Baud Rate</span>
+                    <select className="bg-terminal-bg border border-terminal-border rounded px-3 py-1 text-terminal-green focus:border-terminal-green focus:shadow-glow-green-sm outline-none">
                       <option>4800</option>
                       <option>9600</option>
                       <option>38400</option>
@@ -131,34 +131,34 @@ function SettingsView() {
       case 'display':
         return (
           <div className="p-6">
-            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-6">Display Settings</h2>
+            <h2 className="text-2xl font-bold text-terminal-green text-glow mb-6 uppercase tracking-wider">Display Settings</h2>
             <div className="space-y-4">
-              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-600">
-                <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-2">Theme</h3>
+              <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
+                <h3 className="font-semibold text-terminal-green mb-2 uppercase tracking-wide">Theme</h3>
                 <div className="space-y-2">
-                  <label className="flex items-center space-x-3">
-                    <input type="radio" name="theme" value="auto" defaultChecked className="text-marine-600" />
-                    <span className="text-slate-700 dark:text-slate-200">Auto (follows system)</span>
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input type="radio" name="theme" value="auto" defaultChecked className="accent-terminal-green" />
+                    <span className="text-terminal-green">Auto (follows system)</span>
                   </label>
-                  <label className="flex items-center space-x-3">
-                    <input type="radio" name="theme" value="light" className="text-marine-600" />
-                    <span className="text-slate-700 dark:text-slate-200">Light</span>
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input type="radio" name="theme" value="light" className="accent-terminal-green" />
+                    <span className="text-terminal-green">Light</span>
                   </label>
-                  <label className="flex items-center space-x-3">
-                    <input type="radio" name="theme" value="dark" className="text-marine-600" />
-                    <span className="text-slate-700 dark:text-slate-200">Dark</span>
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input type="radio" name="theme" value="dark" className="accent-terminal-green" />
+                    <span className="text-terminal-green">Dark</span>
                   </label>
                 </div>
               </div>
-              
-              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-600">
-                <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-2">Brightness</h3>
-                <input 
-                  type="range" 
-                  min="10" 
-                  max="100" 
-                  defaultValue="80" 
-                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700"
+
+              <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
+                <h3 className="font-semibold text-terminal-green mb-2 uppercase tracking-wide">Brightness</h3>
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  defaultValue="80"
+                  className="w-full h-2 bg-terminal-border rounded-lg appearance-none cursor-pointer accent-terminal-green"
                 />
               </div>
             </div>
@@ -168,20 +168,20 @@ function SettingsView() {
       case 'system':
         return (
           <div className="p-6">
-            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-6">System Information</h2>
+            <h2 className="text-2xl font-bold text-terminal-green text-glow mb-6 uppercase tracking-wider">System Information</h2>
             <div className="space-y-4">
-              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-600">
-                <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-2">Hardware</h3>
-                <div className="space-y-1 text-sm text-slate-600 dark:text-slate-300">
+              <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
+                <h3 className="font-semibold text-terminal-green mb-2 uppercase tracking-wide">Hardware</h3>
+                <div className="space-y-1 text-sm text-terminal-green-dim font-mono">
                   <div>Platform: Raspberry Pi 5</div>
                   <div>Memory: 8GB RAM</div>
                   <div>Storage: 64GB microSD</div>
                 </div>
               </div>
-              
-              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-600">
-                <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-2">Software</h3>
-                <div className="space-y-1 text-sm text-slate-600 dark:text-slate-300">
+
+              <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
+                <h3 className="font-semibold text-terminal-green mb-2 uppercase tracking-wide">Software</h3>
+                <div className="space-y-1 text-sm text-terminal-green-dim font-mono">
                   <div>OpenHelm: v1.0.0</div>
                   <div>Martin Tiles: v0.18.1</div>
                   <div>OS: Raspberry Pi OS</div>
@@ -194,31 +194,31 @@ function SettingsView() {
       default:
         return (
           <div className="p-6">
-            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Settings</h2>
-            <p className="text-slate-600 dark:text-slate-300">Select a section from the sidebar</p>
+            <h2 className="text-2xl font-bold text-terminal-green text-glow uppercase tracking-wider">Settings</h2>
+            <p className="text-terminal-green-dim">Select a section from the sidebar</p>
           </div>
         )
     }
   }
 
   return (
-    <div className="h-full flex bg-slate-50 dark:bg-slate-800">
+    <div className="h-full flex bg-terminal-bg overflow-hidden">
       {/* Settings Sidebar */}
-      <div className="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 flex-shrink-0">
+      <div className="w-64 bg-terminal-surface border-r border-terminal-border flex-shrink-0 overflow-y-auto">
         <div className="p-4">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Settings</h2>
+          <h2 className="text-lg font-semibold text-terminal-green text-glow mb-4 uppercase tracking-wider">Settings</h2>
           <nav className="space-y-1">
             {sections.map((section) => (
               <button
                 key={section.id}
                 onClick={() => setActiveSection(section.id)}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors touch-manipulation ${
+                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-all touch-manipulation ${
                   activeSection === section.id
-                    ? 'bg-marine-100 dark:bg-marine-900 text-marine-700 dark:text-marine-300'
-                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    ? 'bg-terminal-green/10 text-terminal-green shadow-glow-green-sm border border-terminal-green/30'
+                    : 'text-terminal-green-dim hover:bg-terminal-green/5 hover:text-terminal-green border border-transparent'
                 }`}
               >
-                <span className="text-lg">{section.icon}</span>
+                <span className="text-sm font-mono">{section.icon}</span>
                 <span className="font-medium">{section.name}</span>
               </button>
             ))}
@@ -227,7 +227,14 @@ function SettingsView() {
       </div>
 
       {/* Settings Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div
+        className="flex-1 overflow-y-auto"
+        style={{
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-y',
+          overscrollBehavior: 'contain'
+        }}
+      >
         {renderContent()}
       </div>
     </div>

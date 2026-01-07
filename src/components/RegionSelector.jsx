@@ -129,12 +129,12 @@ function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catal
   // Helper function to render download status badge
   const renderDownloadStatusBadge = (chartId) => {
     const status = downloadStatus.get(chartId)
-    
+
     if (!status || downloadStatusLoading) {
       return (
         <div className="flex items-center">
-          <div className="w-2 h-2 bg-slate-300 dark:bg-slate-600 rounded-full animate-pulse mr-2"></div>
-          <span className="text-xs text-slate-400">Loading...</span>
+          <div className="w-2 h-2 bg-terminal-border rounded-full animate-pulse mr-2"></div>
+          <span className="text-xs text-terminal-green-dim font-mono">[..]</span>
         </div>
       )
     }
@@ -143,30 +143,30 @@ function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catal
       case 'downloaded':
         return (
           <div className="flex items-center">
-            <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-            <span className="text-xs text-green-600 dark:text-green-400">Downloaded</span>
+            <div className="w-2 h-2 bg-terminal-green rounded-full mr-2 shadow-glow-green-sm"></div>
+            <span className="text-xs text-terminal-green font-mono">[OK]</span>
           </div>
         )
       case 'update_available':
         return (
           <div className="flex items-center">
-            <div className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></div>
-            <span className="text-xs text-yellow-600 dark:text-yellow-400">Update Available</span>
+            <div className="w-2 h-2 bg-terminal-amber rounded-full mr-2"></div>
+            <span className="text-xs text-terminal-amber font-mono">[UPD]</span>
           </div>
         )
       case 'not_downloaded':
         return (
           <div className="flex items-center">
-            <div className="w-2 h-2 bg-slate-400 rounded-full mr-2"></div>
-            <span className="text-xs text-slate-500 dark:text-slate-400">Not Downloaded</span>
+            <div className="w-2 h-2 bg-terminal-green-dim rounded-full mr-2"></div>
+            <span className="text-xs text-terminal-green-dim font-mono">[--]</span>
           </div>
         )
       case 'unknown':
       default:
         return (
           <div className="flex items-center">
-            <div className="w-2 h-2 bg-slate-300 dark:bg-slate-600 rounded-full mr-2"></div>
-            <span className="text-xs text-slate-400">Unknown</span>
+            <div className="w-2 h-2 bg-terminal-border rounded-full mr-2"></div>
+            <span className="text-xs text-terminal-green-dim font-mono">[??]</span>
           </div>
         )
     }
@@ -294,31 +294,31 @@ function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catal
   // Loading state
   if (loading || catalogueLoading) {
     return (
-      <div className="p-6 max-w-6xl mx-auto h-full overflow-y-auto">
+      <div className="p-6 max-w-6xl mx-auto h-full overflow-y-auto bg-terminal-bg">
         <div className="flex items-center justify-between mb-6">
           <div>
             <button
               onClick={onBack}
-              className="flex items-center space-x-2 text-marine-600 dark:text-marine-400 hover:text-marine-700 dark:hover:text-marine-300 mb-2"
+              className="flex items-center space-x-2 text-terminal-green hover:text-terminal-green-bright mb-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
               <span>Back to Chart Manager</span>
             </button>
-            <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100">
+            <h2 className="text-3xl font-bold text-terminal-green text-glow uppercase tracking-wider">
               Loading ENC Charts - {chartType?.name}
             </h2>
           </div>
         </div>
-        
+
         <div className="flex items-center justify-center h-64">
           <div className="text-center space-y-4">
-            <div className="w-12 h-12 border-4 border-marine-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="text-slate-600 dark:text-slate-300">
+            <div className="w-12 h-12 border-4 border-terminal-green border-t-transparent rounded-full animate-spin mx-auto shadow-glow-green"></div>
+            <p className="text-terminal-green">
               Loading Electronic Navigational Charts...
             </p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-terminal-green-dim font-mono">
               {catalogueLoading ? 'Fetching catalogue from local API server' : 'Processing chart data'}
             </p>
           </div>
@@ -328,28 +328,28 @@ function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catal
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto h-full overflow-y-auto">
+    <div className="p-6 max-w-6xl mx-auto h-full overflow-y-auto bg-terminal-bg">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <button
             onClick={onBack}
-            className="flex items-center space-x-2 text-marine-600 dark:text-marine-400 hover:text-marine-700 dark:hover:text-marine-300 mb-2"
+            className="flex items-center space-x-2 text-terminal-green hover:text-terminal-green-bright mb-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             <span>Back to Chart Manager</span>
           </button>
-          <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100">
+          <h2 className="text-3xl font-bold text-terminal-green text-glow uppercase tracking-wider">
             ENC Charts - {chartType?.name}
           </h2>
-          <p className="text-slate-600 dark:text-slate-300">
+          <p className="text-terminal-green-dim">
             Select Electronic Navigational Charts for {chartType?.description}
           </p>
           {error && (
-            <p className="text-yellow-600 dark:text-yellow-400 text-sm mt-2">
-              ⚠️ {error}
+            <p className="text-terminal-amber text-sm mt-2 font-mono">
+              [!] {error}
             </p>
           )}
         </div>
@@ -357,14 +357,14 @@ function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catal
 
       {/* Catalogue Update Status */}
       {catalogueUpdateStatus && (
-        <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-xl p-4 mb-6">
+        <div className="bg-terminal-cyan/10 border border-terminal-cyan/50 rounded-xl p-4 mb-6">
           <div className="flex items-center space-x-3">
-            <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-5 h-5 border-2 border-terminal-cyan border-t-transparent rounded-full animate-spin"></div>
             <div>
-              <h4 className="font-medium text-blue-800 dark:text-blue-200">
+              <h4 className="font-medium text-terminal-cyan">
                 Updating Chart Database
               </h4>
-              <p className="text-sm text-blue-600 dark:text-blue-300">
+              <p className="text-sm text-terminal-green-dim font-mono">
                 {catalogueUpdateStatus}
               </p>
             </div>
@@ -373,27 +373,27 @@ function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catal
       )}
 
       {/* Search and Controls */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600 p-4 mb-6">
+      <div className="bg-terminal-surface rounded-xl border border-terminal-border p-4 mb-6">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           {/* Search */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Search Charts</label>
+            <label className="block text-sm font-medium text-terminal-green mb-2 uppercase tracking-wide">Search Charts</label>
             <input
               type="text"
               placeholder="Search by name, ID, or type..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-800 dark:text-slate-100 placeholder-slate-500 dark:placeholder-slate-400 focus:ring-2 focus:ring-marine-500 focus:border-marine-500"
+              className="w-full px-4 py-2 bg-terminal-bg border border-terminal-border rounded-lg text-terminal-green placeholder-terminal-green-dim focus:ring-2 focus:ring-terminal-green focus:border-terminal-green font-mono"
             />
           </div>
 
           {/* Filter by Type */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Chart Type</label>
+            <label className="block text-sm font-medium text-terminal-green mb-2 uppercase tracking-wide">Chart Type</label>
             <select
               value={filterBy}
               onChange={(e) => setFilterBy(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-marine-500 focus:border-marine-500"
+              className="w-full px-4 py-2 bg-terminal-bg border border-terminal-border rounded-lg text-terminal-green focus:ring-2 focus:ring-terminal-green focus:border-terminal-green font-mono"
             >
               <option value="all">All Types</option>
               <option value="harbor">Harbor</option>
@@ -406,11 +406,11 @@ function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catal
 
           {/* Filter by Coast Guard District */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Coast Guard District</label>
+            <label className="block text-sm font-medium text-terminal-green mb-2 uppercase tracking-wide">Coast Guard District</label>
             <select
               value={filterCoastGuardDistrict}
               onChange={(e) => setFilterCoastGuardDistrict(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-marine-500 focus:border-marine-500"
+              className="w-full px-4 py-2 bg-terminal-bg border border-terminal-border rounded-lg text-terminal-green focus:ring-2 focus:ring-terminal-green focus:border-terminal-green font-mono"
             >
               <option value="all">All Districts</option>
               {availableDistricts.map(district => (
@@ -425,13 +425,13 @@ function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catal
           <div className="flex items-end space-x-4">
             <button
               onClick={handleSelectAll}
-              className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium transition-colors touch-manipulation"
+              className="terminal-btn"
             >
               {selectedRegions.size === filteredAndSortedRegions.length ? 'Deselect All' : 'Select All'}
             </button>
-            <div className="text-sm text-slate-600 dark:text-slate-300">
+            <div className="text-sm text-terminal-green-dim font-mono">
               {selectedRegions.size} selected / {filteredAndSortedRegions.length} total
-              <div className="text-xs text-slate-500 dark:text-slate-400">
+              <div className="text-xs text-terminal-green-dim">
                 Rendering {visibleItems.length} rows (virtualized)
               </div>
             </div>
@@ -440,22 +440,22 @@ function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catal
       </div>
 
       {/* Virtualized Chart Table */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600 overflow-hidden mb-6">
+      <div className="bg-terminal-surface rounded-xl border border-terminal-border overflow-hidden mb-6">
         {/* Table Header */}
-        <div className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
-          <div className="grid grid-cols-[auto_1fr_100px_80px_100px_120px_120px] gap-4 px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-300">
+        <div className="bg-terminal-bg border-b border-terminal-border">
+          <div className="grid grid-cols-[auto_1fr_100px_80px_100px_120px_120px] gap-4 px-4 py-3 text-sm font-medium text-terminal-green uppercase tracking-wide">
             <div>
               <input
                 type="checkbox"
                 checked={selectedRegions.size === filteredAndSortedRegions.length && filteredAndSortedRegions.length > 0}
                 onChange={handleSelectAll}
-                className="w-4 h-4 text-marine-600 bg-gray-100 border-gray-300 rounded focus:ring-marine-500"
+                className="w-4 h-4 accent-terminal-green bg-terminal-bg border-terminal-border rounded"
               />
             </div>
             <div>
               <button
                 onClick={() => handleSort('name')}
-                className="flex items-center space-x-1 hover:text-marine-600 dark:hover:text-marine-400"
+                className="flex items-center space-x-1 hover:text-terminal-green-bright"
               >
                 <span>Chart Name</span>
                 {sortBy === 'name' && (
@@ -468,7 +468,7 @@ function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catal
             <div>
               <button
                 onClick={() => handleSort('chartType')}
-                className="flex items-center space-x-1 hover:text-marine-600 dark:hover:text-marine-400"
+                className="flex items-center space-x-1 hover:text-terminal-green-bright"
               >
                 <span>Type</span>
                 {sortBy === 'chartType' && (
@@ -481,7 +481,7 @@ function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catal
             <div>
               <button
                 onClick={() => handleSort('coastGuardDistrict')}
-                className="flex items-center space-x-1 hover:text-marine-600 dark:hover:text-marine-400"
+                className="flex items-center space-x-1 hover:text-terminal-green-bright"
                 title="Coast Guard District - Maritime regions for chart organization"
               >
                 <span>Region</span>
@@ -495,7 +495,7 @@ function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catal
             <div>
               <button
                 onClick={() => handleSort('scale')}
-                className="flex items-center space-x-1 hover:text-marine-600 dark:hover:text-marine-400"
+                className="flex items-center space-x-1 hover:text-terminal-green-bright"
               >
                 <span>Scale</span>
                 {sortBy === 'scale' && (
@@ -508,9 +508,9 @@ function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catal
             <div>
               <button
                 onClick={() => handleSort('publicationDate')}
-                className="flex items-center space-x-1 hover:text-marine-600 dark:hover:text-marine-400"
+                className="flex items-center space-x-1 hover:text-terminal-green-bright"
               >
-                <span>Publication Date</span>
+                <span>Pub. Date</span>
                 {sortBy === 'publicationDate' && (
                   <svg className={`w-4 h-4 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -521,9 +521,9 @@ function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catal
             <div>
               <button
                 onClick={() => handleSort('downloadStatus')}
-                className="flex items-center space-x-1 hover:text-marine-600 dark:hover:text-marine-400"
+                className="flex items-center space-x-1 hover:text-terminal-green-bright"
               >
-                <span>Download Status</span>
+                <span>Status</span>
                 {sortBy === 'downloadStatus' && (
                   <svg className={`w-4 h-4 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -550,9 +550,9 @@ function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catal
               return (
                 <div
                   key={region.id}
-                  className={`grid grid-cols-[auto_1fr_100px_80px_100px_120px_120px] gap-4 px-4 py-3 border-b border-slate-200 dark:border-slate-700 cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-900/50 ${
+                  className={`grid grid-cols-[auto_1fr_100px_80px_100px_120px_120px] gap-4 px-4 py-3 border-b border-terminal-border cursor-pointer transition-colors hover:bg-terminal-green/5 ${
                     selectedRegions.has(region.id)
-                      ? 'bg-marine-50 dark:bg-marine-900/30'
+                      ? 'bg-terminal-green/10'
                       : ''
                   }`}
                   style={{ height: ROW_HEIGHT }}
@@ -563,47 +563,47 @@ function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catal
                       type="checkbox"
                       checked={selectedRegions.has(region.id)}
                       onChange={() => handleRegionToggle(region.id)}
-                      className="w-4 h-4 text-marine-600 bg-gray-100 border-gray-300 rounded focus:ring-marine-500"
+                      className="w-4 h-4 accent-terminal-green bg-terminal-bg border-terminal-border rounded"
                     />
                   </div>
                   <div className="flex flex-col justify-center min-w-0">
-                    <div className="font-medium text-slate-900 dark:text-slate-100 truncate">
+                    <div className="font-medium text-terminal-green truncate">
                       {region.name}
                     </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                    <div className="text-xs text-terminal-green-dim truncate font-mono">
                       ID: {region.id}
                     </div>
                   </div>
                   <div className="flex items-center">
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full truncate ${
-                      region.chartType === 'Harbor' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                      region.chartType === 'Approach' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                      region.chartType === 'Coastal' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                      region.chartType === 'General' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
-                      'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded truncate border ${
+                      region.chartType === 'Harbor' ? 'bg-terminal-cyan/10 text-terminal-cyan border-terminal-cyan/30' :
+                      region.chartType === 'Approach' ? 'bg-terminal-green/10 text-terminal-green border-terminal-green/30' :
+                      region.chartType === 'Coastal' ? 'bg-terminal-amber/10 text-terminal-amber border-terminal-amber/30' :
+                      region.chartType === 'General' ? 'bg-terminal-green/10 text-terminal-green-dim border-terminal-green/30' :
+                      'bg-terminal-border text-terminal-green-dim border-terminal-border'
                     }`}>
                       {region.chartType}
                     </span>
                   </div>
                   <div className="flex items-center">
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                      <span className="text-sm font-medium text-terminal-green font-mono">
                         {region.coastGuardDistrict || '-'}
                       </span>
                       {region.coastGuardDistrict && (
-                        <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                        <span className="text-xs text-terminal-green-dim truncate">
                           {COAST_GUARD_DISTRICTS[region.coastGuardDistrict]}
                         </span>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center">
-                    <span className="text-sm text-slate-600 dark:text-slate-400 truncate">
+                    <span className="text-sm text-terminal-green-dim truncate font-mono">
                       {region.scale || 'Unknown'}
                     </span>
                   </div>
                   <div className="flex items-center">
-                    <span className="text-sm text-slate-600 dark:text-slate-400 truncate">
+                    <span className="text-sm text-terminal-green-dim truncate font-mono">
                       {region.publicationDate || 'Unknown'}
                     </span>
                   </div>
@@ -622,15 +622,15 @@ function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catal
 
       {filteredAndSortedRegions.length === 0 && (
         <div className="text-center py-12">
-          <div className="text-slate-400 dark:text-slate-500 mb-2">
+          <div className="text-terminal-green-dim mb-2">
             <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-1">
+          <h3 className="text-lg font-semibold text-terminal-green mb-1">
             No charts found
           </h3>
-          <p className="text-slate-500 dark:text-slate-400">
+          <p className="text-terminal-green-dim font-mono">
             Try adjusting your search terms or filters
           </p>
         </div>
@@ -638,15 +638,15 @@ function RegionSelector({ chartType, onBack, onSelectRegion, encCatalogue, catal
 
       {/* Action Bar */}
       {selectedRegions.size > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-600 p-4 shadow-lg">
+        <div className="fixed bottom-0 left-0 right-0 bg-terminal-surface border-t border-terminal-green p-4 shadow-glow-green">
           <div className="max-w-6xl mx-auto flex items-center justify-between">
-            <div className="text-slate-700 dark:text-slate-200">
+            <div className="text-terminal-green font-mono">
               <span className="font-semibold">{selectedRegions.size} regions selected</span>
-              <span className="text-slate-500 dark:text-slate-400 ml-2">({totalSize} MB total)</span>
+              <span className="text-terminal-green-dim ml-2">({totalSize} MB total)</span>
             </div>
             <button
               onClick={handleConfirmSelection}
-              className="bg-marine-600 hover:bg-marine-700 text-white px-6 py-3 rounded-lg font-medium transition-colors touch-manipulation"
+              className="terminal-btn-primary"
             >
               Confirm Selection
             </button>

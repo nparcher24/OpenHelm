@@ -29,15 +29,15 @@ function ChartManager() {
   const getStatusIcon = (status) => {
     switch (status) {
       case 'downloaded':
-        return <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+        return <div className="w-3 h-3 bg-terminal-green rounded-full shadow-glow-green-sm"></div>
       case 'partial':
-        return <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+        return <div className="w-3 h-3 bg-terminal-amber rounded-full shadow-glow-amber"></div>
       case 'downloading':
-        return <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+        return <div className="w-3 h-3 bg-terminal-cyan rounded-full animate-pulse shadow-glow-cyan"></div>
       case 'available':
-        return <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+        return <div className="w-3 h-3 bg-terminal-border rounded-full"></div>
       default:
-        return <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
+        return <div className="w-3 h-3 bg-terminal-border rounded-full"></div>
     }
   }
 
@@ -61,41 +61,41 @@ function ChartManager() {
 
       <div className="p-6 max-w-4xl mx-auto h-full overflow-y-auto">
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mb-2">
+        <h2 className="text-3xl font-bold text-terminal-green text-glow mb-2 uppercase tracking-wider">
           NOAA Chart Manager
         </h2>
-        <p className="text-slate-600 dark:text-slate-300">
+        <p className="text-terminal-green-dim">
           Download and manage NOAA nautical charts for offline navigation
         </p>
       </div>
 
       {/* Chart Types */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600 p-6">
-        <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-6">
+      <div className="bg-terminal-surface rounded-lg border border-terminal-border p-6">
+        <h3 className="text-lg font-semibold text-terminal-green mb-6 uppercase tracking-wide">
           Chart Types
         </h3>
-        
+
         <div className="space-y-6">
           {chartTypes.map((chartType) => (
             <div
               key={chartType.id}
-              className="border border-slate-200 dark:border-slate-600 rounded-lg p-6 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              className="border border-terminal-border rounded-lg p-6 hover:border-terminal-green/50 hover:bg-terminal-green/5 transition-all"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <div className="mb-3">
-                    <h4 className="text-xl font-semibold text-slate-800 dark:text-slate-100">
+                    <h4 className="text-xl font-semibold text-terminal-green">
                       {chartType.name}
                     </h4>
-                    <p className="text-slate-600 dark:text-slate-300">
+                    <p className="text-terminal-green-dim">
                       {chartType.description}
                     </p>
                   </div>
 
                   <div className="grid grid-cols-1 gap-4 mb-4 text-sm">
                     <div>
-                      <span className="text-slate-500 dark:text-slate-400">Format: </span>
-                      <span className="text-slate-700 dark:text-slate-200 font-medium">{chartType.format}</span>
+                      <span className="text-terminal-green-dim">Format: </span>
+                      <span className="text-terminal-green font-medium">{chartType.format}</span>
                     </div>
                   </div>
                 </div>
@@ -103,7 +103,7 @@ function ChartManager() {
                 <div className="flex flex-col space-y-3 ml-6 min-w-[180px]">
                   <button
                     onClick={() => navigate('/bluetopo-downloader')}
-                    className="bg-marine-600 hover:bg-marine-700 text-white px-4 py-3 rounded-lg font-medium transition-colors touch-manipulation"
+                    className="terminal-btn-primary"
                   >
                     Downloader
                   </button>

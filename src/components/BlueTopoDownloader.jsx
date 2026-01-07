@@ -398,23 +398,23 @@ function BlueTopoDownloader() {
     .reduce((sum, tile) => sum + (tile.speedMBps || 0), 0) || 0
 
   return (
-    <div className="h-full overflow-y-auto bg-slate-50 dark:bg-slate-900">
+    <div className="bg-terminal-bg min-h-full">
       {/* Header */}
-      <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-10">
+      <div className="bg-terminal-surface border-b border-terminal-border sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <button
                 onClick={handleBack}
-                className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                className="p-2 rounded-lg hover:bg-terminal-green/10 transition-colors"
               >
-                <ArrowLeftIcon className="h-6 w-6 text-slate-600 dark:text-slate-300" />
+                <ArrowLeftIcon className="h-6 w-6 text-terminal-green" />
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                <h1 className="text-2xl font-bold text-terminal-green text-glow uppercase tracking-wider">
                   BlueTopo Tile Downloader
                 </h1>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
+                <p className="text-sm text-terminal-green-dim">
                   {selectedTiles.length} tile{selectedTiles.length !== 1 ? 's' : ''} selected
                 </p>
               </div>
@@ -422,7 +422,7 @@ function BlueTopoDownloader() {
             {isStarted && (
               <button
                 onClick={handleCancel}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                className="terminal-btn-danger"
               >
                 Cancel Download
               </button>
@@ -434,65 +434,65 @@ function BlueTopoDownloader() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {/* Error Alert */}
         {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <div className="bg-terminal-red/10 border border-terminal-red/50 rounded-lg p-4">
             <div className="flex items-center space-x-2">
-              <XCircleIcon className="h-5 w-5 text-red-600 dark:text-red-400" />
-              <p className="text-red-800 dark:text-red-200">{error}</p>
+              <XCircleIcon className="h-5 w-5 text-terminal-red" />
+              <p className="text-terminal-red">{error}</p>
             </div>
           </div>
         )}
 
         {/* Storage Info Panel */}
         {!loadingStorage && storageInfo && (
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
+          <div className="bg-terminal-surface rounded-lg border border-terminal-border p-6">
+            <h2 className="text-lg font-semibold text-terminal-green mb-4 uppercase tracking-wide">
               Storage Information
             </h2>
 
             {/* Disk Space Bar */}
             <div className="space-y-2 mb-4">
               <div className="flex justify-between text-sm">
-                <span className="text-slate-600 dark:text-slate-400">Disk Usage</span>
-                <span className="text-slate-900 dark:text-slate-100 font-medium">
+                <span className="text-terminal-green-dim">Disk Usage</span>
+                <span className="text-terminal-green font-medium">
                   {storageInfo.disk.freeGB} GB free / {storageInfo.disk.totalGB} GB total
                 </span>
               </div>
-              <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-4 overflow-hidden">
+              <div className="w-full bg-terminal-border rounded-full h-4 overflow-hidden">
                 <div
                   className={`h-full transition-all duration-300 ${
                     storageInfo.disk.usedPercent > 90
-                      ? 'bg-red-600'
+                      ? 'bg-terminal-red shadow-glow-red'
                       : storageInfo.disk.usedPercent > 75
-                      ? 'bg-yellow-600'
-                      : 'bg-marine-600'
+                      ? 'bg-terminal-amber shadow-glow-amber'
+                      : 'bg-terminal-green shadow-glow-green-sm'
                   }`}
                   style={{ width: `${storageInfo.disk.usedPercent}%` }}
                 />
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-terminal-green-dim">
                 {storageInfo.disk.usedPercent}% used ({storageInfo.disk.usedGB} GB)
               </p>
             </div>
 
             {/* Download Size Estimate */}
-            <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+            <div className="flex items-center justify-between p-4 bg-terminal-bg rounded-lg border border-terminal-border">
               <div>
-                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                <p className="text-sm font-medium text-terminal-green">
                   Estimated Download Size
                 </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-terminal-green-dim">
                   {selectedTiles.length} tiles × ~170 MB each
                 </p>
               </div>
-              <p className="text-2xl font-bold text-marine-600 dark:text-marine-400">
+              <p className="text-2xl font-bold text-terminal-cyan text-glow">
                 {estimatedSizeGB} GB
               </p>
             </div>
 
             {/* Existing Tiles Info */}
             {storageInfo.tiles.existingTiles > 0 && (
-              <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-600">
-                <p className="text-sm text-slate-600 dark:text-slate-400">
+              <div className="mt-4 pt-4 border-t border-terminal-border">
+                <p className="text-sm text-terminal-green-dim">
                   {storageInfo.tiles.existingTiles} BlueTopo tile{storageInfo.tiles.existingTiles !== 1 ? 's' : ''} already downloaded
                   ({storageInfo.tiles.totalSizeMB} MB)
                 </p>
@@ -502,19 +502,19 @@ function BlueTopoDownloader() {
         )}
 
         {/* Chart Selector Action Panel */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+        <div className="bg-terminal-surface rounded-lg border border-terminal-border p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">
+              <h3 className="text-lg font-semibold text-terminal-green mb-1 uppercase tracking-wide">
                 Select Charts to Download
               </h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
+              <p className="text-sm text-terminal-green-dim">
                 Choose BlueTopo regions from the interactive map
               </p>
             </div>
             <button
               onClick={() => navigate('/bluetopo-tiles')}
-              className="px-6 py-3 bg-marine-600 text-white rounded-lg hover:bg-marine-700 transition-colors flex items-center space-x-2 font-medium"
+              className="terminal-btn-primary flex items-center space-x-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
@@ -526,17 +526,17 @@ function BlueTopoDownloader() {
 
         {/* Selected Tiles for Deletion Panel */}
         {selectedTilesForDeletion.size > 0 && (
-          <div className="bg-marine-50 dark:bg-marine-900/20 border-2 border-marine-300 dark:border-marine-700 rounded-lg p-6">
+          <div className="bg-terminal-green/5 border-2 border-terminal-green/50 rounded-lg p-6 shadow-glow-green-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <div className="flex items-center justify-center w-12 h-12 bg-marine-600 rounded-full">
-                  <span className="text-2xl font-bold text-white">{selectedTilesForDeletion.size}</span>
+                <div className="flex items-center justify-center w-12 h-12 bg-terminal-green/20 border border-terminal-green rounded-full">
+                  <span className="text-2xl font-bold text-terminal-green text-glow">{selectedTilesForDeletion.size}</span>
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  <h3 className="text-lg font-semibold text-terminal-green">
                     {selectedTilesForDeletion.size} Tile{selectedTilesForDeletion.size !== 1 ? 's' : ''} Selected for Deletion
                   </h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                  <p className="text-sm text-terminal-green-dim">
                     View selected tiles on the map or clear selection
                   </p>
                 </div>
@@ -558,7 +558,7 @@ function BlueTopoDownloader() {
                       }
                     })
                   }}
-                  className="px-4 py-2 bg-marine-600 text-white rounded-lg hover:bg-marine-700 transition-colors flex items-center space-x-2"
+                  className="terminal-btn-primary flex items-center space-x-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
@@ -568,7 +568,7 @@ function BlueTopoDownloader() {
 
                 <button
                   onClick={() => setSelectedTilesForDeletion(new Set())}
-                  className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors flex items-center space-x-2"
+                  className="terminal-btn flex items-center space-x-2"
                 >
                   <XCircleIcon className="h-5 w-5" />
                   <span>Clear Selection</span>
@@ -580,15 +580,15 @@ function BlueTopoDownloader() {
 
         {/* Reprocess Progress */}
         {isReprocessing && reprocessProgress && (
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+          <div className="bg-terminal-surface rounded-lg border border-terminal-border p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              <h2 className="text-lg font-semibold text-terminal-green uppercase tracking-wide">
                 Reprocessing Raw Files
               </h2>
               {reprocessProgress.connected !== undefined && (
                 <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${reprocessProgress.connected ? 'bg-green-500' : 'bg-yellow-500'}`} />
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                  <div className={`w-2 h-2 rounded-full ${reprocessProgress.connected ? 'bg-terminal-green shadow-glow-green-sm' : 'bg-terminal-amber shadow-glow-amber'}`} />
+                  <span className="text-xs text-terminal-green-dim">
                     {reprocessProgress.connected ? 'Connected' : 'Polling'}
                   </span>
                 </div>
@@ -598,17 +598,17 @@ function BlueTopoDownloader() {
             {/* Progress Bar */}
             <div className="space-y-2 mb-4">
               <div className="flex justify-between text-sm">
-                <span className="text-slate-600 dark:text-slate-400">
+                <span className="text-terminal-green-dim">
                   {reprocessProgress.summary?.completedTiles || 0} of {reprocessProgress.summary?.totalTiles || 0} tiles reprocessed
                   {reprocessProgress.summary?.failedTiles > 0 && ` (${reprocessProgress.summary.failedTiles} failed)`}
                 </span>
-                <span className="text-slate-900 dark:text-slate-100 font-medium">
+                <span className="text-terminal-green font-medium">
                   {reprocessProgress.progress || 0}%
                 </span>
               </div>
-              <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-4 overflow-hidden">
+              <div className="w-full bg-terminal-border rounded-full h-4 overflow-hidden">
                 <div
-                  className="h-full bg-yellow-600 transition-all duration-300"
+                  className="h-full bg-terminal-amber shadow-glow-amber transition-all duration-300"
                   style={{ width: `${reprocessProgress.progress || 0}%` }}
                 />
               </div>
@@ -616,7 +616,7 @@ function BlueTopoDownloader() {
 
             {/* Status Message */}
             {reprocessProgress.message && (
-              <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">
+              <p className="mt-4 text-sm text-terminal-green-dim">
                 {reprocessProgress.message}
               </p>
             )}
@@ -624,9 +624,9 @@ function BlueTopoDownloader() {
         )}
 
         {/* Downloaded Tiles Table */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+        <div className="bg-terminal-surface rounded-lg border border-terminal-border p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            <h2 className="text-lg font-semibold text-terminal-green uppercase tracking-wide">
               Downloaded Tiles {!loadingDownloadedTiles && `(${downloadedTilesMetadata.size})`}
             </h2>
 
@@ -636,7 +636,7 @@ function BlueTopoDownloader() {
                 <button
                   onClick={handleReprocessRawFiles}
                   disabled={loadingDownloadedTiles || isReprocessing}
-                  className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                  className="px-4 py-2 bg-terminal-amber/20 border border-terminal-amber text-terminal-amber rounded-lg hover:bg-terminal-amber/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
                   title="Reprocess all raw GeoTIFF files"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -652,7 +652,7 @@ function BlueTopoDownloader() {
                   <button
                     onClick={handleDeleteSelectedRawFiles}
                     disabled={isDeleting}
-                    className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                    className="px-4 py-2 bg-terminal-amber/20 border border-terminal-amber text-terminal-amber rounded-lg hover:bg-terminal-amber/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
                     title="Delete raw GeoTIFF files only (keeps processed tiles)"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -663,7 +663,7 @@ function BlueTopoDownloader() {
                   <button
                     onClick={handleDeleteSelected}
                     disabled={isDeleting}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                    className="terminal-btn-danger flex items-center space-x-2"
                   >
                     <XCircleIcon className="h-5 w-5" />
                     <span>Delete Tiles ({selectedTilesForDeletion.size})</span>
@@ -675,24 +675,24 @@ function BlueTopoDownloader() {
 
           {loadingDownloadedTiles ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-marine-600 dark:border-marine-400 mb-4"></div>
-              <p className="text-slate-600 dark:text-slate-400">Loading downloaded tiles...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-terminal-green mb-4 shadow-glow-green"></div>
+              <p className="text-terminal-green-dim">Loading downloaded tiles...</p>
             </div>
           ) : downloadedTilesMetadata.size === 0 ? (
             <div className="text-center py-12">
-              <p className="text-slate-600 dark:text-slate-400">No tiles downloaded yet. Select tiles from the chart selector to begin.</p>
+              <p className="text-terminal-green-dim">No tiles downloaded yet. Select tiles from the chart selector to begin.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
-                <thead className="text-xs uppercase bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                <thead className="text-xs uppercase bg-terminal-bg text-terminal-green border-b border-terminal-border">
                   <tr>
                     <th className="px-4 py-3 w-12">
                       <input
                         type="checkbox"
                         checked={selectedTilesForDeletion.size === downloadedTilesMetadata.size && downloadedTilesMetadata.size > 0}
                         onChange={toggleAllTilesSelection}
-                        className="w-4 h-4 text-marine-600 bg-slate-100 border-slate-300 rounded focus:ring-marine-500 dark:focus:ring-marine-600 dark:ring-offset-slate-800 focus:ring-2 dark:bg-slate-600 dark:border-slate-500 cursor-pointer"
+                        className="terminal-checkbox"
                       />
                     </th>
                     <th className="px-4 py-3">Tile ID</th>
@@ -708,43 +708,43 @@ function BlueTopoDownloader() {
                   {Array.from(downloadedTilesMetadata.values()).map((tile) => (
                     <tr
                       key={tile.tileId}
-                      className="border-b border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700"
+                      className="border-b border-terminal-border hover:bg-terminal-green/5"
                     >
                       <td className="px-4 py-3">
                         <input
                           type="checkbox"
                           checked={selectedTilesForDeletion.has(tile.tileId)}
                           onChange={() => toggleTileSelection(tile.tileId)}
-                          className="w-4 h-4 text-marine-600 bg-slate-100 border-slate-300 rounded focus:ring-marine-500 dark:focus:ring-marine-600 dark:ring-offset-slate-800 focus:ring-2 dark:bg-slate-600 dark:border-slate-500 cursor-pointer"
+                          className="terminal-checkbox"
                         />
                       </td>
-                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
+                      <td className="px-4 py-3 font-medium text-terminal-green font-mono">
                         {tile.tileId}
                       </td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
-                        <span className="px-2 py-1 rounded text-xs font-medium bg-marine-100 text-marine-800 dark:bg-marine-900 dark:text-marine-200">
+                      <td className="px-4 py-3 text-terminal-green-dim">
+                        <span className="px-2 py-1 rounded text-xs font-medium bg-terminal-green/10 text-terminal-green border border-terminal-green/30">
                           {tile.version || 'N/A'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+                      <td className="px-4 py-3 text-terminal-green-dim font-mono">
                         {tile.downloadedDate ? new Date(tile.downloadedDate).toLocaleDateString() : 'N/A'}
                       </td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+                      <td className="px-4 py-3 text-terminal-green-dim font-mono">
                         {tile.publishedDate ? new Date(tile.publishedDate).toLocaleDateString() : 'N/A'}
                       </td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs">
+                      <td className="px-4 py-3 text-terminal-green-dim text-xs font-mono">
                         {tile.tileSchemeVersion || 'N/A'}
                       </td>
                       <td className="px-4 py-3">
                         {tile.rawFile && tile.rawFile.exists ? (
                           <div className="flex items-center space-x-2">
-                            <CheckCircleIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
-                            <span className="text-xs text-slate-600 dark:text-slate-400">
+                            <CheckCircleIcon className="h-4 w-4 text-terminal-green" />
+                            <span className="text-xs text-terminal-green-dim font-mono">
                               {tile.rawFile.sizeMB} MB
                             </span>
                           </div>
                         ) : (
-                          <span className="text-xs text-slate-500 dark:text-slate-500">—</span>
+                          <span className="text-xs text-terminal-green-dim">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -753,7 +753,7 @@ function BlueTopoDownloader() {
                             <button
                               onClick={() => handleDeleteRawFile(tile.tileId)}
                               disabled={isDeleting}
-                              className="text-yellow-600 hover:text-yellow-700 dark:text-yellow-400 dark:hover:text-yellow-300 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="text-terminal-amber hover:text-terminal-amber font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Delete raw GeoTIFF file"
                             >
                               Del Raw
@@ -762,7 +762,7 @@ function BlueTopoDownloader() {
                           <button
                             onClick={() => handleDeleteTile(tile.tileId)}
                             disabled={isDeleting}
-                            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="text-terminal-red hover:text-terminal-red font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Delete
                           </button>
@@ -777,15 +777,15 @@ function BlueTopoDownloader() {
         </div>
 
         {isStarted && jobProgress && (
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+          <div className="bg-terminal-surface rounded-lg border border-terminal-border p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              <h2 className="text-lg font-semibold text-terminal-green uppercase tracking-wide">
                 Download Progress
               </h2>
               {jobProgress.connected !== undefined && (
                 <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${jobProgress.connected ? 'bg-green-500' : 'bg-yellow-500'}`} />
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                  <div className={`w-2 h-2 rounded-full ${jobProgress.connected ? 'bg-terminal-green shadow-glow-green-sm' : 'bg-terminal-amber shadow-glow-amber'}`} />
+                  <span className="text-xs text-terminal-green-dim">
                     {jobProgress.connected ? 'Connected' : 'Polling'}
                   </span>
                 </div>
@@ -795,45 +795,45 @@ function BlueTopoDownloader() {
             {/* Progress Bar */}
             <div className="space-y-2 mb-4">
               <div className="flex justify-between text-sm">
-                <span className="text-slate-600 dark:text-slate-400">
+                <span className="text-terminal-green-dim">
                   {completedCount} of {selectedTiles.length} tiles complete
                   {failedCount > 0 && ` (${failedCount} failed)`}
                 </span>
-                <span className="text-slate-900 dark:text-slate-100 font-medium">
+                <span className="text-terminal-green font-medium">
                   {jobProgress.progress || 0}%
                 </span>
               </div>
-              <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-4 overflow-hidden">
+              <div className="w-full bg-terminal-border rounded-full h-4 overflow-hidden">
                 <div
-                  className="h-full bg-marine-600 transition-all duration-300"
+                  className="h-full bg-terminal-green shadow-glow-green-sm transition-all duration-300"
                   style={{ width: `${jobProgress.progress || 0}%` }}
                 />
               </div>
             </div>
 
             {/* Stats Row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-terminal-bg rounded-lg border border-terminal-border">
               <div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Downloaded</p>
-                <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                <p className="text-xs text-terminal-green-dim uppercase tracking-wide">Downloaded</p>
+                <p className="text-lg font-semibold text-terminal-green font-mono">
                   {formatBytes(totalDownloadedBytes)} / {formatBytes(totalExpectedBytes)}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Speed</p>
-                <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                <p className="text-xs text-terminal-green-dim uppercase tracking-wide">Speed</p>
+                <p className="text-lg font-semibold text-terminal-cyan font-mono">
                   {combinedSpeedMBps.toFixed(1)} MB/s
                 </p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Active Downloads</p>
-                <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                <p className="text-xs text-terminal-green-dim uppercase tracking-wide">Active Downloads</p>
+                <p className="text-lg font-semibold text-terminal-green font-mono">
                   {downloadingCount}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Time Remaining</p>
-                <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                <p className="text-xs text-terminal-green-dim uppercase tracking-wide">Time Remaining</p>
+                <p className="text-lg font-semibold text-terminal-green font-mono">
                   {jobProgress.estimatedTimeLeft || '--'}
                 </p>
               </div>
@@ -841,7 +841,7 @@ function BlueTopoDownloader() {
 
             {/* Status Message */}
             {jobProgress.message && (
-              <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">
+              <p className="mt-4 text-sm text-terminal-green-dim">
                 {jobProgress.message}
               </p>
             )}
@@ -849,12 +849,12 @@ function BlueTopoDownloader() {
         )}
 
         {/* Start Button (before download starts) */}
-        {!isStarted && (
+        {!isStarted && selectedTiles.length > 0 && (
           <div className="flex justify-center">
             <button
               onClick={handleStartDownload}
               disabled={loadingStorage || !storageInfo}
-              className="px-8 py-4 bg-marine-600 text-white text-lg font-semibold rounded-lg hover:bg-marine-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors"
+              className="px-8 py-4 bg-terminal-green text-terminal-bg text-lg font-bold rounded-lg hover:bg-terminal-green-bright shadow-glow-green disabled:bg-terminal-green-dim disabled:shadow-none disabled:cursor-not-allowed transition-all uppercase tracking-wider"
             >
               Start Download
             </button>
@@ -863,8 +863,8 @@ function BlueTopoDownloader() {
 
         {/* Tile Progress Cards */}
         {isStarted && jobProgress.tiles && (
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
+          <div className="bg-terminal-surface rounded-lg border border-terminal-border p-6">
+            <h2 className="text-lg font-semibold text-terminal-green mb-4 uppercase tracking-wide">
               Individual Tile Progress
             </h2>
 
@@ -925,29 +925,37 @@ function TileProgressCard({
   error,
   downloadedMetadata
 }) {
-  // Status color mapping
+  // Status color mapping - terminal theme
   const statusColors = {
-    waiting: 'bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600',
-    downloading: 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700',
-    converting: 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700',
-    completed: 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700',
-    failed: 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700'
+    waiting: 'bg-terminal-bg border-terminal-border',
+    downloading: 'bg-terminal-cyan/5 border-terminal-cyan/50',
+    converting: 'bg-terminal-amber/5 border-terminal-amber/50',
+    completed: 'bg-terminal-green/5 border-terminal-green/50',
+    failed: 'bg-terminal-red/5 border-terminal-red/50'
   }
 
   const statusIcons = {
     waiting: null,
     downloading: null,
     converting: null,
-    completed: <CheckCircleIcon className="h-5 w-5 text-green-600 dark:text-green-400" />,
-    failed: <XCircleIcon className="h-5 w-5 text-red-600 dark:text-red-400" />
+    completed: <CheckCircleIcon className="h-5 w-5 text-terminal-green" />,
+    failed: <XCircleIcon className="h-5 w-5 text-terminal-red" />
   }
 
   const statusLabels = {
-    waiting: 'Waiting',
-    downloading: 'Downloading',
-    converting: 'Converting to tiles',
-    completed: 'Completed',
-    failed: 'Failed'
+    waiting: '[..] Waiting',
+    downloading: '[>>] Downloading',
+    converting: '[~~] Converting',
+    completed: '[OK] Completed',
+    failed: '[!!] Failed'
+  }
+
+  const statusTextColors = {
+    waiting: 'text-terminal-green-dim',
+    downloading: 'text-terminal-cyan',
+    converting: 'text-terminal-amber',
+    completed: 'text-terminal-green',
+    failed: 'text-terminal-red'
   }
 
   function formatBytes(bytes) {
@@ -961,14 +969,14 @@ function TileProgressCard({
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center space-x-2">
           {statusIcons[status]}
-          <h3 className="font-semibold text-slate-900 dark:text-slate-100">
+          <h3 className="font-semibold text-terminal-green font-mono">
             {tileId}
           </h3>
-          <span className="text-xs px-2 py-1 rounded bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300">
+          <span className="text-xs px-2 py-1 rounded bg-terminal-border text-terminal-green-dim font-mono">
             {resolution}
           </span>
         </div>
-        <span className="text-sm text-slate-600 dark:text-slate-400">
+        <span className={`text-sm font-mono ${statusTextColors[status]}`}>
           {statusLabels[status]}
         </span>
       </div>
@@ -976,16 +984,16 @@ function TileProgressCard({
       {/* Progress Bar */}
       {(status === 'downloading' || status === 'converting') && (
         <div className="space-y-1">
-          <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400">
+          <div className="flex justify-between text-xs text-terminal-green-dim font-mono">
             <span>{progress}%</span>
             {totalBytes > 0 && (
               <span>{formatBytes(downloadedBytes)} / {formatBytes(totalBytes)}</span>
             )}
           </div>
-          <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+          <div className="w-full bg-terminal-border rounded-full h-2 overflow-hidden">
             <div
               className={`h-full transition-all duration-300 ${
-                status === 'converting' ? 'bg-yellow-600' : 'bg-blue-600'
+                status === 'converting' ? 'bg-terminal-amber shadow-glow-amber' : 'bg-terminal-cyan shadow-glow-cyan'
               }`}
               style={{ width: `${progress}%` }}
             />
@@ -995,7 +1003,7 @@ function TileProgressCard({
 
       {/* Download Stats */}
       {status === 'downloading' && (speedMBps > 0 || estimatedSecondsLeft > 0) && (
-        <div className="mt-2 flex items-center space-x-4 text-xs text-slate-600 dark:text-slate-400">
+        <div className="mt-2 flex items-center space-x-4 text-xs text-terminal-green-dim font-mono">
           {speedMBps > 0 && (
             <span>Speed: {speedMBps.toFixed(1)} MB/s</span>
           )}
@@ -1007,32 +1015,32 @@ function TileProgressCard({
 
       {/* Error Message */}
       {status === 'failed' && error && (
-        <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+        <p className="mt-2 text-sm text-terminal-red font-mono">
           {error}
         </p>
       )}
 
       {/* Completed Info */}
       {status === 'completed' && totalBytes > 0 && (
-        <p className="mt-2 text-sm text-green-600 dark:text-green-400">
+        <p className="mt-2 text-sm text-terminal-green font-mono">
           Downloaded {formatBytes(totalBytes)}
         </p>
       )}
 
       {/* Already Downloaded Info */}
       {downloadedMetadata && (
-        <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-600">
+        <div className="mt-2 pt-2 border-t border-terminal-border">
           <div className="flex items-center space-x-2 mb-1">
-            <CheckCircleIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
-            <span className="text-xs font-medium text-green-600 dark:text-green-400">
+            <CheckCircleIcon className="h-4 w-4 text-terminal-green" />
+            <span className="text-xs font-medium text-terminal-green">
               Already Downloaded
             </span>
           </div>
-          <div className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
+          <div className="space-y-1 text-xs text-terminal-green-dim font-mono">
             {downloadedMetadata.downloadedDate && (
               <div className="flex justify-between">
                 <span>Downloaded on device:</span>
-                <span className="font-medium">
+                <span className="font-medium text-terminal-green">
                   {new Date(downloadedMetadata.downloadedDate).toLocaleDateString()}
                 </span>
               </div>
@@ -1040,7 +1048,7 @@ function TileProgressCard({
             {downloadedMetadata.publishedDate && (
               <div className="flex justify-between">
                 <span>Published by NOAA:</span>
-                <span className="font-medium">
+                <span className="font-medium text-terminal-green">
                   {new Date(downloadedMetadata.publishedDate).toLocaleDateString()}
                 </span>
               </div>
@@ -1048,7 +1056,7 @@ function TileProgressCard({
             {downloadedMetadata.version && (
               <div className="flex justify-between">
                 <span>Version:</span>
-                <span className="font-medium text-marine-600 dark:text-marine-400">
+                <span className="font-medium text-terminal-cyan">
                   {downloadedMetadata.version}
                 </span>
               </div>
