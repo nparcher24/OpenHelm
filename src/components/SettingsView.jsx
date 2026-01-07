@@ -1,13 +1,36 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import ChartManager from './ChartManager'
+import BlueTopoDownloader from './BlueTopoDownloader'
 import ErrorBoundary from './ErrorBoundary'
 
 function SettingsView() {
-  const [activeSection, setActiveSection] = useState('general')
+  const [searchParams] = useSearchParams()
+
+  // Load last active section from localStorage or URL params, default to 'general'
+  const [activeSection, setActiveSection] = useState(() => {
+    const urlSection = searchParams.get('section')
+    if (urlSection) return urlSection
+    return localStorage.getItem('settingsActiveSection') || 'general'
+  })
+
+  // Check for URL section parameter on mount and when URL changes
+  useEffect(() => {
+    const urlSection = searchParams.get('section')
+    if (urlSection) {
+      setActiveSection(urlSection)
+    }
+  }, [searchParams])
+
+  // Save active section to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('settingsActiveSection', activeSection)
+  }, [activeSection])
 
   const sections = [
     { id: 'general', name: 'General', icon: '⚙️' },
     { id: 'charts', name: 'Chart Manager', icon: '🗺️' },
+    { id: 'bluetopo', name: 'BlueTopo', icon: '🌊' },
     { id: 'gps', name: 'GPS/AHRS', icon: '📍' },
     { id: 'display', name: 'Display', icon: '🖥️' },
     { id: 'system', name: 'System', icon: '💾' }
@@ -21,7 +44,14 @@ function SettingsView() {
             <ChartManager />
           </ErrorBoundary>
         )
-      
+
+      case 'bluetopo':
+        return (
+          <ErrorBoundary>
+            <BlueTopoDownloader />
+          </ErrorBoundary>
+        )
+
       case 'general':
         return (
           <div className="p-6">

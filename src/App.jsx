@@ -2,7 +2,6 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import MainContent from './components/MainContent'
 import BlueTopoTilesView from './components/BlueTopoTilesView'
-import BlueTopoDownloader from './components/BlueTopoDownloader'
 
 function App() {
   return (
@@ -10,7 +9,8 @@ function App() {
       <Routes>
         {/* Special routes without navbar */}
         <Route path="/bluetopo-tiles" element={<BlueTopoTilesView />} />
-        <Route path="/bluetopo-downloader" element={<BlueTopoDownloader />} />
+        {/* Redirect old bluetopo-downloader route to settings BlueTopo section */}
+        <Route path="/bluetopo-downloader" element={<Navigate to="/settings?section=bluetopo" replace />} />
 
         {/* Main app routes with navbar */}
         <Route path="/chart" element={

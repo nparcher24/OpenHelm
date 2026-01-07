@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { getDownloadedTileMetadata, getTileUrl } from '../services/blueTopoTileService'
+import { SettingsIcon } from './Icons'
 
 function TopoView() {
   const mapContainer = useRef(null)
@@ -10,6 +11,7 @@ function TopoView() {
   const [tilesLoaded, setTilesLoaded] = useState(false)
   const [tileCount, setTileCount] = useState(0)
   const [error, setError] = useState(null)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   // Virginia Beach coordinates (same as ChartView)
   const center = [-75.978, 36.853]
@@ -106,6 +108,23 @@ function TopoView() {
     }
   }
 
+  // Clear browser cache and reload
+  const clearCacheAndReload = async () => {
+    try {
+      if ('caches' in window) {
+        const cacheNames = await caches.keys()
+        await Promise.all(cacheNames.map(name => caches.delete(name)))
+        console.log('Cache cleared successfully')
+      }
+      // Force reload from server (bypass cache)
+      window.location.reload(true)
+    } catch (err) {
+      console.error('Error clearing cache:', err)
+      // Reload anyway
+      window.location.reload(true)
+    }
+  }
+
   return (
     <div className="relative h-full w-full bg-slate-100 dark:bg-slate-900">
       {/* Map Container */}
@@ -168,6 +187,42 @@ function TopoView() {
           <svg className="w-6 h-6 text-slate-700 dark:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 12H6" />
           </svg>
+        </button>
+      </div>
+
+      {/* Settings Menu (bottom left) */}
+      <div className="absolute bottom-4 left-4 z-20">
+        {/* Popup Menu */}
+        {menuOpen && (
+          <>
+            {/* Backdrop to close menu */}
+            <div
+              className="fixed inset-0 z-30"
+              onClick={() => setMenuOpen(false)}
+            />
+
+            {/* Menu Content */}
+            <div className="absolute bottom-14 left-0 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-600 overflow-hidden z-40 min-w-[200px]">
+              <button
+                onClick={clearCacheAndReload}
+                className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center space-x-3 text-slate-700 dark:text-slate-200"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span className="text-sm font-medium">Clear Cache & Reload</span>
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Settings Button */}
+        <button
+          onClick={() => setMenuOpen(!menuOpen)}
+          className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg p-3 shadow-lg touch-manipulation transition-colors"
+          aria-label="Map settings"
+        >
+          <SettingsIcon className="w-6 h-6 text-slate-700 dark:text-slate-200" />
         </button>
       </div>
     </div>

@@ -41,20 +41,28 @@ export async function getStorageInfo() {
       existingFiles = [];
     }
 
-    // Calculate total size of existing tiles
+    // Calculate total size of existing tiles (directories with tile data)
     let totalSizeMB = 0;
     const existingTiles = [];
 
     for (const file of existingFiles) {
-      if (file.endsWith('.mbtiles')) {
-        const filePath = path.join(TILES_DIR, file);
-        try {
-          const stats = await fs.stat(filePath);
-          totalSizeMB += stats.size / 1024 / 1024;
-          existingTiles.push(file.replace('.mbtiles', ''));
-        } catch (error) {
-          console.warn(`Could not stat file ${file}:`, error.message);
+      const filePath = path.join(TILES_DIR, file);
+      try {
+        const stats = await fs.stat(filePath);
+        if (stats.isDirectory()) {
+          // Calculate directory size using du
+          try {
+            const { stdout } = await execAsync(`du -sm "${filePath}"`);
+            const sizeMB = parseInt(stdout.split('\t')[0]);
+            totalSizeMB += sizeMB;
+            existingTiles.push(file);
+          } catch (duError) {
+            console.warn(`Could not calculate size for ${file}:`, duError.message);
+            existingTiles.push(file);
+          }
         }
+      } catch (error) {
+        console.warn(`Could not stat file ${file}:`, error.message);
       }
     }
 
@@ -137,7 +145,7 @@ async function downloadFileWithProgress(url, destPath, progressCallback, signal)
 }
 
 /**
- * Convert GeoTIFF to directory tiles format using GDAL
+ * Convert GeoTIFF to directory tiles format using GDAL with consistent bathymetric color scheme
  * @param {string} geotiffPath - Path to input GeoTIFF file
  * @param {string} outputDir - Path to output directory (e.g., /tiles/bluetopo/TILE_ID/)
  */
@@ -145,28 +153,82 @@ async function convertToTiles(geotiffPath, outputDir) {
   try {
     console.log(`[BlueTopo] Converting ${geotiffPath} to directory tiles...`);
 
-    // Ensure output directory exists
+    // DELETE the old tile directory completely to ensure fresh tiles
+    try {
+      await fs.rm(outputDir, { recursive: true, force: true });
+      console.log(`[BlueTopo] Deleted old tiles at ${outputDir}`);
+    } catch (deleteError) {
+      // Directory might not exist, that's fine
+    }
+
+    // Ensure output and temp directories exist
     await fs.mkdir(outputDir, { recursive: true });
+    await fs.mkdir(TEMP_DIR, { recursive: true });
 
-    // Step 1: Convert to 8-bit (required by gdal2tiles for 16/32-bit bathymetric data)
-    const tempVrt = geotiffPath.replace('.tiff', '_8bit.vrt');
-    console.log(`[BlueTopo] Converting to 8-bit VRT...`);
-    await execAsync(`gdal_translate -of VRT -ot Byte -scale "${geotiffPath}" "${tempVrt}"`);
+    const timestamp = Date.now();
+    const tempFiles = [];
 
-    // Step 2: Generate directory tiles (z/x/y.png format) for zoom levels 8-14
+    // Step 1: Generate very strong hillshade (z=20 for maximum feature visibility)
+    const hillshadeTiff = path.join(TEMP_DIR, `hillshade_${timestamp}.tiff`);
+    tempFiles.push(hillshadeTiff);
+    console.log(`[BlueTopo] Generating strong hillshade relief (z=20)...`);
+    await execAsync(`gdaldem hillshade "${geotiffPath}" "${hillshadeTiff}" -z 20 -az 315 -alt 35 -compute_edges`);
+
+    // Step 2: Create water mask (1 for water deeper than 1m, 0 for land/shallow/nodata)
+    const maskTiff = path.join(TEMP_DIR, `mask_${timestamp}.tiff`);
+    tempFiles.push(maskTiff);
+    console.log(`[BlueTopo] Creating water mask...`);
+    await execAsync(`gdal_calc.py \
+      -D "${geotiffPath}" \
+      --outfile="${maskTiff}" \
+      --calc="numpy.where((D < -1) & (D > -12000), 1, 0)" \
+      --type=Byte \
+      --NoDataValue=0 \
+      --overwrite`);
+
+    // Step 3: Create RGBA composite
+    // Blue-dominant with subtle red hillshade for features
+    // RGB set to 0 where mask is 0 (land/shallow) for true transparency
+    const rgbaTiff = path.join(TEMP_DIR, `rgba_${timestamp}.tiff`);
+    tempFiles.push(rgbaTiff);
+    console.log(`[BlueTopo] Creating RGBA composite with transparency...`);
+    await execAsync(`gdal_calc.py \
+      -H "${hillshadeTiff}" \
+      -M "${maskTiff}" \
+      --outfile="${rgbaTiff}" \
+      --calc="numpy.where(M==1, numpy.clip(80 + ((255-H)/255.0)*60, 0, 255), 0)" \
+      --calc="numpy.where(M==1, numpy.clip(100 + ((H/255.0)*50), 0, 255), 0)" \
+      --calc="numpy.where(M==1, numpy.clip(160 + ((H/255.0)*60), 0, 255), 0)" \
+      --calc="M * 255" \
+      --type=Byte \
+      --overwrite`);
+
+    // Step 4: Warp to Web Mercator
+    const warpedTiff = path.join(TEMP_DIR, `warped_${timestamp}.tiff`);
+    tempFiles.push(warpedTiff);
+    console.log(`[BlueTopo] Warping to Web Mercator...`);
+    await execAsync(`gdalwarp \
+      -t_srs EPSG:3857 \
+      -r bilinear \
+      "${rgbaTiff}" "${warpedTiff}"`);
+
+    // Step 5: Generate tiles
     console.log(`[BlueTopo] Generating tiles (zoom 8-14)...`);
     await execAsync(`gdal2tiles.py \
       --zoom=8-14 \
       --processes=2 \
       --resampling=average \
       --webviewer=none \
-      "${tempVrt}" "${outputDir}"`);
+      "${warpedTiff}" "${outputDir}"`);
 
-    // Step 3: Cleanup temp VRT file
-    try {
-      await fs.unlink(tempVrt);
-    } catch (cleanupError) {
-      console.warn(`[BlueTopo] Could not cleanup temp VRT: ${cleanupError.message}`);
+    // Step 6: Cleanup temp files
+    console.log(`[BlueTopo] Cleaning up temp files...`);
+    for (const tempFile of tempFiles) {
+      try {
+        await fs.unlink(tempFile);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
     }
 
     console.log(`[BlueTopo] Conversion complete: ${outputDir}`);
@@ -743,7 +805,7 @@ export async function reprocessAllRawFiles() {
     clients: new Set()
   });
 
-  // Process files asynchronously
+  // Process files asynchronously with parallel processing
   setImmediate(async () => {
     const job = global.activeJobs.get(jobId);
     const results = {
@@ -751,46 +813,59 @@ export async function reprocessAllRawFiles() {
       failed: []
     };
 
-    for (let i = 0; i < rawFiles.length; i++) {
+    const MAX_PARALLEL = 3; // Process 3 tiles concurrently
+    let completedCount = 0;
+
+    // Process in parallel batches
+    for (let i = 0; i < rawFiles.length; i += MAX_PARALLEL) {
       if (controller.signal.aborted) {
         console.log(`[BlueTopo Job ${jobId}] Cancelled`);
         break;
       }
 
-      const file = rawFiles[i];
-      const tileState = job.tiles.find(t => t.tileId === file.tileId);
+      const batch = rawFiles.slice(i, i + MAX_PARALLEL);
+      const batchPromises = batch.map(async (file) => {
+        const tileState = job.tiles.find(t => t.tileId === file.tileId);
 
-      if (tileState) {
-        tileState.status = 'converting';
-        tileState.progress = 50;
-      }
-
-      const result = await reprocessRawFile(file.tileId);
-
-      if (result.success) {
-        results.completed.push(file.tileId);
-        job.summary.completedTiles++;
         if (tileState) {
-          tileState.status = 'completed';
-          tileState.progress = 100;
+          tileState.status = 'converting';
+          tileState.progress = 50;
         }
-      } else {
-        results.failed.push({ tileId: file.tileId, error: result.error });
-        job.summary.failedTiles++;
-        if (tileState) {
-          tileState.status = 'failed';
-          tileState.error = result.error;
-        }
-      }
 
-      // Broadcast progress
-      const progress = Math.round(((i + 1) / rawFiles.length) * 100);
+        const result = await reprocessRawFile(file.tileId);
+
+        if (result.success) {
+          results.completed.push(file.tileId);
+          job.summary.completedTiles++;
+          if (tileState) {
+            tileState.status = 'completed';
+            tileState.progress = 100;
+          }
+        } else {
+          results.failed.push({ tileId: file.tileId, error: result.error });
+          job.summary.failedTiles++;
+          if (tileState) {
+            tileState.status = 'failed';
+            tileState.error = result.error;
+          }
+        }
+
+        return result;
+      });
+
+      // Wait for batch to complete
+      await Promise.all(batchPromises);
+
+      completedCount += batch.length;
+
+      // Broadcast progress after each batch
+      const progress = Math.round((completedCount / rawFiles.length) * 100);
       if (global.broadcastProgress) {
         global.broadcastProgress(
           jobId,
           progress,
           'processing',
-          `Reprocessed ${i + 1}/${rawFiles.length} tiles`
+          `Reprocessed ${completedCount}/${rawFiles.length} tiles`
         );
       }
     }

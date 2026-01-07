@@ -175,8 +175,8 @@ if xset q &>/dev/null; then
     # Wait a moment for servers to be fully ready
     sleep 2
     
-    print_status "Launching OpenHelm in fullscreen mode..."
-    
+    print_status "Launching OpenHelm in windowed mode..."
+
     # Check if chromium-browser exists
     if command -v chromium-browser &> /dev/null; then
         CHROMIUM_CMD="chromium-browser"
@@ -188,15 +188,13 @@ if xset q &>/dev/null; then
         print_status "Servers are running - you can access at http://localhost:3000"
         CHROMIUM_PID=""
     fi
-    
+
     if [ -n "$CHROMIUM_CMD" ]; then
-        # Launch Chromium in kiosk mode optimized for Pi
+        # Launch Chromium in windowed mode optimized for Pi
         $CHROMIUM_CMD \
-          --kiosk \
           --no-sandbox \
           --disable-web-security \
           --disable-features=VizDisplayCompositor \
-          --start-fullscreen \
           --window-size=1920,1080 \
           --window-position=0,0 \
           --no-first-run \
@@ -214,8 +212,9 @@ if xset q &>/dev/null; then
           --ignore-gpu-blacklist \
           --max_old_space_size=512 \
           --disable-dev-shm-usage \
+          --password-store=basic \
           http://localhost:3000 &
-        
+
         CHROMIUM_PID=$!
     fi
 else

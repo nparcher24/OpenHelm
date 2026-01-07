@@ -51,6 +51,9 @@ function BlueTopoDownloader() {
   // Use existing job progress hook with BlueTopo status fetcher
   const jobProgress = useJobProgress(jobId, !!jobId, getTileDownloadStatus)
 
+  // Track reprocess job progress separately
+  const reprocessProgress = useJobProgress(reprocessJobId, !!reprocessJobId, getTileDownloadStatus)
+
   // Load storage info and downloaded tiles on mount
   useEffect(() => {
     async function loadStorage() {
@@ -123,6 +126,21 @@ function BlueTopoDownloader() {
       }
     })()
   }, [jobProgress, isStarted])
+
+  // Handle reprocess completion
+  useEffect(() => {
+    if (!reprocessProgress || !isReprocessing) return
+
+    // Check if reprocessing is complete
+    if (reprocessProgress.status === 'completed' || reprocessProgress.status === 'completed_with_errors') {
+      console.log('[BlueTopoDownloader] Reprocessing complete, reloading data')
+      setIsReprocessing(false)
+      setReprocessJobId(null)
+
+      // Reload everything after reprocessing
+      reloadDownloadedTiles()
+    }
+  }, [reprocessProgress, isReprocessing])
 
   // Don't redirect - allow viewing downloaded tiles even without selection
   // useEffect(() => {
@@ -380,7 +398,7 @@ function BlueTopoDownloader() {
     .reduce((sum, tile) => sum + (tile.speedMBps || 0), 0) || 0
 
   return (
-    <div className="h-screen overflow-y-auto bg-slate-50 dark:bg-slate-900">
+    <div className="h-full overflow-y-auto bg-slate-50 dark:bg-slate-900">
       {/* Header */}
       <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -560,6 +578,51 @@ function BlueTopoDownloader() {
           </div>
         )}
 
+        {/* Reprocess Progress */}
+        {isReprocessing && reprocessProgress && (
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Reprocessing Raw Files
+              </h2>
+              {reprocessProgress.connected !== undefined && (
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${reprocessProgress.connected ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {reprocessProgress.connected ? 'Connected' : 'Polling'}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Progress Bar */}
+            <div className="space-y-2 mb-4">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-600 dark:text-slate-400">
+                  {reprocessProgress.summary?.completedTiles || 0} of {reprocessProgress.summary?.totalTiles || 0} tiles reprocessed
+                  {reprocessProgress.summary?.failedTiles > 0 && ` (${reprocessProgress.summary.failedTiles} failed)`}
+                </span>
+                <span className="text-slate-900 dark:text-slate-100 font-medium">
+                  {reprocessProgress.progress || 0}%
+                </span>
+              </div>
+              <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-4 overflow-hidden">
+                <div
+                  className="h-full bg-yellow-600 transition-all duration-300"
+                  style={{ width: `${reprocessProgress.progress || 0}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Status Message */}
+            {reprocessProgress.message && (
+              <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">
+                {reprocessProgress.message}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Downloaded Tiles Table */}
         <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6">
           <div className="flex items-center justify-between mb-4">
@@ -569,17 +632,17 @@ function BlueTopoDownloader() {
 
             <div className="flex items-center space-x-2">
               {/* Reprocess Raw Files Button */}
-              {!isStarted && !isReprocessing && (
+              {!isStarted && (
                 <button
                   onClick={handleReprocessRawFiles}
-                  disabled={loadingDownloadedTiles}
+                  disabled={loadingDownloadedTiles || isReprocessing}
                   className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
                   title="Reprocess all raw GeoTIFF files"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
-                  <span>Reprocess Raw Files</span>
+                  <span>{isReprocessing ? 'Reprocessing...' : 'Reprocess Raw Files'}</span>
                 </button>
               )}
 
@@ -713,7 +776,6 @@ function BlueTopoDownloader() {
           )}
         </div>
 
-        {/* Overall Progress */}
         {isStarted && jobProgress && (
           <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6">
             <div className="flex items-center justify-between mb-4">
