@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { getDownloadedTileMetadata, getTileUrl } from '../services/blueTopoTileService'
+import { getDownloadedTileMetadata, getTileUrl, getDepthAtLocation } from '../services/blueTopoTileService'
 import { SettingsIcon } from './Icons'
+import DepthCrosshairs from './DepthCrosshairs'
+import DepthInfoCard from './DepthInfoCard'
 
 function TopoView() {
   const mapContainer = useRef(null)
@@ -12,6 +14,24 @@ function TopoView() {
   const [tileCount, setTileCount] = useState(0)
   const [error, setError] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
+
+  // Depth measurement state
+  const [touchState, setTouchState] = useState(null)
+  const [activeMeasurement, setActiveMeasurement] = useState(null)
+  const [loadingDepth, setLoadingDepth] = useState(false)
+  const holdTimerRef = useRef(null)
+  const touchStateRef = useRef(null)
+  const activeMeasurementRef = useRef(null)
+  const HOLD_DURATION = 300
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    touchStateRef.current = touchState
+  }, [touchState])
+
+  useEffect(() => {
+    activeMeasurementRef.current = activeMeasurement
+  }, [activeMeasurement])
 
   // Virginia Beach coordinates (same as ChartView)
   const center = [-75.978, 36.853]
@@ -28,6 +48,10 @@ function TopoView() {
       pitch: 0,
       bearing: 0
     })
+
+    // Disable single-finger pan for depth measurement, keep two-finger zoom/rotate
+    map.current.dragPan.disable()
+    map.current.touchZoomRotate.enable()
 
     // Add navigation controls
     map.current.addControl(new maplibregl.NavigationControl(), 'top-right')
@@ -108,6 +132,164 @@ function TopoView() {
     }
   }
 
+  // Touch event handlers for depth measurement
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return
+
+    const canvas = map.current.getCanvasContainer()
+
+    const handleTouchStart = (e) => {
+      if (e.touches.length !== 1) {
+        cancelHold()
+        return
+      }
+      e.stopPropagation()
+
+      // Dismiss any existing measurement popup when starting a new touch
+      if (activeMeasurementRef.current) {
+        setActiveMeasurement(null)
+      }
+
+      const touch = e.touches[0]
+      const rect = canvas.getBoundingClientRect()
+      const x = touch.clientX - rect.left
+      const y = touch.clientY - rect.top
+
+      setTouchState({
+        startTime: Date.now(),
+        startX: x,
+        startY: y,
+        currentX: x,
+        currentY: y,
+        showingCrosshairs: false
+      })
+
+      holdTimerRef.current = setTimeout(() => {
+        setTouchState(prev => prev ? { ...prev, showingCrosshairs: true } : null)
+      }, HOLD_DURATION)
+    }
+
+    const handleTouchMove = (e) => {
+      if (!touchStateRef.current || e.touches.length !== 1) {
+        cancelHold()
+        return
+      }
+      e.stopPropagation()
+
+      const touch = e.touches[0]
+      const rect = canvas.getBoundingClientRect()
+      const x = touch.clientX - rect.left
+      const y = touch.clientY - rect.top
+
+      // Update position - crosshairs will follow the finger
+      setTouchState(prev => prev ? { ...prev, currentX: x, currentY: y } : null)
+    }
+
+    const handleTouchEnd = (e) => {
+      e.stopPropagation()
+
+      const currentTouchState = touchStateRef.current
+      if (!currentTouchState) return
+
+      const holdTime = Date.now() - currentTouchState.startTime
+
+      // If crosshairs were showing, perform measurement
+      if (holdTime >= HOLD_DURATION && currentTouchState.showingCrosshairs) {
+        performDepthMeasurement(currentTouchState.currentX, currentTouchState.currentY)
+      }
+
+      cancelHold()
+      setTouchState(null)
+    }
+
+    const handleTouchCancel = (e) => {
+      e.stopPropagation()
+      cancelHold()
+      setTouchState(null)
+    }
+
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false })
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false })
+    canvas.addEventListener('touchend', handleTouchEnd, { passive: false })
+    canvas.addEventListener('touchcancel', handleTouchCancel, { passive: false })
+
+    return () => {
+      canvas.removeEventListener('touchstart', handleTouchStart)
+      canvas.removeEventListener('touchmove', handleTouchMove)
+      canvas.removeEventListener('touchend', handleTouchEnd)
+      canvas.removeEventListener('touchcancel', handleTouchCancel)
+      cancelHold()
+    }
+  }, [mapLoaded])
+
+  // Prevent context menu on long press
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return
+
+    const canvas = map.current.getCanvasContainer()
+    const mapElement = map.current.getContainer()
+
+    const preventContextMenu = (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      return false
+    }
+
+    // Prevent context menu on both the canvas and the container
+    canvas.addEventListener('contextmenu', preventContextMenu)
+    mapElement.addEventListener('contextmenu', preventContextMenu)
+
+    return () => {
+      canvas.removeEventListener('contextmenu', preventContextMenu)
+      mapElement.removeEventListener('contextmenu', preventContextMenu)
+    }
+  }, [mapLoaded])
+
+  // Helper functions
+  const cancelHold = () => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current)
+      holdTimerRef.current = null
+    }
+  }
+
+  const performDepthMeasurement = async (x, y) => {
+    // Calculate the adjusted Y position (where the large crosshairs were)
+    const adjustedY = Math.max(y - 100, 50)
+
+    // Get the map coordinates at the crosshair position (not finger position)
+    const point = map.current.unproject([x, adjustedY])
+    setLoadingDepth(true)
+
+    try {
+      const result = await getDepthAtLocation(point.lng, point.lat)
+      setActiveMeasurement({
+        lat: point.lat,
+        lon: point.lng,
+        depth: result.depth,
+        uncertainty: result.uncertainty,
+        tileId: result.tileId,
+        error: result.success ? null : result.message,
+        screenX: x,
+        screenY: adjustedY  // Use adjusted position, not finger position
+      })
+    } catch (error) {
+      setActiveMeasurement({
+        lat: point.lat,
+        lon: point.lng,
+        error: error.message,
+        screenX: x,
+        screenY: adjustedY  // Use adjusted position, not finger position
+      })
+    } finally {
+      setLoadingDepth(false)
+    }
+  }
+
+  const clearMeasurement = () => {
+    setActiveMeasurement(null)
+  }
+
   // Clear browser cache and reload
   const clearCacheAndReload = async () => {
     try {
@@ -131,8 +313,40 @@ function TopoView() {
       <div
         ref={mapContainer}
         className="h-full w-full"
-        style={{ position: 'relative' }}
+        style={{
+          position: 'relative',
+          touchAction: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none'
+        }}
       />
+
+      {/* Crosshairs during hold */}
+      {touchState?.showingCrosshairs && (
+        <DepthCrosshairs
+          showing={true}
+          x={touchState.currentX}
+          y={touchState.currentY}
+          holdComplete={false}
+        />
+      )}
+
+      {/* Crosshairs and info card after measurement */}
+      {activeMeasurement && (
+        <>
+          <DepthCrosshairs
+            showing={true}
+            x={activeMeasurement.screenX}
+            y={activeMeasurement.screenY}
+            holdComplete={true}
+          />
+          <DepthInfoCard
+            measurement={activeMeasurement}
+            loading={loadingDepth}
+            onClose={clearMeasurement}
+          />
+        </>
+      )}
 
       {/* Loading Indicator */}
       {(!mapLoaded || !tilesLoaded) && (

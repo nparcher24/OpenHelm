@@ -58,3 +58,25 @@ export function getCombinedBounds(tiles) {
 
   return [minx, miny, maxx, maxy]
 }
+
+/**
+ * Query depth at a specific location
+ * @param {number} lon - Longitude (WGS84)
+ * @param {number} lat - Latitude (WGS84)
+ * @returns {Promise<{success: boolean, depth?: number, uncertainty?: number, tileId?: string, message?: string}>}
+ */
+export async function getDepthAtLocation(lon, lat) {
+  try {
+    const response = await fetch(`${API_BASE}/api/bluetopo/depth?lat=${lat}&lon=${lon}`)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch depth: ${response.statusText}`)
+    }
+    return await response.json()
+  } catch (error) {
+    console.error('Error fetching depth:', error)
+    return {
+      success: false,
+      message: error.message
+    }
+  }
+}

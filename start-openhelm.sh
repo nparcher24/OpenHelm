@@ -190,7 +190,7 @@ if xset q &>/dev/null; then
     fi
 
     if [ -n "$CHROMIUM_CMD" ]; then
-        # Launch Chromium in windowed mode optimized for Pi
+        # Launch Chromium in windowed mode optimized for Pi with context menu disabled
         $CHROMIUM_CMD \
           --no-sandbox \
           --disable-web-security \
@@ -213,6 +213,8 @@ if xset q &>/dev/null; then
           --max_old_space_size=512 \
           --disable-dev-shm-usage \
           --password-store=basic \
+          --overscroll-history-navigation=0 \
+          --touch-events=enabled \
           http://localhost:3000 &
 
         CHROMIUM_PID=$!

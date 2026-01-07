@@ -4,8 +4,18 @@ import MainContent from './components/MainContent'
 import BlueTopoTilesView from './components/BlueTopoTilesView'
 
 function App() {
+  // Prevent context menu globally
+  const handleContextMenu = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    return false
+  }
+
   return (
-    <div className="h-screen w-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 flex flex-col">
+    <div
+      className="h-screen w-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 flex flex-col"
+      onContextMenu={handleContextMenu}
+    >
       <Routes>
         {/* Special routes without navbar */}
         <Route path="/bluetopo-tiles" element={<BlueTopoTilesView />} />

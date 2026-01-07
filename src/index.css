@@ -44,4 +44,16 @@
     min-width: 44px;
     touch-action: manipulation;
   }
+
+  /* Prevent context menu on all touch interactions for map */
+  canvas, .maplibregl-canvas, .maplibregl-map {
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    touch-action: none !important;
+  }
+
+  /* Specifically for map containers */
+  [class*="maplibre"] {
+    -webkit-touch-callout: none !important;
+  }
 }

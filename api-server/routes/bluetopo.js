@@ -630,4 +630,48 @@ router.post('/raw-files/reprocess-all', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/bluetopo/depth
+ * Query depth at a specific location
+ * Query params: lat, lon
+ */
+import { getDepthAtLocation } from '../services/depthQueryService.js';
+
+router.get('/depth', async (req, res) => {
+  try {
+    const { lat, lon } = req.query;
+
+    // Validate parameters
+    const latitude = parseFloat(lat);
+    const longitude = parseFloat(lon);
+
+    if (isNaN(latitude) || isNaN(longitude)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid lat/lon parameters'
+      });
+    }
+
+    // Validate ranges
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      return res.status(400).json({
+        success: false,
+        error: 'Lat/lon out of valid range'
+      });
+    }
+
+    // Query depth
+    const result = await getDepthAtLocation(longitude, latitude);
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('[BlueTopo] Error querying depth:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 export default router;
