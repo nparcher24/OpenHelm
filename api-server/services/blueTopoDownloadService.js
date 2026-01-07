@@ -196,9 +196,9 @@ async function convertToTiles(geotiffPath, outputDir) {
       -H "${hillshadeTiff}" \
       -M "${maskTiff}" \
       --outfile="${rgbaTiff}" \
-      --calc="numpy.where(M==1, numpy.clip(80 + ((255-H)/255.0)*60, 0, 255), 0)" \
-      --calc="numpy.where(M==1, numpy.clip(100 + ((H/255.0)*50), 0, 255), 0)" \
-      --calc="numpy.where(M==1, numpy.clip(160 + ((H/255.0)*60), 0, 255), 0)" \
+      --calc="numpy.where(M==1, numpy.clip(40 + ((255-H)/255.0)*50, 0, 255), 0)" \
+      --calc="numpy.where(M==1, numpy.clip(60 + ((H/255.0)*40), 0, 255), 0)" \
+      --calc="numpy.where(M==1, numpy.clip(140 + ((H/255.0)*60), 0, 255), 0)" \
       --calc="M * 255" \
       --type=Byte \
       --overwrite`);
