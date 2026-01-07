@@ -1,0 +1,40 @@
+{
+  "version": 8,
+  "name": "ENC Coastline",
+  "metadata": {
+    "author": "OpenHelm",
+    "description": "NOAA ENC shoreline data - direct GeoJSON"
+  },
+  "sources": {
+    "coastline": {
+      "type": "geojson",
+      "data": "/data/enc_coastline.geojson"
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#000000"
+      }
+    },
+    {
+      "id": "coastline-outline",
+      "type": "line",
+      "source": "coastline",
+      "paint": {
+        "line-color": "#FFFFFF",
+        "line-width": [
+          "interpolate",
+          ["exponential", 1.5],
+          ["zoom"],
+          6, 0.5,
+          10, 1,
+          14, 1.5,
+          18, 2
+        ]
+      }
+    }
+  ]
+}
