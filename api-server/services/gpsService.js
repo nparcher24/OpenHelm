@@ -1,6 +1,7 @@
 /**
  * GPS Service - Reads GPS data from USB serial device
- * Supports CASIC binary protocol used by Chinese GPS/BDS modules
+ * Supports WitMotion JY-GPSIMU binary protocol
+ * Protocol docs: https://wit-motion.gitbook.io/witmotion-sdk
  */
 
 import { SerialPort } from 'serialport'
@@ -16,9 +17,15 @@ let gpsData = {
   longitude: null,
   altitude: null,
   heading: null,
+  roll: null,
+  pitch: null,
   speed: null,
+  groundSpeed: null,
   satellites: 0,
   fix: false,
+  pdop: null,
+  hdop: null,
+  vdop: null,
   timestamp: null,
   device: null,
   error: null
@@ -54,62 +61,100 @@ async function findGpsDevice() {
 }
 
 /**
- * Parse CASIC binary protocol messages
- * Message format: 55 XX [8 data bytes] [checksum] = 11 bytes total
+ * Parse WitMotion binary protocol messages
+ * Message format: 0x55 TYPE [8 data bytes] [checksum] = 11 bytes total
  *
- * Message types:
- * - US: Position (lat in bytes 0-3 as special format, lon in bytes 4-7 as int32/1e7)
- * - UT: Altitude (bytes 4-7 as int32 millimeters)
- * - UW: Heading/velocity (bytes 0-1 as uint16 centidegrees)
- * - UZ: Satellite info
- * - UQ: Fix status
+ * Message types (TYPE byte):
+ * - 0x50 (P): Real Time Clock
+ * - 0x51 (Q): Accelerations (ax, ay, az)
+ * - 0x52 (R): Angular velocities (wx, wy, wz)
+ * - 0x53 (S): Euler angles (roll, pitch, yaw)
+ * - 0x54 (T): Magnetometer (hx, hy, hz)
+ * - 0x55 (U): Data ports status
+ * - 0x56 (V): Barometry/Altimeter
+ * - 0x57 (W): GPS Latitude/Longitude
+ * - 0x58 (X): GPS Ground Speed
+ * - 0x59 (Y): Quaternion
+ * - 0x5A (Z): GPS Accuracy (satellites, PDOP, HDOP, VDOP)
  */
-function parseCasicMessage(msg) {
+function parseWitMotionMessage(msg) {
   if (msg.length < 11 || msg[0] !== 0x55) return null
 
   const msgType = String.fromCharCode(msg[1])
   const data = msg.slice(2, 10)
 
   switch (msgType) {
-    case 'Q': // Status
-      const status = data[0]
-      gpsData.fix = (status & 0x01) === 1
+    case 'Q': // 0x51 - Accelerations (not status!)
+      // ax, ay, az as int16 - we don't need these for navigation
       break
 
-    case 'R': // Satellite info (appears to be mostly zeros when no fix)
+    case 'R': // 0x52 - Angular velocities
+      // wx, wy, wz as int16 - we don't need these for navigation
       break
 
-    case 'W': // Position (lat/lon)
-      // Both values as int32 / 1e7: bytes 0-3 = lon, bytes 4-7 = lat
-      const lonRaw = data.readInt32LE(0)
-      const latRaw = data.readInt32LE(4)
-
-      // Longitude: int32 / 1e7 (negative for western hemisphere)
-      gpsData.longitude = lonRaw / 1e7
-
-      // Latitude: int32 / 1e7
-      gpsData.latitude = latRaw / 1e7
-      break
-
-    case 'T': // Altitude
-      // Bytes 4-7: altitude in millimeters
-      const altRaw = data.readInt32LE(4)
-      gpsData.altitude = altRaw / 1000 // Convert to meters
-      break
-
-    case 'S': // Heading/velocity (IMU data)
-      // Raw yaw from IMU - int16 where 32768 = 180°
+    case 'S': // 0x53 - Euler angles (roll, pitch, yaw)
+      // Roll: bytes 0-1, Pitch: bytes 2-3, Yaw: bytes 4-5 as int16
+      // Scale: value / 32768 * 180 = degrees
+      const roll = data.readInt16LE(0)
+      const pitch = data.readInt16LE(2)
       const yaw = data.readInt16LE(4)
-      // Scale to degrees, negate to fix E/W, normalize to 0-360
+
+      gpsData.roll = (roll / 32768.0) * 180.0
+      gpsData.pitch = (pitch / 32768.0) * 180.0
+
       let heading = (-yaw / 32768.0) * 180.0
       if (heading < 0) heading += 360
       gpsData.heading = heading
       break
 
-    case 'Z': // Satellite info
-      // First uint16 appears to be satellite count or related metric
-      const satVal = data.readUInt16LE(0)
-      gpsData.satellites = Math.min(satVal, 20) // Cap at reasonable value
+    case 'T': // 0x54 - Magnetometer
+      // hx, hy, hz - we use yaw from Euler angles instead
+      break
+
+    case 'V': // 0x56 - Barometry/Altimeter
+      // Pressure and altitude data
+      const pressure = data.readInt32LE(0) // Pa
+      const baroAlt = data.readInt32LE(4) / 100 // cm to meters
+      // We'll prefer GPS altitude if available
+      if (gpsData.altitude === null) {
+        gpsData.altitude = baroAlt
+      }
+      break
+
+    case 'W': // 0x57 - GPS Latitude/Longitude
+      // Lon: bytes 0-3, Lat: bytes 4-7 as int32 / 1e7
+      const lonRaw = data.readInt32LE(0)
+      const latRaw = data.readInt32LE(4)
+      gpsData.longitude = lonRaw / 1e7
+      gpsData.latitude = latRaw / 1e7
+      break
+
+    case 'X': // 0x58 - GPS Ground Speed
+      // Speed: bytes 0-3 as int32, altitude: bytes 4-7 as int32
+      const gpsSpeed = data.readInt32LE(0) / 1000 // mm/s to m/s
+      const gpsAlt = data.readInt32LE(4) / 100 // cm to meters
+      gpsData.groundSpeed = gpsSpeed
+      gpsData.altitude = gpsAlt
+      break
+
+    case 'Y': // 0x59 - Quaternion
+      // q0, q1, q2, q3 - we use Euler angles instead
+      break
+
+    case 'Z': // 0x5A - GPS Accuracy
+      // Satellites: bytes 0-1, PDOP: bytes 2-3, HDOP: bytes 4-5, VDOP: bytes 6-7
+      const satellites = data.readUInt16LE(0)
+      const pdop = data.readUInt16LE(2) / 10
+      const hdop = data.readUInt16LE(4) / 10
+      const vdop = data.readUInt16LE(6) / 10
+
+      gpsData.satellites = satellites
+      gpsData.pdop = pdop
+      gpsData.hdop = hdop
+      gpsData.vdop = vdop
+
+      // Fix is determined by having >= 4 satellites
+      gpsData.fix = satellites >= 4
       break
   }
 
@@ -145,7 +190,7 @@ function processData(data) {
     // Check if this looks like a valid message (second byte should be 0x50-0x5F)
     if (messageBuffer[1] >= 0x50 && messageBuffer[1] <= 0x5F) {
       const msg = messageBuffer.slice(0, 11)
-      parseCasicMessage(msg)
+      parseWitMotionMessage(msg)
       messageBuffer = messageBuffer.slice(11)
     } else {
       // Not a valid message, skip this byte and try again
