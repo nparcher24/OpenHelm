@@ -24,6 +24,9 @@ function TopoView() {
   const activeMeasurementRef = useRef(null)
   const HOLD_DURATION = 300
 
+  // Two-finger pan state
+  const twoFingerPanRef = useRef(null)
+
   // Keep refs in sync with state
   useEffect(() => {
     touchStateRef.current = touchState
@@ -42,14 +45,15 @@ function TopoView() {
 
     map.current = new maplibregl.Map({
       container: mapContainer.current,
-      style: 'https://tiles.openfreemap.org/styles/liberty',
+      style: '/styles/cusp-base-style.json',
       center: center,
       zoom: zoom,
       pitch: 0,
       bearing: 0
     })
 
-    // Disable single-finger pan for depth measurement, keep two-finger zoom/rotate
+    // Disable single-finger pan, but keep two-finger zoom/rotate enabled
+    // We'll manually implement two-finger panning in our touch handlers
     map.current.dragPan.disable()
     map.current.touchZoomRotate.enable()
 
@@ -64,7 +68,7 @@ function TopoView() {
 
     // Add attribution
     map.current.addControl(new maplibregl.AttributionControl({
-      customAttribution: 'BlueTopo NOAA | OpenFreeMap'
+      customAttribution: 'BlueTopo NOAA | CUSP NOAA NGS'
     }), 'bottom-left')
 
     map.current.on('load', async () => {
@@ -139,10 +143,27 @@ function TopoView() {
     const canvas = map.current.getCanvasContainer()
 
     const handleTouchStart = (e) => {
+      // Handle two-finger pan initialization
+      if (e.touches.length === 2) {
+        cancelHold()
+        const rect = canvas.getBoundingClientRect()
+        const touch1 = e.touches[0]
+        const touch2 = e.touches[1]
+        const midX = (touch1.clientX + touch2.clientX) / 2 - rect.left
+        const midY = (touch1.clientY + touch2.clientY) / 2 - rect.top
+
+        twoFingerPanRef.current = { x: midX, y: midY }
+        return
+      }
+
+      // Single-finger touch for crosshairs
       if (e.touches.length !== 1) {
         cancelHold()
         return
       }
+
+      // Prevent MapLibre's dragPan from activating on single-finger touches
+      e.preventDefault()
       e.stopPropagation()
 
       // Dismiss any existing measurement popup when starting a new touch
@@ -170,10 +191,32 @@ function TopoView() {
     }
 
     const handleTouchMove = (e) => {
+      // Handle two-finger pan
+      if (e.touches.length === 2 && twoFingerPanRef.current) {
+        const rect = canvas.getBoundingClientRect()
+        const touch1 = e.touches[0]
+        const touch2 = e.touches[1]
+        const midX = (touch1.clientX + touch2.clientX) / 2 - rect.left
+        const midY = (touch1.clientY + touch2.clientY) / 2 - rect.top
+
+        const deltaX = midX - twoFingerPanRef.current.x
+        const deltaY = midY - twoFingerPanRef.current.y
+
+        // Pan the map by the delta
+        map.current.panBy([-deltaX, -deltaY], { animate: false })
+
+        twoFingerPanRef.current = { x: midX, y: midY }
+        return
+      }
+
+      // Single-finger crosshairs movement
       if (!touchStateRef.current || e.touches.length !== 1) {
         cancelHold()
         return
       }
+
+      // Prevent MapLibre's dragPan from activating on single-finger touches
+      e.preventDefault()
       e.stopPropagation()
 
       const touch = e.touches[0]
@@ -186,26 +229,41 @@ function TopoView() {
     }
 
     const handleTouchEnd = (e) => {
-      e.stopPropagation()
-
-      const currentTouchState = touchStateRef.current
-      if (!currentTouchState) return
-
-      const holdTime = Date.now() - currentTouchState.startTime
-
-      // If crosshairs were showing, perform measurement
-      if (holdTime >= HOLD_DURATION && currentTouchState.showingCrosshairs) {
-        performDepthMeasurement(currentTouchState.currentX, currentTouchState.currentY)
+      // Clear two-finger pan state when fingers are lifted
+      if (e.touches.length < 2) {
+        twoFingerPanRef.current = null
       }
 
-      cancelHold()
-      setTouchState(null)
+      const currentTouchState = touchStateRef.current
+
+      // Only prevent default/stop propagation if we have an active single-finger touch
+      if (currentTouchState) {
+        e.preventDefault()
+        e.stopPropagation()
+
+        const holdTime = Date.now() - currentTouchState.startTime
+
+        // If crosshairs were showing, perform measurement
+        if (holdTime >= HOLD_DURATION && currentTouchState.showingCrosshairs) {
+          performDepthMeasurement(currentTouchState.currentX, currentTouchState.currentY)
+        }
+
+        cancelHold()
+        setTouchState(null)
+      }
     }
 
     const handleTouchCancel = (e) => {
-      e.stopPropagation()
-      cancelHold()
-      setTouchState(null)
+      // Clear two-finger pan state
+      twoFingerPanRef.current = null
+
+      // Only prevent default/stop propagation if we have an active single-finger touch
+      if (touchStateRef.current) {
+        e.preventDefault()
+        e.stopPropagation()
+        cancelHold()
+        setTouchState(null)
+      }
     }
 
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false })
