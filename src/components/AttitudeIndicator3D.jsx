@@ -142,7 +142,7 @@ function ReferenceGrid() {
 // Main 3D attitude indicator component
 export default function AttitudeIndicator3D({ roll, pitch, yaw }) {
   return (
-    <div className="w-full h-64 bg-black rounded-lg border border-terminal-green overflow-hidden">
+    <div className="w-full h-full bg-black rounded-lg overflow-hidden">
       <Canvas
         camera={{ position: [5, 2, 3], fov: 50, up: [0, 0, 1] }}
         gl={{ antialias: true, alpha: false }}

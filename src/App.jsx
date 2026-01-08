@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import MainContent from './components/MainContent'
 import BlueTopoTilesView from './components/BlueTopoTilesView'
+import BlueTopoDownloader from './components/BlueTopoDownloader'
 
 function App() {
   // Prevent context menu globally
@@ -19,8 +20,7 @@ function App() {
       <Routes>
         {/* Special routes without navbar */}
         <Route path="/bluetopo-tiles" element={<BlueTopoTilesView />} />
-        {/* Redirect old bluetopo-downloader route to settings BlueTopo section */}
-        <Route path="/bluetopo-downloader" element={<Navigate to="/settings?section=bluetopo" replace />} />
+        <Route path="/bluetopo-downloader" element={<BlueTopoDownloader />} />
 
         {/* Main app routes with navbar */}
         <Route path="/chart" element={
