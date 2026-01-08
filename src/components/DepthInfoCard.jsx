@@ -5,29 +5,21 @@
 
 // Helper formatting functions
 function formatLatitude(lat) {
-  const degrees = Math.abs(lat)
-  const deg = Math.floor(degrees)
-  const min = ((degrees - deg) * 60).toFixed(3)
-  const dir = lat >= 0 ? 'N' : 'S'
-  return `${deg}° ${min}' ${dir}`
+  return `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? 'N' : 'S'}`
 }
 
 function formatLongitude(lon) {
-  const degrees = Math.abs(lon)
-  const deg = Math.floor(degrees)
-  const min = ((degrees - deg) * 60).toFixed(3)
-  const dir = lon >= 0 ? 'E' : 'W'
-  return `${deg}° ${min}' ${dir}`
+  return `${Math.abs(lon).toFixed(4)}° ${lon >= 0 ? 'E' : 'W'}`
 }
 
-function formatDepth(depth) {
+function formatDepthFeet(depth) {
   if (depth === null || depth === undefined) return 'N/A'
 
   // Convert to positive depth value (depth below sea level)
   const depthMeters = Math.abs(depth)
   const depthFeet = depthMeters * 3.28084
 
-  return `${depthMeters.toFixed(1)} m (${depthFeet.toFixed(1)} ft)`
+  return `${depthFeet.toFixed(1)} ft`
 }
 
 export default function DepthInfoCard({
@@ -76,38 +68,27 @@ export default function DepthInfoCard({
 
   return (
     <>
-      {/* Backdrop for dismissing */}
+      {/* Backdrop for dismissing - prevent browser zoom on multi-touch */}
       <div
         className="absolute inset-0 z-40"
         onClick={onClose}
-        style={{ background: 'transparent' }}
+        style={{
+          background: 'transparent',
+          touchAction: 'none'
+        }}
       />
 
-      {/* Info Card */}
+      {/* Info Card - prevent browser zoom */}
       <div
         className="absolute bg-terminal-surface rounded-lg shadow-glow-green border-2 border-terminal-green z-50"
         style={{
           left: `${left}px`,
           top: `${top}px`,
           width: `${cardWidth}px`,
-          minHeight: `${cardHeight}px`
+          minHeight: `${cardHeight}px`,
+          touchAction: 'none'
         }}
       >
-        {/* Header */}
-        <div className="bg-terminal-green/20 px-4 py-3 rounded-t-lg flex items-center justify-between border-b border-terminal-green/30">
-          <h3 className="font-semibold text-terminal-green text-glow uppercase tracking-wide text-sm">Depth Measurement</h3>
-          <button
-            onClick={onClose}
-            className="text-terminal-green hover:text-terminal-green-bright transition-colors touch-manipulation"
-            style={{ minWidth: '44px', minHeight: '44px' }}
-            aria-label="Close"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
         {/* Content */}
         <div className="p-4 space-y-3">
           {loading ? (
@@ -121,24 +102,22 @@ export default function DepthInfoCard({
             </div>
           ) : (
             <>
-              {/* Position */}
+              {/* Position - bigger font, 4 decimals */}
               <div className="space-y-1">
-                <div className="text-xs text-terminal-green-dim font-semibold uppercase tracking-wide">Position</div>
-                <div className="font-mono text-sm text-terminal-green">
+                <div className="font-mono text-2xl text-terminal-green">
                   <div>{formatLatitude(lat)}</div>
                   <div>{formatLongitude(lon)}</div>
                 </div>
               </div>
 
-              {/* Depth */}
+              {/* Depth - feet only */}
               <div className="space-y-1">
-                <div className="text-xs text-terminal-green-dim font-semibold uppercase tracking-wide">Depth</div>
-                <div className="text-2xl font-bold text-terminal-cyan text-glow">
-                  {formatDepth(depth)}
+                <div className="text-3xl font-bold text-terminal-green text-glow">
+                  {formatDepthFeet(depth)}
                 </div>
                 {uncertainty && uncertainty > 0 && (
                   <div className="text-xs text-terminal-green-dim">
-                    ± {formatDepth(uncertainty)} uncertainty
+                    ± {formatDepthFeet(uncertainty)} uncertainty
                   </div>
                 )}
               </div>

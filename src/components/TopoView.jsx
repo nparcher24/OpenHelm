@@ -49,27 +49,14 @@ function TopoView() {
       center: center,
       zoom: zoom,
       pitch: 0,
-      bearing: 0
+      bearing: 0,
+      attributionControl: false
     })
 
     // Disable single-finger pan, but keep two-finger zoom/rotate enabled
     // We'll manually implement two-finger panning in our touch handlers
     map.current.dragPan.disable()
     map.current.touchZoomRotate.enable()
-
-    // Add navigation controls
-    map.current.addControl(new maplibregl.NavigationControl(), 'top-right')
-
-    // Add scale control with nautical units
-    map.current.addControl(new maplibregl.ScaleControl({
-      maxWidth: 100,
-      unit: 'nautical'
-    }), 'bottom-right')
-
-    // Add attribution
-    map.current.addControl(new maplibregl.AttributionControl({
-      customAttribution: 'BlueTopo NOAA | CUSP NOAA NGS'
-    }), 'bottom-left')
 
     map.current.on('load', async () => {
       setMapLoaded(true)
@@ -166,10 +153,8 @@ function TopoView() {
       e.preventDefault()
       e.stopPropagation()
 
-      // Dismiss any existing measurement popup when starting a new touch
-      if (activeMeasurementRef.current) {
-        setActiveMeasurement(null)
-      }
+      // Don't dismiss existing measurement - allow user to take a new measurement
+      // The old measurement will be replaced when the new one completes
 
       const touch = e.touches[0]
       const rect = canvas.getBoundingClientRect()
@@ -441,7 +426,7 @@ function TopoView() {
       </div>
 
       {/* Touch-friendly zoom controls for marine use */}
-      <div className="absolute bottom-20 right-4 flex flex-col space-y-2 z-20">
+      <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-20">
         <button
           onClick={() => map.current?.zoomIn()}
           className="bg-terminal-surface hover:bg-terminal-green/10 border border-terminal-border hover:border-terminal-green rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all"
@@ -462,8 +447,8 @@ function TopoView() {
         </button>
       </div>
 
-      {/* Settings Menu (bottom left) */}
-      <div className="absolute bottom-4 left-4 z-20">
+      {/* Settings Menu (top right) */}
+      <div className="absolute top-4 right-4 z-20">
         {/* Popup Menu */}
         {menuOpen && (
           <>
@@ -474,7 +459,7 @@ function TopoView() {
             />
 
             {/* Menu Content */}
-            <div className="absolute bottom-14 left-0 bg-terminal-surface rounded-lg shadow-glow-green border border-terminal-border overflow-hidden z-40 min-w-[200px]">
+            <div className="absolute top-14 right-0 bg-terminal-surface rounded-lg shadow-glow-green border border-terminal-border overflow-hidden z-40 min-w-[200px]">
               <button
                 onClick={clearCacheAndReload}
                 className="w-full px-4 py-3 text-left hover:bg-terminal-green/10 transition-colors flex items-center space-x-3 text-terminal-green"
