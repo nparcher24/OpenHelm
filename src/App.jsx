@@ -29,12 +29,6 @@ function App() {
             <MainContent activeTab="chart" />
           </>
         } />
-        <Route path="/topo" element={
-          <>
-            <Navbar />
-            <MainContent activeTab="topo" />
-          </>
-        } />
         <Route path="/gps" element={
           <>
             <Navbar />

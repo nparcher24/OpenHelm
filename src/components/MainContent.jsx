@@ -1,5 +1,4 @@
 import ChartView from './ChartView'
-import TopoView from './TopoView'
 import SettingsView from './SettingsView'
 import GpsView from './GpsView'
 
@@ -8,8 +7,6 @@ function MainContent({ activeTab }) {
     switch (activeTab) {
       case 'chart':
         return <ChartView />
-      case 'topo':
-        return <TopoView />
       case 'gps':
         return <GpsView />
       case 'settings':
