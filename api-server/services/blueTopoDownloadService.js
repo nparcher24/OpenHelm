@@ -423,6 +423,9 @@ export class DownloadQueue {
               const remainingMB = (totalBytes - downloadedBytes) / 1024 / 1024;
               tileState.estimatedSecondsLeft = Math.round(remainingMB / speedMBps);
             }
+
+            // Broadcast progress update (throttled by downloadFileWithProgress to every 500ms)
+            this.broadcastProgress();
           }
         },
         job?.controller.signal
@@ -434,6 +437,7 @@ export class DownloadQueue {
       if (tileState) {
         tileState.status = 'converting';
         tileState.progress = 90;
+        this.broadcastProgress();
       }
 
       // Convert to directory tiles

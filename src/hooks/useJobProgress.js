@@ -47,21 +47,34 @@ export function useJobProgress(jobId, enabled = true, customStatusFetcher = null
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
-          
+
           if (data.type === 'progress' && data.jobId === jobId) {
             logInfo(`[JobProgress] [${componentId.current}] Progress update: ${data.progress}% - ${data.status}`)
-            
+
             setProgress(data.progress)
             setStatus(data.status)
             setMessage(data.message || '')
             setEstimatedTimeLeft(data.estimatedTimeLeft || null)
-            
+
+            // Update tiles array for detailed metrics
+            if (data.tiles) {
+              setTiles(data.tiles)
+            }
+
+            // Update summary if provided
+            if (data.summary) {
+              // Summary contains completedTiles, failedTiles, etc.
+            }
+
             // If job is completed, try to get final result
             if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
               logInfo(`[JobProgress] [${componentId.current}] Job ${data.status}, fetching final result...`)
               getJobStatus(jobId).then(statusResult => {
                 if (statusResult.result) {
                   setResult(statusResult.result)
+                }
+                if (statusResult.tiles) {
+                  setTiles(statusResult.tiles)
                 }
               }).catch(err => {
                 logError(`[JobProgress] [${componentId.current}] Error fetching final result:`, err)

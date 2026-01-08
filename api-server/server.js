@@ -13,6 +13,8 @@ import { WebSocketServer } from 'ws'
 import encRoutes from './routes/enc.js'
 import encMetadataRoutes from './routes/encMetadata.js'
 import blueTopoRoutes from './routes/bluetopo.js'
+import cuspRoutes from './routes/cusp.js'
+import gpsRoutes from './routes/gps.js'
 
 const app = express()
 const PORT = 3002
@@ -55,6 +57,8 @@ app.post('/api/log', async (req, res) => {
 app.use('/api/enc', encRoutes)
 app.use('/api/enc-metadata', encMetadataRoutes)
 app.use('/api/bluetopo', blueTopoRoutes)
+app.use('/api/cusp', cuspRoutes)
+app.use('/api/gps', gpsRoutes)
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -127,10 +131,15 @@ wss.on('connection', (ws, req) => {
 global.broadcastProgress = (jobId, progress, status, message = '', estimatedTimeLeft = null) => {
   const tracker = global.progressTrackers.get(jobId)
   if (!tracker) return
-  
+
   tracker.progress = progress
   tracker.status = status
-  
+
+  // Get tiles and summary from active job for detailed metrics
+  const job = global.activeJobs?.get(jobId)
+  const tiles = job?.tiles || null
+  const summary = job?.summary || null
+
   const update = {
     type: 'progress',
     jobId,
@@ -138,9 +147,11 @@ global.broadcastProgress = (jobId, progress, status, message = '', estimatedTime
     status,
     message,
     estimatedTimeLeft,
+    tiles,
+    summary,
     timestamp: Date.now()
   }
-  
+
   // Broadcast to all subscribed clients
   tracker.clients.forEach(ws => {
     if (ws.readyState === ws.OPEN) {
@@ -154,7 +165,7 @@ global.broadcastProgress = (jobId, progress, status, message = '', estimatedTime
       tracker.clients.delete(ws)
     }
   })
-  
+
   console.log(`📡 Broadcasted progress: ${jobId} - ${progress}% - ${status}`)
 }
 
