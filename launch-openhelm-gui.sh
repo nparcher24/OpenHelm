@@ -28,7 +28,8 @@ fi
 echo "🌐 Launching Chromium with GPU..."
 
 # Launch Chromium with default settings (GPU works best this way) and skip keychain
-chromium-browser --password-store=basic http://localhost:3000 &
+# Enable remote debugging for MCP browser automation
+chromium-browser --password-store=basic --remote-debugging-port=9222 http://localhost:3000 &
 
 sleep 2
 echo "✅ OpenHelm launched!"

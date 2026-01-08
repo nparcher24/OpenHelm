@@ -15,6 +15,7 @@ import encMetadataRoutes from './routes/encMetadata.js'
 import blueTopoRoutes from './routes/bluetopo.js'
 import cuspRoutes from './routes/cusp.js'
 import gpsRoutes from './routes/gps.js'
+import waypointRoutes from './routes/waypoints.js'
 
 const app = express()
 const PORT = 3002
@@ -59,6 +60,7 @@ app.use('/api/enc-metadata', encMetadataRoutes)
 app.use('/api/bluetopo', blueTopoRoutes)
 app.use('/api/cusp', cuspRoutes)
 app.use('/api/gps', gpsRoutes)
+app.use('/api/waypoints', waypointRoutes)
 
 // Error handling middleware
 app.use((err, req, res, next) => {

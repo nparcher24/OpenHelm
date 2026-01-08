@@ -2,9 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { getDownloadedTileMetadata, getTileUrl, getDepthAtLocation } from '../services/blueTopoTileService'
+import { getAllWaypoints, createWaypoint } from '../services/waypointService'
 import { SettingsIcon, BoatIcon } from './Icons'
 import DepthCrosshairs from './DepthCrosshairs'
 import DepthInfoCard from './DepthInfoCard'
+import WaypointMenu from './WaypointMenu'
+import WaypointEditModal from './WaypointEditModal'
+import WaypointDropdown from './WaypointDropdown'
+import { createMarkerSVG } from '../utils/waypointIcons'
+import { MapPinIcon } from '@heroicons/react/24/outline'
 
 function ChartView() {
   const mapContainer = useRef(null)
@@ -38,6 +44,15 @@ function ChartView() {
   const gpsIntervalRef = useRef(null)
   const boatMarkerRef = useRef(null)
   const trackingModeRef = useRef(null)
+
+  // Waypoint state
+  const [waypoints, setWaypoints] = useState([])
+  const [waypointMenuOpen, setWaypointMenuOpen] = useState(false)
+  const [waypointMenuPosition, setWaypointMenuPosition] = useState(null)
+  const [waypointDropdownOpen, setWaypointDropdownOpen] = useState(false)
+  const [waypointEditModalOpen, setWaypointEditModalOpen] = useState(false)
+  const [waypointEditPosition, setWaypointEditPosition] = useState(null)
+  const waypointMarkersRef = useRef(new Map())
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -100,6 +115,66 @@ function ChartView() {
     gpsIntervalRef.current = setInterval(fetchGps, 500)
     return () => clearInterval(gpsIntervalRef.current)
   }, [])
+
+  // Load waypoints when map is ready
+  const loadWaypoints = async () => {
+    try {
+      const result = await getAllWaypoints()
+      setWaypoints(result.waypoints || [])
+    } catch (err) {
+      console.error('Failed to load waypoints:', err)
+    }
+  }
+
+  useEffect(() => {
+    if (!mapLoaded) return
+    loadWaypoints()
+  }, [mapLoaded])
+
+  // Render waypoint markers on map
+  useEffect(() => {
+    if (!mapLoaded || !map.current) return
+
+    // Clear existing markers
+    waypointMarkersRef.current.forEach(marker => marker.remove())
+    waypointMarkersRef.current.clear()
+
+    // Add markers for each waypoint
+    waypoints.forEach(waypoint => {
+      const el = document.createElement('div')
+      el.className = 'waypoint-marker'
+      el.innerHTML = createMarkerSVG(waypoint.icon, waypoint.color, 32)
+      el.style.cursor = 'pointer'
+
+      const marker = new maplibregl.Marker({
+        element: el,
+        anchor: 'bottom'
+      })
+        .setLngLat([waypoint.longitude, waypoint.latitude])
+        .addTo(map.current)
+
+      // Click to show popup with waypoint info
+      el.addEventListener('click', (e) => {
+        e.stopPropagation()
+        // Create popup
+        new maplibregl.Popup({ closeOnClick: true, className: 'waypoint-popup' })
+          .setLngLat([waypoint.longitude, waypoint.latitude])
+          .setHTML(`
+            <div style="font-family: monospace; padding: 8px;">
+              <div style="font-weight: bold; color: #22c55e; margin-bottom: 4px;">${waypoint.name}</div>
+              ${waypoint.description ? `<div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">${waypoint.description}</div>` : ''}
+              <div style="color: #9ca3af; font-size: 11px;">
+                ${Math.abs(waypoint.latitude).toFixed(4)}°${waypoint.latitude >= 0 ? 'N' : 'S'} /
+                ${Math.abs(waypoint.longitude).toFixed(4)}°${waypoint.longitude >= 0 ? 'E' : 'W'}
+              </div>
+            </div>
+          `)
+          .addTo(map.current)
+      })
+
+      waypointMarkersRef.current.set(waypoint.id, marker)
+    })
+  }, [mapLoaded, waypoints])
 
   // Boat marker - always visible at GPS position
   useEffect(() => {
@@ -224,6 +299,11 @@ function ChartView() {
     try {
       const result = await getDownloadedTileMetadata()
 
+      // Check if map still exists after async fetch
+      if (!map.current) {
+        return
+      }
+
       if (!result.success || !result.tiles || result.tiles.length === 0) {
         setTilesLoaded(true)
         setTileCount(0)
@@ -235,6 +315,9 @@ function ChartView() {
 
       // Add each tile as a separate raster source and layer
       for (const tile of tiles) {
+        // Check map still exists before each operation
+        if (!map.current) return
+
         const sourceId = `bluetopo-${tile.tileId}`
         const layerId = `bluetopo-layer-${tile.tileId}`
 
@@ -374,9 +457,18 @@ function ChartView() {
 
         const holdTime = Date.now() - currentTouchState.startTime
 
-        // If crosshairs were showing, perform measurement
+        // If crosshairs were showing, show waypoint menu instead of directly measuring
         if (holdTime >= HOLD_DURATION && currentTouchState.showingCrosshairs) {
-          performDepthMeasurement(currentTouchState.currentX, currentTouchState.currentY)
+          const adjustedY = Math.max(currentTouchState.currentY - 100, 50)
+          const point = map.current.unproject([currentTouchState.currentX, adjustedY])
+
+          setWaypointMenuPosition({
+            screenX: currentTouchState.currentX,
+            screenY: adjustedY,
+            lat: point.lat,
+            lng: point.lng
+          })
+          setWaypointMenuOpen(true)
         }
 
         cancelHold()
@@ -479,6 +571,44 @@ function ChartView() {
     setActiveMeasurement(null)
   }
 
+  // Waypoint menu handlers
+  const handleWaypointMenuClose = () => {
+    setWaypointMenuOpen(false)
+    setWaypointMenuPosition(null)
+  }
+
+  const handleAddWaypointFromMenu = ({ lat, lng }) => {
+    setWaypointMenuOpen(false)
+    setWaypointEditPosition({ lat, lng })
+    setWaypointEditModalOpen(true)
+  }
+
+  const handleMeasureDepthFromMenu = ({ screenX, screenY }) => {
+    setWaypointMenuOpen(false)
+    setWaypointMenuPosition(null)
+    performDepthMeasurement(screenX, screenY + 100) // Re-add the offset since performDepthMeasurement subtracts it
+  }
+
+  const handleSaveWaypoint = async (data) => {
+    try {
+      await createWaypoint(data)
+      setWaypointEditModalOpen(false)
+      setWaypointEditPosition(null)
+      await loadWaypoints() // Refresh markers
+    } catch (err) {
+      throw err // Let modal handle error display
+    }
+  }
+
+  const handleWaypointSelect = (waypoint) => {
+    setWaypointDropdownOpen(false)
+    map.current.flyTo({
+      center: [waypoint.longitude, waypoint.latitude],
+      zoom: 14,
+      duration: 1000
+    })
+  }
+
   // Clear browser cache and reload
   const clearCacheAndReload = async () => {
     try {
@@ -538,6 +668,29 @@ function ChartView() {
             onClose={clearMeasurement}
           />
         </>
+      )}
+
+      {/* Waypoint Menu (appears after long-press release) */}
+      {waypointMenuOpen && waypointMenuPosition && (
+        <WaypointMenu
+          position={waypointMenuPosition}
+          onAddWaypoint={handleAddWaypointFromMenu}
+          onMeasureDepth={handleMeasureDepthFromMenu}
+          onClose={handleWaypointMenuClose}
+        />
+      )}
+
+      {/* Waypoint Edit Modal */}
+      {waypointEditModalOpen && waypointEditPosition && (
+        <WaypointEditModal
+          waypoint={null}
+          initialPosition={waypointEditPosition}
+          onSave={handleSaveWaypoint}
+          onClose={() => {
+            setWaypointEditModalOpen(false)
+            setWaypointEditPosition(null)
+          }}
+        />
       )}
 
       {/* Loading Indicator */}
@@ -673,6 +826,35 @@ function ChartView() {
             </svg>
           )}
         </button>
+
+        {/* Waypoints Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setWaypointDropdownOpen(!waypointDropdownOpen)}
+            className={`bg-terminal-surface hover:bg-terminal-green/10 border rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all ${
+              waypointDropdownOpen
+                ? 'border-terminal-green bg-terminal-green/20'
+                : 'border-terminal-border hover:border-terminal-green'
+            }`}
+            aria-label="Waypoints"
+            title="Waypoints"
+          >
+            <MapPinIcon className="w-6 h-6 text-terminal-green" />
+            {waypoints.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-terminal-green text-terminal-bg text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                {waypoints.length}
+              </span>
+            )}
+          </button>
+
+          {waypointDropdownOpen && (
+            <WaypointDropdown
+              waypoints={waypoints}
+              onSelect={handleWaypointSelect}
+              onClose={() => setWaypointDropdownOpen(false)}
+            />
+          )}
+        </div>
 
         {/* Settings Menu */}
         <div className="relative">

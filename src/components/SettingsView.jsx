@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import ChartManager from './ChartManager'
 import BlueTopoDownloader from './BlueTopoDownloader'
 import CuspDownloader from './CuspDownloader'
+import WaypointManager from './WaypointManager'
 import ErrorBoundary from './ErrorBoundary'
 
 function SettingsView() {
@@ -31,6 +32,7 @@ function SettingsView() {
   const sections = [
     { id: 'general', name: 'General', icon: '[>]' },
     { id: 'charts', name: 'Chart Manager', icon: '[M]' },
+    { id: 'waypoints', name: 'Waypoints', icon: '[W]' },
     { id: 'bluetopo', name: 'BlueTopo', icon: '[~]' },
     { id: 'cusp', name: 'Coastline', icon: '[/]' },
     { id: 'gps', name: 'GPS/AHRS', icon: '[*]' },
@@ -58,6 +60,13 @@ function SettingsView() {
         return (
           <ErrorBoundary>
             <CuspDownloader />
+          </ErrorBoundary>
+        )
+
+      case 'waypoints':
+        return (
+          <ErrorBoundary>
+            <WaypointManager />
           </ErrorBoundary>
         )
 
