@@ -3,11 +3,32 @@
  * Renders crosshairs during touch-and-hold and after measurement
  */
 
+// Helper formatting functions
+function formatLatitude(lat) {
+  if (lat === null || lat === undefined) return ''
+  return `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? 'N' : 'S'}`
+}
+
+function formatLongitude(lon) {
+  if (lon === null || lon === undefined) return ''
+  return `${Math.abs(lon).toFixed(4)}° ${lon >= 0 ? 'E' : 'W'}`
+}
+
+function formatDepthFeet(depth) {
+  if (depth === null || depth === undefined) return 'N/A'
+  const depthMeters = Math.abs(depth)
+  const depthFeet = depthMeters * 3.28084
+  return `${depthFeet.toFixed(1)} ft`
+}
+
 export default function DepthCrosshairs({
   showing,
   x,
   y,
-  holdComplete = false
+  holdComplete = false,
+  lat = null,
+  lon = null,
+  depth = null
 }) {
   if (!showing) return null
 
@@ -66,6 +87,35 @@ export default function DepthCrosshairs({
           boxShadow: '0 0 12px rgba(0, 255, 0, 0.8)'
         }}
       />
+
+      {/* Live depth display (up and right) - only during hold, not after */}
+      {!holdComplete && depth !== null && depth !== undefined && (
+        <div
+          className="absolute text-terminal-green text-xs font-mono font-semibold bg-terminal-surface border border-terminal-green shadow-glow-green px-2 py-1 rounded whitespace-nowrap"
+          style={{
+            left: `${x + 20}px`,
+            top: `${adjustedY - 30}px`,
+            pointerEvents: 'none'
+          }}
+        >
+          {formatDepthFeet(depth)}
+        </div>
+      )}
+
+      {/* Live position display (down and left) - only during hold, not after */}
+      {!holdComplete && lat !== null && lon !== null && (
+        <div
+          className="absolute text-terminal-green text-xs font-mono bg-terminal-surface border border-terminal-green shadow-glow-green px-2 py-1 rounded whitespace-nowrap"
+          style={{
+            right: `${window.innerWidth - x + 20}px`,
+            top: `${adjustedY + 20}px`,
+            pointerEvents: 'none'
+          }}
+        >
+          <div>{formatLatitude(lat)}</div>
+          <div>{formatLongitude(lon)}</div>
+        </div>
+      )}
     </div>
   )
 }

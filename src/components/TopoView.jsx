@@ -24,6 +24,9 @@ function TopoView() {
   const activeMeasurementRef = useRef(null)
   const HOLD_DURATION = 300
 
+  // Live depth/position display during crosshairs hold
+  const [liveDepthData, setLiveDepthData] = useState(null)
+
   // Two-finger pan state
   const twoFingerPanRef = useRef(null)
 
@@ -35,6 +38,37 @@ function TopoView() {
   useEffect(() => {
     activeMeasurementRef.current = activeMeasurement
   }, [activeMeasurement])
+
+  // Query live depth when crosshairs appear
+  useEffect(() => {
+    if (!map.current || !touchState?.showingCrosshairs) {
+      setLiveDepthData(null)
+      return
+    }
+
+    // Debounce the depth query to avoid too many calls
+    const timeoutId = setTimeout(async () => {
+      const adjustedY = Math.max(touchState.currentY - 100, 50)
+      const point = map.current.unproject([touchState.currentX, adjustedY])
+
+      try {
+        const result = await getDepthAtLocation(point.lng, point.lat)
+        setLiveDepthData({
+          lat: point.lat,
+          lon: point.lng,
+          depth: result.success ? result.depth : null
+        })
+      } catch (error) {
+        setLiveDepthData({
+          lat: point.lat,
+          lon: point.lng,
+          depth: null
+        })
+      }
+    }, 100)
+
+    return () => clearTimeout(timeoutId)
+  }, [touchState?.showingCrosshairs, touchState?.currentX, touchState?.currentY])
 
   // Virginia Beach coordinates (same as ChartView)
   const center = [-75.978, 36.853]
@@ -371,6 +405,9 @@ function TopoView() {
           x={touchState.currentX}
           y={touchState.currentY}
           holdComplete={false}
+          lat={liveDepthData?.lat}
+          lon={liveDepthData?.lon}
+          depth={liveDepthData?.depth}
         />
       )}
 
