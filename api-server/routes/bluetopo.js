@@ -205,7 +205,8 @@ const execAsync = promisify(exec);
 
 /**
  * GET /api/bluetopo/tiles/downloaded
- * Check which tiles are downloaded and get their metadata
+ * Check which tiles are downloaded - FAST version
+ * Just reads directory listing, no expensive GeoPackage queries
  */
 router.get('/tiles/downloaded', async (req, res) => {
   try {
@@ -221,88 +222,111 @@ router.get('/tiles/downloaded', async (req, res) => {
         .map(entry => entry.name);
     } catch (error) {
       // Directory doesn't exist, return empty array
-      return res.json({ success: true, tiles: [] });
+      return res.json({ success: true, tiles: [], count: 0 });
     }
 
-    // Find the tile scheme GeoPackage
+    // Just return tile IDs - fast!
+    // Only get basic stats if there are few tiles
+    let tiles;
+    if (tileDirectories.length <= 50) {
+      // Get basic stats for small number of tiles
+      tiles = await Promise.all(
+        tileDirectories.map(async (tileId) => {
+          const tilePath = path.join(tilesDir, tileId);
+          try {
+            const stats = await fs.stat(tilePath);
+            return {
+              tileId,
+              downloadedDate: stats.mtime.toISOString()
+            };
+          } catch {
+            return { tileId };
+          }
+        })
+      );
+    } else {
+      // For many tiles, just return IDs
+      tiles = tileDirectories.map(tileId => ({ tileId }));
+    }
+
+    res.json({
+      success: true,
+      tiles,
+      count: tiles.length
+    });
+
+  } catch (error) {
+    console.error('Error checking downloaded tiles:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/bluetopo/tiles/downloaded/:tileId
+ * Get detailed metadata for a single tile (with GeoPackage query)
+ */
+router.get('/tiles/downloaded/:tileId', async (req, res) => {
+  try {
+    const { tileId } = req.params;
+    const projectRoot = path.resolve(__dirname, '../..');
+    const tilesDir = path.join(projectRoot, 'tiles', 'bluetopo');
+    const tilePath = path.join(tilesDir, tileId);
+
+    // Check if tile exists
+    try {
+      await fs.access(tilePath);
+    } catch {
+      return res.status(404).json({ success: false, error: 'Tile not found' });
+    }
+
+    // Get basic stats
+    const stats = await fs.stat(tilePath);
+    const downloadedDate = stats.mtime.toISOString();
+
+    // Check raw file
+    const rawFileInfo = await checkRawFileExists(tileId);
+
+    // Find tile scheme for metadata
     const allFiles = await fs.readdir(projectRoot);
     const gpkgFiles = allFiles.filter(file =>
       file.startsWith('BlueTopo_Tile_Scheme_') && file.endsWith('.gpkg')
     );
 
-    if (gpkgFiles.length === 0) {
-      return res.json({
-        success: true,
-        tiles: tileDirectories.map(tileId => ({
-          tileId,
-          downloadedDate: null,
-          publishedDate: null,
-          version: null,
-          error: 'Tile scheme not found'
-        }))
-      });
+    let publishedDate = null;
+    let version = null;
+    let tileSchemeVersion = 'unknown';
+
+    if (gpkgFiles.length > 0) {
+      const tileScheme = gpkgFiles.sort().reverse()[0];
+      tileSchemeVersion = tileScheme.match(/\d{8}_\d{6}/)?.[0] || 'unknown';
+      const tileSchemePath = path.join(projectRoot, tileScheme);
+
+      try {
+        const query = `ogrinfo -al -where "tile='${tileId}'" "${tileSchemePath}" 2>/dev/null | grep -E "(Delivered_Date|GeoTIFF_Link)"`;
+        const { stdout } = await execAsync(query);
+        const deliveredMatch = stdout.match(/Delivered_Date \(String\) = (.+)/);
+        const linkMatch = stdout.match(/GeoTIFF_Link \(String\) = .+_(\d{8})\.tiff/);
+        publishedDate = deliveredMatch ? deliveredMatch[1].trim() : null;
+        version = linkMatch ? linkMatch[1] : null;
+      } catch {
+        // Ignore errors
+      }
     }
-
-    // Get the most recent tile scheme
-    const tileScheme = gpkgFiles.sort().reverse()[0];
-    const tileSchemeVersion = tileScheme.match(/\d{8}_\d{6}/)?.[0] || 'unknown';
-    const tileSchemePath = path.join(projectRoot, tileScheme);
-
-    // Query metadata for each downloaded tile
-    const tilesWithMetadata = await Promise.all(
-      tileDirectories.map(async (tileId) => {
-        const tilePath = path.join(tilesDir, tileId);
-
-        // Get download date from directory modification time
-        const stats = await fs.stat(tilePath);
-        const downloadedDate = stats.mtime.toISOString();
-
-        // Check if raw file exists
-        const rawFileInfo = await checkRawFileExists(tileId);
-
-        // Query GeoPackage for tile metadata
-        try {
-          const query = `ogrinfo -al -where "tile='${tileId}'" "${tileSchemePath}" 2>/dev/null | grep -E "(Delivered_Date|GeoTIFF_Link)"`;
-          const { stdout } = await execAsync(query);
-
-          // Extract delivered date and version from output
-          const deliveredMatch = stdout.match(/Delivered_Date \(String\) = (.+)/);
-          const linkMatch = stdout.match(/GeoTIFF_Link \(String\) = .+_(\d{8})\.tiff/);
-
-          const publishedDate = deliveredMatch ? deliveredMatch[1].trim() : null;
-          const version = linkMatch ? linkMatch[1] : null;
-
-          return {
-            tileId,
-            downloadedDate,
-            publishedDate,
-            version,
-            tileSchemeVersion,
-            rawFile: rawFileInfo
-          };
-        } catch (error) {
-          // If query fails, return partial info
-          return {
-            tileId,
-            downloadedDate,
-            publishedDate: null,
-            version: null,
-            tileSchemeVersion,
-            rawFile: rawFileInfo,
-            error: 'Metadata not found'
-          };
-        }
-      })
-    );
 
     res.json({
       success: true,
-      tiles: tilesWithMetadata,
-      tileSchemeVersion
+      tile: {
+        tileId,
+        downloadedDate,
+        publishedDate,
+        version,
+        tileSchemeVersion,
+        rawFile: rawFileInfo
+      }
     });
 
   } catch (error) {
-    console.error('Error checking downloaded tiles:', error);
+    console.error('Error getting tile details:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

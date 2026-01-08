@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { getDownloadedTiles } from "../services/blueTopoDownloadService";
 
 function BlueTopoTilesView() {
     const location = useLocation();
@@ -20,12 +21,38 @@ function BlueTopoTilesView() {
     const [hasInitiallyFit, setHasInitiallyFit] = useState(false);
     const lassoLineId = "lasso-line";
 
+    // Downloaded tiles state
+    const [downloadedTileIds, setDownloadedTileIds] = useState(new Set());
+    const [loadingDownloaded, setLoadingDownloaded] = useState(true);
+
     // Get highlighted tiles from navigation state
     const highlightedTiles = location.state?.highlightedTiles || [];
 
     // Center on continental US (covers most of the BlueTopo coverage)
     const center = [-95, 37];
     const zoom = 4;
+
+    // Fetch downloaded tiles on mount
+    useEffect(() => {
+        async function fetchDownloadedTiles() {
+            try {
+                setLoadingDownloaded(true);
+                const result = await getDownloadedTiles();
+                if (result.success && result.tiles) {
+                    const ids = new Set(result.tiles.map((t) => t.tileId));
+                    setDownloadedTileIds(ids);
+                    // Pre-select downloaded tiles
+                    setSelectedTiles(ids);
+                    console.log("[BlueTopoTilesView] Loaded downloaded tiles:", ids.size);
+                }
+            } catch (error) {
+                console.error("[BlueTopoTilesView] Failed to load downloaded tiles:", error);
+            } finally {
+                setLoadingDownloaded(false);
+            }
+        }
+        fetchDownloadedTiles();
+    }, []);
 
     // Load tiles from CSV
     useEffect(() => {
@@ -131,9 +158,10 @@ function BlueTopoTilesView() {
 
     // Add tiles to map when both map and tiles are loaded
     useEffect(() => {
-        if (!mapLoaded || !map.current || tiles.length === 0) return;
+        if (!mapLoaded || !map.current || tiles.length === 0 || loadingDownloaded) return;
 
         console.log("[BlueTopoTilesView] Highlighted tiles:", highlightedTiles);
+        console.log("[BlueTopoTilesView] Downloaded tiles:", downloadedTileIds.size);
 
         // Create GeoJSON from tiles with feature IDs
         const geojson = {
@@ -148,6 +176,7 @@ function BlueTopoTilesView() {
                     utm: tile.utm,
                     url: tile.url,
                     isHighlighted: highlightedTiles.includes(tile.tile),
+                    isDownloaded: downloadedTileIds.has(tile.tile),
                 },
                 geometry: {
                     type: "Polygon",
@@ -171,7 +200,7 @@ function BlueTopoTilesView() {
                 data: geojson,
             });
 
-            // Add fill layer with color coding by resolution and selection state
+            // Add fill layer with color coding by resolution, downloaded, and selection state
             map.current.addLayer({
                 id: "tiles-fill",
                 type: "fill",
@@ -179,8 +208,19 @@ function BlueTopoTilesView() {
                 paint: {
                     "fill-color": [
                         "case",
+                        // Selected + Downloaded = Cyan (already have, keeping)
+                        ["all",
+                            ["boolean", ["feature-state", "selected"], false],
+                            ["get", "isDownloaded"]
+                        ],
+                        "#06b6d4",
+                        // Selected + Not Downloaded = Green (new selection)
                         ["boolean", ["feature-state", "selected"], false],
-                        "#22c55e", // Green when selected
+                        "#22c55e",
+                        // Not selected but downloaded = Dim cyan (have but removing)
+                        ["get", "isDownloaded"],
+                        "#164e63",
+                        // Not selected, not downloaded = Resolution colors
                         [
                             "match",
                             ["get", "resolution"],
@@ -199,6 +239,8 @@ function BlueTopoTilesView() {
                         "case",
                         ["boolean", ["feature-state", "selected"], false],
                         0.7, // Higher opacity for selected
+                        ["get", "isDownloaded"],
+                        0.5, // Medium opacity for downloaded but not selected
                         ["get", "isHighlighted"],
                         0.7, // Higher opacity for highlighted tiles
                         0.3, // Normal opacity
@@ -214,8 +256,18 @@ function BlueTopoTilesView() {
                 paint: {
                     "line-color": [
                         "case",
+                        // Selected + Downloaded = Cyan border
+                        ["all",
+                            ["boolean", ["feature-state", "selected"], false],
+                            ["get", "isDownloaded"]
+                        ],
+                        "#06b6d4",
+                        // Selected + Not Downloaded = Green border
                         ["boolean", ["feature-state", "selected"], false],
-                        "#16a34a", // Green for selected
+                        "#16a34a",
+                        // Downloaded but not selected = Dim cyan border
+                        ["get", "isDownloaded"],
+                        "#0e7490",
                         ["get", "isHighlighted"],
                         "#fbbf24", // Gold for highlighted
                         "#1e293b", // Default dark
@@ -224,6 +276,8 @@ function BlueTopoTilesView() {
                         "case",
                         ["boolean", ["feature-state", "selected"], false],
                         2, // Thicker for selected
+                        ["get", "isDownloaded"],
+                        2, // Thicker for downloaded
                         ["get", "isHighlighted"],
                         3, // Thickest for highlighted
                         1, // Normal width
@@ -300,6 +354,16 @@ function BlueTopoTilesView() {
             });
         }
 
+        // Set feature state for downloaded tiles (pre-selected)
+        tiles.forEach((tile, index) => {
+            if (downloadedTileIds.has(tile.tile)) {
+                map.current.setFeatureState(
+                    { source: "tiles", id: index },
+                    { selected: true },
+                );
+            }
+        });
+
         // Fit map to tiles bounds only once on initial load
         if (!hasInitiallyFit) {
             const bounds = new maplibregl.LngLatBounds();
@@ -319,7 +383,7 @@ function BlueTopoTilesView() {
                 setHasInitiallyFit(true);
             }
         }
-    }, [mapLoaded, tiles, highlightedTiles, hasInitiallyFit]);
+    }, [mapLoaded, tiles, highlightedTiles, hasInitiallyFit, loadingDownloaded, downloadedTileIds]);
 
     // Update lasso line visualization
     useEffect(() => {
@@ -523,11 +587,23 @@ function BlueTopoTilesView() {
     };
 
     const handleViewSelected = () => {
-        const selectedTileData = tiles.filter((tile) =>
-            selectedTiles.has(tile.tile),
+        // Only pass NEW tiles (selected but not already downloaded)
+        const newTilesToDownload = tiles.filter((tile) =>
+            selectedTiles.has(tile.tile) && !downloadedTileIds.has(tile.tile),
         );
-        navigate("/bluetopo-downloader", {
-            state: { tiles: selectedTileData },
+
+        // Track which downloaded tiles were deselected (for potential removal)
+        const tilesToRemove = Array.from(downloadedTileIds).filter(
+            (tileId) => !selectedTiles.has(tileId)
+        );
+
+        const returnTo = location.state?.returnTo || "/bluetopo-downloader";
+        navigate(returnTo, {
+            state: {
+                tiles: newTilesToDownload,
+                tilesToRemove: tilesToRemove,
+                keptTiles: Array.from(downloadedTileIds).filter(id => selectedTiles.has(id))
+            },
         });
     };
 
@@ -546,13 +622,15 @@ function BlueTopoTilesView() {
             />
 
             {/* Loading Indicator */}
-            {(loading || !mapLoaded) && (
+            {(loading || !mapLoaded || loadingDownloaded) && (
                 <div className="absolute inset-0 flex items-center justify-center bg-terminal-bg z-10">
                     <div className="text-center space-y-4">
                         <div className="w-8 h-8 border-4 border-terminal-green border-t-transparent rounded-full animate-spin mx-auto shadow-glow-green"></div>
                         <p className="text-terminal-green-dim">
                             {loading
                                 ? "Loading tile data..."
+                                : loadingDownloaded
+                                ? "Loading downloaded tiles..."
                                 : "Loading map..."}
                         </p>
                     </div>
@@ -561,9 +639,9 @@ function BlueTopoTilesView() {
 
             {/* Back Button */}
             <button
-                onClick={() => navigate("/bluetopo-downloader")}
+                onClick={() => navigate(location.state?.returnTo || "/bluetopo-downloader")}
                 className="absolute top-4 left-4 z-30 bg-terminal-surface hover:bg-terminal-green/10 rounded-lg shadow-glow-green-sm p-3 border border-terminal-border hover:border-terminal-green transition-colors touch-manipulation"
-                title="Back to BlueTopo Downloader"
+                title="Back"
             >
                 <svg
                     className="w-6 h-6 text-terminal-green"
@@ -581,7 +659,7 @@ function BlueTopoTilesView() {
             </button>
 
             {/* Tile Statistics and Selection Tools Panel */}
-            {!loading && (
+            {!loading && !loadingDownloaded && (
                 <div className="absolute top-16 left-4 bg-terminal-surface rounded-lg shadow-glow-green-sm p-4 max-w-sm z-20 border border-terminal-border">
                     <h3 className="font-semibold text-terminal-green mb-3 uppercase tracking-wide text-sm">
                         Selection Tools
@@ -619,8 +697,34 @@ function BlueTopoTilesView() {
                     </button>
 
                     <div className="text-sm space-y-2 text-terminal-green-dim font-mono">
-                        <div>
-                            <span className="text-terminal-green">Selected:</span> {selectedTiles.size} /{" "}
+                        {/* Selection counts */}
+                        <div className="space-y-1">
+                            <div className="flex items-center space-x-2">
+                                <div className="w-3 h-3 rounded bg-cyan-500"></div>
+                                <span>
+                                    <span className="text-terminal-cyan">Downloaded:</span>{" "}
+                                    {Array.from(selectedTiles).filter(t => downloadedTileIds.has(t)).length} kept
+                                </span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <div className="w-3 h-3 rounded bg-terminal-green"></div>
+                                <span>
+                                    <span className="text-terminal-green">New:</span>{" "}
+                                    {Array.from(selectedTiles).filter(t => !downloadedTileIds.has(t)).length} to download
+                                </span>
+                            </div>
+                            {downloadedTileIds.size > 0 && (
+                                <div className="flex items-center space-x-2">
+                                    <div className="w-3 h-3 rounded bg-cyan-900"></div>
+                                    <span>
+                                        <span className="text-cyan-700">Deselected:</span>{" "}
+                                        {Array.from(downloadedTileIds).filter(t => !selectedTiles.has(t)).length} to remove
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                        <div className="pt-2 border-t border-terminal-border">
+                            <span className="text-terminal-green">Total Selected:</span> {selectedTiles.size} /{" "}
                             {stats.total} tiles
                         </div>
                         <div className="space-y-1">
@@ -760,33 +864,56 @@ function BlueTopoTilesView() {
             )}
 
             {/* Selection Action Panel */}
-            {selectedTiles.size > 0 && (
-                <div className="absolute bottom-4 right-4 bg-terminal-surface rounded-lg shadow-glow-green p-4 z-20 border border-terminal-green">
-                    <div className="flex items-center space-x-3">
-                        <div className="flex items-center space-x-2">
-                            <div className="flex items-center justify-center w-10 h-10 bg-terminal-green rounded-full shadow-glow-green-sm">
-                                <span className="text-lg font-bold text-terminal-bg">
-                                    {selectedTiles.size}
-                                </span>
-                            </div>
-                            <div className="text-sm text-terminal-green-dim font-mono">
-                                tile{selectedTiles.size !== 1 ? "s" : ""}{" "}
-                                selected
-                            </div>
+            {(selectedTiles.size > 0 || downloadedTileIds.size > 0) && (
+                <div className="absolute bottom-4 right-4 bg-terminal-surface rounded-lg shadow-glow-green p-4 z-20 border border-terminal-green max-w-md">
+                    <div className="space-y-3">
+                        {/* Summary counts */}
+                        <div className="flex items-center space-x-4 text-sm font-mono">
+                            {Array.from(selectedTiles).filter(t => !downloadedTileIds.has(t)).length > 0 && (
+                                <div className="flex items-center space-x-2">
+                                    <div className="w-3 h-3 rounded bg-terminal-green"></div>
+                                    <span className="text-terminal-green">
+                                        +{Array.from(selectedTiles).filter(t => !downloadedTileIds.has(t)).length} new
+                                    </span>
+                                </div>
+                            )}
+                            {Array.from(selectedTiles).filter(t => downloadedTileIds.has(t)).length > 0 && (
+                                <div className="flex items-center space-x-2">
+                                    <div className="w-3 h-3 rounded bg-cyan-500"></div>
+                                    <span className="text-terminal-cyan">
+                                        {Array.from(selectedTiles).filter(t => downloadedTileIds.has(t)).length} keeping
+                                    </span>
+                                </div>
+                            )}
+                            {Array.from(downloadedTileIds).filter(t => !selectedTiles.has(t)).length > 0 && (
+                                <div className="flex items-center space-x-2">
+                                    <div className="w-3 h-3 rounded bg-cyan-900"></div>
+                                    <span className="text-cyan-600">
+                                        -{Array.from(downloadedTileIds).filter(t => !selectedTiles.has(t)).length} removing
+                                    </span>
+                                </div>
+                            )}
                         </div>
-                        <div className="flex space-x-2">
-                            <button
-                                onClick={handleClearSelection}
-                                className="terminal-btn"
-                            >
-                                Clear
-                            </button>
-                            <button
-                                onClick={handleViewSelected}
-                                className="terminal-btn-primary"
-                            >
-                                View Selected
-                            </button>
+
+                        {/* Actions */}
+                        <div className="flex items-center justify-between">
+                            <div className="text-sm text-terminal-green-dim font-mono">
+                                {selectedTiles.size} tile{selectedTiles.size !== 1 ? "s" : ""} total
+                            </div>
+                            <div className="flex space-x-2">
+                                <button
+                                    onClick={handleClearSelection}
+                                    className="terminal-btn"
+                                >
+                                    Clear All
+                                </button>
+                                <button
+                                    onClick={handleViewSelected}
+                                    className="terminal-btn-primary"
+                                >
+                                    Done
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -19,12 +19,18 @@ function BlueTopoDownloader() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  // Selected tiles from BlueTopoTileSelector
+  // Selected tiles from BlueTopoTileSelector (only NEW tiles to download)
   const selectedTiles = location.state?.tiles || []
+  // Tiles that user deselected (for potential removal)
+  const tilesToRemove = location.state?.tilesToRemove || []
+  // Tiles that are downloaded and user kept selected
+  const keptTiles = location.state?.keptTiles || []
 
   // Debug logging
   console.log('[BlueTopoDownloader] Component mounted')
-  console.log('[BlueTopoDownloader] Selected tiles:', selectedTiles)
+  console.log('[BlueTopoDownloader] New tiles to download:', selectedTiles.length)
+  console.log('[BlueTopoDownloader] Tiles to remove:', tilesToRemove.length)
+  console.log('[BlueTopoDownloader] Kept tiles:', keptTiles.length)
   console.log('[BlueTopoDownloader] Location state:', location.state)
 
   // Job state
@@ -47,6 +53,9 @@ function BlueTopoDownloader() {
   // Raw file operations state
   const [isReprocessing, setIsReprocessing] = useState(false)
   const [reprocessJobId, setReprocessJobId] = useState(null)
+
+  // Collapsible section state
+  const [downloadedTilesExpanded, setDownloadedTilesExpanded] = useState(false)
 
   // Use existing job progress hook with BlueTopo status fetcher
   const jobProgress = useJobProgress(jobId, !!jobId, getTileDownloadStatus)
@@ -415,7 +424,8 @@ function BlueTopoDownloader() {
                   BlueTopo Tile Downloader
                 </h1>
                 <p className="text-sm text-terminal-green-dim">
-                  {selectedTiles.length} tile{selectedTiles.length !== 1 ? 's' : ''} selected
+                  {selectedTiles.length > 0 ? `${selectedTiles.length} new tile${selectedTiles.length !== 1 ? 's' : ''} to download` : 'No new tiles selected'}
+                  {keptTiles.length > 0 && ` • ${keptTiles.length} existing`}
                 </p>
               </div>
             </div>
@@ -475,19 +485,39 @@ function BlueTopoDownloader() {
             </div>
 
             {/* Download Size Estimate */}
-            <div className="flex items-center justify-between p-4 bg-terminal-bg rounded-lg border border-terminal-border">
-              <div>
-                <p className="text-sm font-medium text-terminal-green">
-                  Estimated Download Size
-                </p>
-                <p className="text-xs text-terminal-green-dim">
-                  {selectedTiles.length} tiles × ~170 MB each
+            {selectedTiles.length > 0 && (
+              <div className="flex items-center justify-between p-4 bg-terminal-bg rounded-lg border border-terminal-border">
+                <div>
+                  <p className="text-sm font-medium text-terminal-green">
+                    Estimated Download Size
+                  </p>
+                  <p className="text-xs text-terminal-green-dim">
+                    {selectedTiles.length} new tile{selectedTiles.length !== 1 ? 's' : ''} × ~170 MB each
+                  </p>
+                </div>
+                <p className="text-2xl font-bold text-terminal-cyan text-glow">
+                  {estimatedSizeGB} GB
                 </p>
               </div>
-              <p className="text-2xl font-bold text-terminal-cyan text-glow">
-                {estimatedSizeGB} GB
-              </p>
-            </div>
+            )}
+
+            {/* Selection Summary */}
+            {(selectedTiles.length > 0 || keptTiles.length > 0 || tilesToRemove.length > 0) && (
+              <div className="grid grid-cols-3 gap-4 p-4 bg-terminal-bg rounded-lg border border-terminal-border">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-terminal-green">{selectedTiles.length}</p>
+                  <p className="text-xs text-terminal-green-dim">New to download</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-terminal-cyan">{keptTiles.length}</p>
+                  <p className="text-xs text-terminal-green-dim">Already downloaded</p>
+                </div>
+                <div className="text-center">
+                  <p className={`text-2xl font-bold ${tilesToRemove.length > 0 ? 'text-terminal-amber' : 'text-terminal-green-dim'}`}>{tilesToRemove.length}</p>
+                  <p className="text-xs text-terminal-green-dim">To be removed</p>
+                </div>
+              </div>
+            )}
 
             {/* Existing Tiles Info */}
             {storageInfo.tiles.existingTiles > 0 && (
@@ -513,7 +543,7 @@ function BlueTopoDownloader() {
               </p>
             </div>
             <button
-              onClick={() => navigate('/bluetopo-tiles')}
+              onClick={() => navigate('/bluetopo-tiles', { state: { returnTo: '/settings?section=bluetopo' } })}
               className="terminal-btn-primary flex items-center space-x-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -554,7 +584,8 @@ function BlueTopoDownloader() {
                     navigate('/bluetopo-tiles', {
                       state: {
                         highlightedTiles: selectedIds,
-                        tiles: selectedTileData
+                        tiles: selectedTileData,
+                        returnTo: '/settings?section=bluetopo'
                       }
                     })
                   }}
@@ -625,59 +656,76 @@ function BlueTopoDownloader() {
 
         {/* Downloaded Tiles Table */}
         <div className="bg-terminal-surface rounded-lg border border-terminal-border p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-terminal-green uppercase tracking-wide">
-              Downloaded Tiles {!loadingDownloadedTiles && `(${downloadedTilesMetadata.size})`}
-            </h2>
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setDownloadedTilesExpanded(!downloadedTilesExpanded)}
+              className="flex items-center space-x-2 text-left hover:text-terminal-green-bright transition-colors"
+            >
+              <svg
+                className={`w-5 h-5 text-terminal-green transition-transform duration-200 ${downloadedTilesExpanded ? 'rotate-90' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              <h2 className="text-lg font-semibold text-terminal-green uppercase tracking-wide">
+                Downloaded Tiles {!loadingDownloadedTiles && `(${downloadedTilesMetadata.size})`}
+              </h2>
+            </button>
 
-            <div className="flex items-center space-x-2">
-              {/* Reprocess Raw Files Button */}
-              {!isStarted && (
-                <button
-                  onClick={handleReprocessRawFiles}
-                  disabled={loadingDownloadedTiles || isReprocessing}
-                  className="px-4 py-2 bg-terminal-amber/20 border border-terminal-amber text-terminal-amber rounded-lg hover:bg-terminal-amber/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
-                  title="Reprocess all raw GeoTIFF files"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  <span>{isReprocessing ? 'Reprocessing...' : 'Reprocess Raw Files'}</span>
-                </button>
-              )}
-
-              {/* Delete buttons when tiles are selected */}
-              {!loadingDownloadedTiles && selectedTilesForDeletion.size > 0 && (
-                <>
+            {downloadedTilesExpanded && (
+              <div className="flex items-center space-x-2">
+                {/* Reprocess Raw Files Button */}
+                {!isStarted && (
                   <button
-                    onClick={handleDeleteSelectedRawFiles}
-                    disabled={isDeleting}
+                    onClick={handleReprocessRawFiles}
+                    disabled={loadingDownloadedTiles || isReprocessing}
                     className="px-4 py-2 bg-terminal-amber/20 border border-terminal-amber text-terminal-amber rounded-lg hover:bg-terminal-amber/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
-                    title="Delete raw GeoTIFF files only (keeps processed tiles)"
+                    title="Reprocess all raw GeoTIFF files"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-                    <span>Delete Raw Files ({selectedTilesForDeletion.size})</span>
+                    <span>{isReprocessing ? 'Reprocessing...' : 'Reprocess Raw Files'}</span>
                   </button>
-                  <button
-                    onClick={handleDeleteSelected}
-                    disabled={isDeleting}
-                    className="terminal-btn-danger flex items-center space-x-2"
-                  >
-                    <XCircleIcon className="h-5 w-5" />
-                    <span>Delete Tiles ({selectedTilesForDeletion.size})</span>
-                  </button>
-                </>
-              )}
-            </div>
+                )}
+
+                {/* Delete buttons when tiles are selected */}
+                {!loadingDownloadedTiles && selectedTilesForDeletion.size > 0 && (
+                  <>
+                    <button
+                      onClick={handleDeleteSelectedRawFiles}
+                      disabled={isDeleting}
+                      className="px-4 py-2 bg-terminal-amber/20 border border-terminal-amber text-terminal-amber rounded-lg hover:bg-terminal-amber/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                      title="Delete raw GeoTIFF files only (keeps processed tiles)"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <span>Delete Raw Files ({selectedTilesForDeletion.size})</span>
+                    </button>
+                    <button
+                      onClick={handleDeleteSelected}
+                      disabled={isDeleting}
+                      className="terminal-btn-danger flex items-center space-x-2"
+                    >
+                      <XCircleIcon className="h-5 w-5" />
+                      <span>Delete Tiles ({selectedTilesForDeletion.size})</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
-          {loadingDownloadedTiles ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-terminal-green mb-4 shadow-glow-green"></div>
-              <p className="text-terminal-green-dim">Loading downloaded tiles...</p>
-            </div>
+          {downloadedTilesExpanded && (
+            <div className="mt-4">
+              {loadingDownloadedTiles ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-terminal-green mb-4 shadow-glow-green"></div>
+                  <p className="text-terminal-green-dim">Loading downloaded tiles...</p>
+                </div>
           ) : downloadedTilesMetadata.size === 0 ? (
             <div className="text-center py-12">
               <p className="text-terminal-green-dim">No tiles downloaded yet. Select tiles from the chart selector to begin.</p>
@@ -696,11 +744,7 @@ function BlueTopoDownloader() {
                       />
                     </th>
                     <th className="px-4 py-3">Tile ID</th>
-                    <th className="px-4 py-3">Version</th>
-                    <th className="px-4 py-3">Downloaded Date</th>
-                    <th className="px-4 py-3">Published Date</th>
-                    <th className="px-4 py-3">Tile Scheme</th>
-                    <th className="px-4 py-3">Raw File</th>
+                    <th className="px-4 py-3">Downloaded</th>
                     <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -721,57 +765,24 @@ function BlueTopoDownloader() {
                       <td className="px-4 py-3 font-medium text-terminal-green font-mono">
                         {tile.tileId}
                       </td>
-                      <td className="px-4 py-3 text-terminal-green-dim">
-                        <span className="px-2 py-1 rounded text-xs font-medium bg-terminal-green/10 text-terminal-green border border-terminal-green/30">
-                          {tile.version || 'N/A'}
-                        </span>
-                      </td>
                       <td className="px-4 py-3 text-terminal-green-dim font-mono">
-                        {tile.downloadedDate ? new Date(tile.downloadedDate).toLocaleDateString() : 'N/A'}
-                      </td>
-                      <td className="px-4 py-3 text-terminal-green-dim font-mono">
-                        {tile.publishedDate ? new Date(tile.publishedDate).toLocaleDateString() : 'N/A'}
-                      </td>
-                      <td className="px-4 py-3 text-terminal-green-dim text-xs font-mono">
-                        {tile.tileSchemeVersion || 'N/A'}
-                      </td>
-                      <td className="px-4 py-3">
-                        {tile.rawFile && tile.rawFile.exists ? (
-                          <div className="flex items-center space-x-2">
-                            <CheckCircleIcon className="h-4 w-4 text-terminal-green" />
-                            <span className="text-xs text-terminal-green-dim font-mono">
-                              {tile.rawFile.sizeMB} MB
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-terminal-green-dim">—</span>
-                        )}
+                        {tile.downloadedDate ? new Date(tile.downloadedDate).toLocaleDateString() : '—'}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end space-x-3">
-                          {tile.rawFile && tile.rawFile.exists && (
-                            <button
-                              onClick={() => handleDeleteRawFile(tile.tileId)}
-                              disabled={isDeleting}
-                              className="text-terminal-amber hover:text-terminal-amber font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Delete raw GeoTIFF file"
-                            >
-                              Del Raw
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleDeleteTile(tile.tileId)}
-                            disabled={isDeleting}
-                            className="text-terminal-red hover:text-terminal-red font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            Delete
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => handleDeleteTile(tile.tileId)}
+                          disabled={isDeleting}
+                          className="text-terminal-red hover:text-terminal-red font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Delete
+                        </button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              </div>
+            )}
             </div>
           )}
         </div>
