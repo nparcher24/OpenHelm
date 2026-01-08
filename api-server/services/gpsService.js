@@ -122,11 +122,24 @@ function parseWitMotionMessage(msg) {
       break
 
     case 'W': // 0x57 - GPS Latitude/Longitude
-      // Lon: bytes 0-3, Lat: bytes 4-7 as int32 / 1e7
+      // WitMotion sends coordinates where raw/1e7 gives DD.MMMMMMM format
+      // Need to multiply by 100 to get DDMM.MMMMM, then convert to decimal degrees
       const lonRaw = data.readInt32LE(0)
       const latRaw = data.readInt32LE(4)
-      gpsData.longitude = lonRaw / 1e7
-      gpsData.latitude = latRaw / 1e7
+
+      // Convert from DD.MMMMMMM to decimal degrees
+      // Multiply by 100 to get DDMM.MMMMM format
+      const latDDMM = (latRaw / 1e7) * 100  // e.g., 36.5305908 * 100 = 3653.05908
+      const latDeg = Math.trunc(latDDMM / 100)  // e.g., 36
+      const latMin = latDDMM - (latDeg * 100)   // e.g., 53.05908
+      gpsData.latitude = latDeg + (latMin / 60) // e.g., 36 + 0.8843 = 36.8843
+
+      const lonDDMM = (lonRaw / 1e7) * 100
+      const lonSign = lonDDMM < 0 ? -1 : 1
+      const lonDDMMAbs = Math.abs(lonDDMM)
+      const lonDeg = Math.trunc(lonDDMMAbs / 100)
+      const lonMin = lonDDMMAbs - (lonDeg * 100)
+      gpsData.longitude = lonSign * (lonDeg + (lonMin / 60))
       break
 
     case 'X': // 0x58 - GPS Ground Speed

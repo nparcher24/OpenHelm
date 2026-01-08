@@ -23,3 +23,33 @@ export const SettingsIcon = ({ className = "w-6 h-6" }) => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
   </svg>
 );
+
+// Center console boat icon - green filled, tactical look
+// Bow points up (north), rotates with heading
+export const BoatIcon = ({ className = "w-6 h-6" }) => (
+  <svg className={className} fill="currentColor" stroke="currentColor" viewBox="0 0 24 24">
+    {/* Hull - center console style boat, filled */}
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1}
+      d="M12 3 L7 9 L7 17 L9 21 L15 21 L17 17 L17 9 Z"
+    />
+    {/* Console/windshield - darker line */}
+    <path
+      stroke="#0a3d1f"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.5}
+      d="M9 11 L15 11"
+    />
+    {/* Bow detail - darker line */}
+    <path
+      stroke="#0a3d1f"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.5}
+      d="M10 6 L12 4 L14 6"
+    />
+  </svg>
+);

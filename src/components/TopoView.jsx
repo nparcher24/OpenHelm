@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { getDownloadedTileMetadata, getTileUrl, getDepthAtLocation } from '../services/blueTopoTileService'
-import { SettingsIcon } from './Icons'
+import { SettingsIcon, BoatIcon } from './Icons'
 import DepthCrosshairs from './DepthCrosshairs'
 import DepthInfoCard from './DepthInfoCard'
 
@@ -30,6 +30,15 @@ function TopoView() {
   // Two-finger pan state
   const twoFingerPanRef = useRef(null)
 
+  // GPS tracking state
+  // trackingMode: null = not tracking, 'center' = boat centered, 'offset' = boat 1/3 from bottom
+  const [trackingMode, setTrackingMode] = useState(null)
+  const [northUp, setNorthUp] = useState(false)  // true = north up, false = heading up
+  const [gpsData, setGpsData] = useState(null)
+  const gpsIntervalRef = useRef(null)
+  const boatMarkerRef = useRef(null)
+  const trackingModeRef = useRef(null)
+
   // Keep refs in sync with state
   useEffect(() => {
     touchStateRef.current = touchState
@@ -38,6 +47,10 @@ function TopoView() {
   useEffect(() => {
     activeMeasurementRef.current = activeMeasurement
   }, [activeMeasurement])
+
+  useEffect(() => {
+    trackingModeRef.current = trackingMode
+  }, [trackingMode])
 
   // Query live depth when crosshairs appear
   useEffect(() => {
@@ -69,6 +82,105 @@ function TopoView() {
 
     return () => clearTimeout(timeoutId)
   }, [touchState?.showingCrosshairs, touchState?.currentX, touchState?.currentY])
+
+  // GPS polling - always active to show boat position
+  useEffect(() => {
+    const fetchGps = async () => {
+      try {
+        const res = await fetch('http://localhost:3002/api/gps')
+        const data = await res.json()
+        if (data.latitude && data.longitude) {
+          setGpsData(data)
+        }
+      } catch (err) {
+        // Silently fail - GPS may not be available
+      }
+    }
+    fetchGps()
+    gpsIntervalRef.current = setInterval(fetchGps, 500)
+    return () => clearInterval(gpsIntervalRef.current)
+  }, [])
+
+  // Boat marker - always visible at GPS position
+  useEffect(() => {
+    if (!mapLoaded || !gpsData || !map.current) return
+
+    // Create or update marker
+    if (!boatMarkerRef.current) {
+      // Create custom marker element
+      const el = document.createElement('div')
+      el.className = 'boat-marker'
+      el.innerHTML = `
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="#22c55e" stroke="#22c55e" stroke-width="1">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3 L7 9 L7 17 L9 21 L15 21 L17 17 L17 9 Z" />
+          <path stroke="#0a3d1f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M9 11 L15 11" />
+          <path stroke="#0a3d1f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M10 6 L12 4 L14 6" />
+        </svg>
+      `
+      el.style.cssText = 'filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.6));'
+
+      boatMarkerRef.current = new maplibregl.Marker({
+        element: el,
+        rotationAlignment: 'map',
+        pitchAlignment: 'map'
+      })
+        .setLngLat([gpsData.longitude, gpsData.latitude])
+        .addTo(map.current)
+    } else {
+      boatMarkerRef.current.setLngLat([gpsData.longitude, gpsData.latitude])
+    }
+
+    // Rotate marker to heading
+    if (gpsData.heading !== undefined) {
+      boatMarkerRef.current.setRotation(gpsData.heading)
+    }
+  }, [mapLoaded, gpsData])
+
+  // Tracking mode - follow boat position with map rotation
+  useEffect(() => {
+    if (!trackingMode || !gpsData || !map.current) return
+
+    const mapHeight = map.current.getContainer().clientHeight
+    const bearing = northUp ? 0 : (gpsData.heading || 0)
+
+    if (trackingMode === 'center') {
+      // Mode 1: Boat centered in middle of screen
+      map.current.easeTo({
+        center: [gpsData.longitude, gpsData.latitude],
+        bearing: bearing,
+        padding: { bottom: 0, top: 0, left: 0, right: 0 },
+        duration: 300
+      })
+    } else if (trackingMode === 'offset') {
+      // Mode 2: Boat 1/3 from bottom, centered laterally
+      // To place center at 2/3 from top, we need top padding of 1/3 height
+      map.current.easeTo({
+        center: [gpsData.longitude, gpsData.latitude],
+        bearing: bearing,
+        padding: { top: mapHeight / 3, bottom: 0, left: 0, right: 0 },
+        duration: 300
+      })
+    }
+  }, [trackingMode, gpsData, northUp])
+
+  // Decouple from tracking on user pan
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return
+
+    const handleMoveStart = (e) => {
+      // Only decouple if user-initiated (has originalEvent)
+      if (e.originalEvent && trackingModeRef.current) {
+        setTrackingMode(null)
+      }
+    }
+
+    map.current.on('movestart', handleMoveStart)
+    return () => {
+      if (map.current) {
+        map.current.off('movestart', handleMoveStart)
+      }
+    }
+  }, [mapLoaded])
 
   // Virginia Beach coordinates (same as ChartView)
   const center = [-75.978, 36.853]
@@ -484,40 +596,119 @@ function TopoView() {
         </button>
       </div>
 
-      {/* Settings Menu (top right) */}
-      <div className="absolute top-4 right-4 z-20">
-        {/* Popup Menu */}
-        {menuOpen && (
-          <>
-            {/* Backdrop to close menu */}
-            <div
-              className="fixed inset-0 z-30"
-              onClick={() => setMenuOpen(false)}
-            />
-
-            {/* Menu Content */}
-            <div className="absolute top-14 right-0 bg-terminal-surface rounded-lg shadow-glow-green border border-terminal-border overflow-hidden z-40 min-w-[200px]">
-              <button
-                onClick={clearCacheAndReload}
-                className="w-full px-4 py-3 text-left hover:bg-terminal-green/10 transition-colors flex items-center space-x-3 text-terminal-green"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span className="text-sm font-medium">Clear Cache & Reload</span>
-              </button>
-            </div>
-          </>
-        )}
-
-        {/* Settings Button */}
+      {/* Top Right Controls */}
+      <div className="absolute top-4 right-4 z-20 flex items-center space-x-2">
+        {/* North Up Toggle Button */}
         <button
-          onClick={() => setMenuOpen(!menuOpen)}
-          className="bg-terminal-surface hover:bg-terminal-green/10 border border-terminal-border hover:border-terminal-green rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all"
-          aria-label="Map settings"
+          onClick={() => setNorthUp(!northUp)}
+          className={`bg-terminal-surface hover:bg-terminal-green/10 border rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all ${
+            northUp
+              ? 'border-terminal-green bg-terminal-green/20'
+              : 'border-terminal-border hover:border-terminal-green'
+          }`}
+          aria-label={northUp ? "North up (tap for heading up)" : "Heading up (tap for north up)"}
+          title={northUp ? "North up - tap for heading up" : "Heading up - tap for north up"}
         >
-          <SettingsIcon className="w-6 h-6 text-terminal-green" />
+          <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {/* Compass N arrow */}
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={northUp ? 2 : 1.5}
+              fill={northUp ? "currentColor" : "none"}
+              d="M12 3 L8 12 L12 9 L16 12 Z"
+            />
+            {/* N letter */}
+            <text
+              x="12"
+              y="20"
+              textAnchor="middle"
+              fontSize="7"
+              fontWeight="bold"
+              fill="currentColor"
+              stroke="none"
+            >N</text>
+          </svg>
         </button>
+
+        {/* Center on Boat Button - cycles: off → center → offset → off */}
+        <button
+          onClick={() => {
+            if (!trackingMode) {
+              setTrackingMode('center')  // First press: center on screen
+            } else if (trackingMode === 'center') {
+              setTrackingMode('offset')  // Second press: 1/3 from bottom
+            } else {
+              setTrackingMode(null)      // Third press: decouple
+            }
+          }}
+          className={`bg-terminal-surface hover:bg-terminal-green/10 border rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all ${
+            trackingMode
+              ? 'border-terminal-green bg-terminal-green/20'
+              : 'border-terminal-border hover:border-terminal-green'
+          }`}
+          aria-label={
+            !trackingMode ? "Center on boat" :
+            trackingMode === 'center' ? "Following (centered)" :
+            "Following (offset)"
+          }
+          title={
+            !trackingMode ? "Center on boat" :
+            trackingMode === 'center' ? "Centered - tap for offset" :
+            "Offset - tap to decouple"
+          }
+        >
+          {/* Unfilled icon when not tracking, filled when tracking */}
+          {trackingMode ? (
+            <svg className="w-6 h-6 text-terminal-green" fill="currentColor" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 3 L7 9 L7 17 L9 21 L15 21 L17 17 L17 9 Z" />
+              <path stroke="#0a3d1f" strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 11 L15 11" />
+              <path stroke="#0a3d1f" strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 6 L12 4 L14 6" />
+            </svg>
+          ) : (
+            <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3 L7 9 L7 17 L9 21 L15 21 L17 17 L17 9 Z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 11 L15 11" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 6 L12 4 L14 6" />
+            </svg>
+          )}
+        </button>
+
+        {/* Settings Menu */}
+        <div className="relative">
+          {/* Popup Menu */}
+          {menuOpen && (
+            <>
+              {/* Backdrop to close menu */}
+              <div
+                className="fixed inset-0 z-30"
+                onClick={() => setMenuOpen(false)}
+              />
+
+              {/* Menu Content */}
+              <div className="absolute top-14 right-0 bg-terminal-surface rounded-lg shadow-glow-green border border-terminal-border overflow-hidden z-40 min-w-[200px]">
+                <button
+                  onClick={clearCacheAndReload}
+                  className="w-full px-4 py-3 text-left hover:bg-terminal-green/10 transition-colors flex items-center space-x-3 text-terminal-green"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span className="text-sm font-medium">Clear Cache & Reload</span>
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* Settings Button */}
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="bg-terminal-surface hover:bg-terminal-green/10 border border-terminal-border hover:border-terminal-green rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all"
+            aria-label="Map settings"
+          >
+            <SettingsIcon className="w-6 h-6 text-terminal-green" />
+          </button>
+        </div>
       </div>
     </div>
   )
