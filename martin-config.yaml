@@ -11,6 +11,7 @@ max_feature_count: 10000
 mbtiles:
   paths:
     - "./tiles"
+    - "./tiles/cusp"
 
 # PMTiles for modern vector tiles (will auto-discover .pmtiles files) 
 pmtiles:

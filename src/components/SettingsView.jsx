@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import ChartManager from './ChartManager'
 import BlueTopoDownloader from './BlueTopoDownloader'
+import CuspDownloader from './CuspDownloader'
 import ErrorBoundary from './ErrorBoundary'
 
 function SettingsView() {
@@ -31,6 +32,7 @@ function SettingsView() {
     { id: 'general', name: 'General', icon: '[>]' },
     { id: 'charts', name: 'Chart Manager', icon: '[M]' },
     { id: 'bluetopo', name: 'BlueTopo', icon: '[~]' },
+    { id: 'cusp', name: 'Coastline', icon: '[/]' },
     { id: 'gps', name: 'GPS/AHRS', icon: '[*]' },
     { id: 'display', name: 'Display', icon: '[#]' },
     { id: 'system', name: 'System', icon: '[S]' }
@@ -49,6 +51,13 @@ function SettingsView() {
         return (
           <ErrorBoundary>
             <BlueTopoDownloader />
+          </ErrorBoundary>
+        )
+
+      case 'cusp':
+        return (
+          <ErrorBoundary>
+            <CuspDownloader />
           </ErrorBoundary>
         )
 
