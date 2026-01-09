@@ -13,6 +13,7 @@ logs/
 # Database files
 data/*.db
 data/*.db-journal
+data/*.xml
 api-server/*.db
 api-server/*.db-journal
 
@@ -20,7 +21,11 @@ api-server/*.db-journal
 tiles/**/*.mbtiles
 tiles/**/*.pmtiles
 tiles/**/*.png
+tiles/**/*.tif
+tiles/**/*.tiff
+tiles/**/*.xml
 tiles/**/sample-tiles/
+tiles/*_raw/
 
 # Build outputs
 dist/
