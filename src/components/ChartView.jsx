@@ -9,6 +9,7 @@ import DepthInfoCard from './DepthInfoCard'
 import WaypointMenu from './WaypointMenu'
 import WaypointEditModal from './WaypointEditModal'
 import WaypointDropdown from './WaypointDropdown'
+import LayersMenu from './LayersMenu'
 import { createMarkerSVG } from '../utils/waypointIcons'
 import { MapPinIcon } from '@heroicons/react/24/outline'
 
@@ -53,6 +54,18 @@ function ChartView() {
   const [waypointEditModalOpen, setWaypointEditModalOpen] = useState(false)
   const [waypointEditPosition, setWaypointEditPosition] = useState(null)
   const waypointMarkersRef = useRef(new Map())
+
+  // Layer visibility state - load from localStorage or default to true
+  const [topoLayersVisible, setTopoLayersVisible] = useState(() => {
+    const saved = localStorage.getItem('chartview_bluetopo_visible')
+    return saved !== null ? JSON.parse(saved) : true
+  })
+  const [layersMenuOpen, setLayersMenuOpen] = useState(false)
+
+  // Save layer visibility to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('chartview_bluetopo_visible', JSON.stringify(topoLayersVisible))
+  }, [topoLayersVisible])
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -632,6 +645,39 @@ function ChartView() {
     })
   }
 
+  // Layer configuration
+  const layers = [
+    {
+      id: 'bluetopo',
+      name: 'BlueTopo Bathymetry',
+      description: 'NOAA bathymetric tiles (2m-16m resolution)',
+      visible: topoLayersVisible
+    }
+  ]
+
+  // Toggle individual layer visibility
+  const handleToggleLayer = (layerId) => {
+    if (layerId === 'bluetopo') {
+      setTopoLayersVisible(!topoLayersVisible)
+    }
+    // Future layers can be added here
+  }
+
+  // Update layer visibility when state changes
+  useEffect(() => {
+    if (!map.current || !mapLoaded || !tilesLoaded) return
+
+    const opacity = topoLayersVisible ? 0.85 : 0
+
+    // Toggle all BlueTopo layers
+    const layers = map.current.getStyle().layers
+    layers.forEach(layer => {
+      if (layer.id.startsWith('bluetopo-layer-')) {
+        map.current.setPaintProperty(layer.id, 'raster-opacity', opacity)
+      }
+    })
+  }, [topoLayersVisible, mapLoaded, tilesLoaded])
+
   // Clear browser cache and reload
   const clearCacheAndReload = async () => {
     try {
@@ -747,6 +793,52 @@ function ChartView() {
           }`}>
             {!tilesLoaded ? '[..] Loading...' : tileCount > 0 ? '[OK] Data Loaded' : '[!] No Tiles'}
           </div>
+        </div>
+      </div>
+
+      {/* Layers Button (bottom left) */}
+      <div className="absolute bottom-4 left-4 z-20">
+        <div className="relative">
+          <button
+            onClick={() => setLayersMenuOpen(!layersMenuOpen)}
+            className={`bg-terminal-surface hover:bg-terminal-green/10 border rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all ${
+              layersMenuOpen
+                ? 'border-terminal-green bg-terminal-green/20'
+                : 'border-terminal-border hover:border-terminal-green'
+            }`}
+            aria-label="Map layers"
+            title="Map layers"
+          >
+            <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {/* Layers icon - stack of 3 layers */}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 7 L12 3 L21 7 L12 11 L3 7 Z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 12 L12 16 L21 12"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 17 L12 21 L21 17"
+              />
+            </svg>
+          </button>
+
+          {layersMenuOpen && (
+            <LayersMenu
+              layers={layers}
+              onToggleLayer={handleToggleLayer}
+              onClose={() => setLayersMenuOpen(false)}
+            />
+          )}
         </div>
       </div>
 
