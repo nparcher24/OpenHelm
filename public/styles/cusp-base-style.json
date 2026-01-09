@@ -9,6 +9,10 @@
     "coastline": {
       "type": "geojson",
       "data": "/data/enc_coastline.geojson"
+    },
+    "land": {
+      "type": "geojson",
+      "data": "/data/cusp_conus.geojson"
     }
   },
   "layers": [
@@ -16,7 +20,16 @@
       "id": "background",
       "type": "background",
       "paint": {
-        "background-color": "#000000"
+        "background-color": "#0a1f3d"
+      }
+    },
+    {
+      "id": "land-fill",
+      "type": "fill",
+      "source": "land",
+      "paint": {
+        "fill-color": "#0f3d2a",
+        "fill-opacity": 1
       }
     },
     {
