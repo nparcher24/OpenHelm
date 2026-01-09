@@ -98,13 +98,21 @@ function ChartView() {
     return () => clearTimeout(timeoutId)
   }, [touchState?.showingCrosshairs, touchState?.currentX, touchState?.currentY])
 
+  // Helper to validate coordinates for MapLibre
+  const isValidCoordinate = (lat, lng) => {
+    return typeof lat === 'number' && typeof lng === 'number' &&
+           !isNaN(lat) && !isNaN(lng) &&
+           lat >= -90 && lat <= 90 &&
+           lng >= -180 && lng <= 180
+  }
+
   // GPS polling - always active to show boat position
   useEffect(() => {
     const fetchGps = async () => {
       try {
         const res = await fetch('http://localhost:3002/api/gps')
         const data = await res.json()
-        if (data.latitude && data.longitude) {
+        if (isValidCoordinate(data.latitude, data.longitude)) {
           setGpsData(data)
         }
       } catch (err) {
@@ -141,6 +149,9 @@ function ChartView() {
 
     // Add markers for each waypoint
     waypoints.forEach(waypoint => {
+      // Skip waypoints with invalid coordinates
+      if (!isValidCoordinate(waypoint.latitude, waypoint.longitude)) return
+
       const el = document.createElement('div')
       el.className = 'waypoint-marker'
       el.innerHTML = createMarkerSVG(waypoint.icon, waypoint.color, 32)
@@ -179,6 +190,7 @@ function ChartView() {
   // Boat marker - always visible at GPS position
   useEffect(() => {
     if (!mapLoaded || !gpsData || !map.current) return
+    if (!isValidCoordinate(gpsData.latitude, gpsData.longitude)) return
 
     // Create or update marker
     if (!boatMarkerRef.current) {
@@ -211,18 +223,29 @@ function ChartView() {
     }
   }, [mapLoaded, gpsData])
 
+  // Update map bearing when north-up toggle changes (works independent of tracking mode)
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return
+
+    const bearing = northUp ? 0 : (gpsData?.heading || 0)
+
+    map.current.easeTo({
+      bearing: bearing,
+      duration: 300
+    })
+  }, [northUp, gpsData?.heading, mapLoaded])
+
   // Tracking mode - follow boat position with map rotation
   useEffect(() => {
     if (!trackingMode || !gpsData || !map.current) return
+    if (!isValidCoordinate(gpsData.latitude, gpsData.longitude)) return
 
     const mapHeight = map.current.getContainer().clientHeight
-    const bearing = northUp ? 0 : (gpsData.heading || 0)
 
     if (trackingMode === 'center') {
       // Mode 1: Boat centered in middle of screen
       map.current.easeTo({
         center: [gpsData.longitude, gpsData.latitude],
-        bearing: bearing,
         padding: { bottom: 0, top: 0, left: 0, right: 0 },
         duration: 300
       })
@@ -231,12 +254,11 @@ function ChartView() {
       // To place center at 2/3 from top, we need top padding of 1/3 height
       map.current.easeTo({
         center: [gpsData.longitude, gpsData.latitude],
-        bearing: bearing,
         padding: { top: mapHeight / 3, bottom: 0, left: 0, right: 0 },
         duration: 300
       })
     }
-  }, [trackingMode, gpsData, northUp])
+  }, [trackingMode, gpsData])
 
   // Decouple from tracking on user pan
   useEffect(() => {
@@ -602,6 +624,7 @@ function ChartView() {
 
   const handleWaypointSelect = (waypoint) => {
     setWaypointDropdownOpen(false)
+    if (!isValidCoordinate(waypoint.latitude, waypoint.longitude)) return
     map.current.flyTo({
       center: [waypoint.longitude, waypoint.latitude],
       zoom: 14,
