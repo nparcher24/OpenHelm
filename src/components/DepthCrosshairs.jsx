@@ -1,3 +1,5 @@
+import React from 'react'
+
 /**
  * DepthCrosshairs Component
  * Renders crosshairs during touch-and-hold and after measurement
@@ -21,7 +23,7 @@ function formatDepthFeet(depth) {
   return `${depthFeet.toFixed(1)} ft`
 }
 
-export default function DepthCrosshairs({
+const DepthCrosshairs = React.memo(function DepthCrosshairs({
   showing,
   x,
   y,
@@ -118,4 +120,6 @@ export default function DepthCrosshairs({
       )}
     </div>
   )
-}
+})
+
+export default DepthCrosshairs

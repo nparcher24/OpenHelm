@@ -3,8 +3,8 @@
 
 listen_addresses: "0.0.0.0:3001"
 
-# Performance optimizations for Pi hardware
-worker_processes: 2
+# Performance optimizations for Raspberry Pi 5 (4 cores, 8GB RAM)
+worker_processes: 4
 max_feature_count: 10000
 
 # MBTiles sources for offline maps (will auto-discover .mbtiles files)
@@ -18,5 +18,5 @@ pmtiles:
   paths: 
     - "./tiles"
 
-# Cache configuration
-cache_size_mb: 256
+# Cache configuration (increased for Pi 5's 8GB RAM)
+cache_size_mb: 512

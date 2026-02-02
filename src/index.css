@@ -160,23 +160,6 @@
     @apply bg-terminal-surface border border-terminal-border rounded-lg p-4;
   }
 
-  /* Terminal status indicators */
-  .status-ok {
-    @apply text-terminal-green;
-  }
-
-  .status-warn {
-    @apply text-terminal-amber;
-  }
-
-  .status-error {
-    @apply text-terminal-red;
-  }
-
-  .status-info {
-    @apply text-terminal-cyan;
-  }
-
   /* Terminal checkboxes */
   .terminal-checkbox {
     @apply w-4 h-4 rounded cursor-pointer;

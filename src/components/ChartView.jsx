@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { getDownloadedTileMetadata, getTileUrl, getDepthAtLocation } from '../services/blueTopoTileService'
@@ -120,13 +120,22 @@ function ChartView() {
   }
 
   // GPS polling - always active to show boat position
+  // Optimized to only update state when position/heading actually changes
   useEffect(() => {
     const fetchGps = async () => {
       try {
         const res = await fetch('http://localhost:3002/api/gps')
         const data = await res.json()
         if (isValidCoordinate(data.latitude, data.longitude)) {
-          setGpsData(data)
+          setGpsData(prev => {
+            // Skip re-render if position and heading unchanged
+            if (prev?.latitude === data.latitude &&
+                prev?.longitude === data.longitude &&
+                prev?.heading === data.heading) {
+              return prev
+            }
+            return data
+          })
         }
       } catch (err) {
         // Silently fail - GPS may not be available
@@ -316,6 +325,14 @@ function ChartView() {
 
     map.current.on('load', async () => {
       setMapLoaded(true)
+
+      // Handle base layer errors gracefully
+      map.current.on('error', (e) => {
+        if (e.error?.message?.includes('gshhs_base') || e.error?.message?.includes('localhost:3001')) {
+          console.warn('GSHHS base layer not available:', e.error.message)
+          // Map will show blue background only, user can download via Settings → Coastline
+        }
+      })
 
       // Load BlueTopo tiles after map loads
       await loadBlueTopoTiles()
@@ -656,12 +673,24 @@ function ChartView() {
   ]
 
   // Toggle individual layer visibility
-  const handleToggleLayer = (layerId) => {
+  const handleToggleLayer = useCallback((layerId) => {
     if (layerId === 'bluetopo') {
-      setTopoLayersVisible(!topoLayersVisible)
+      setTopoLayersVisible(v => !v)
     }
     // Future layers can be added here
-  }
+  }, [])
+
+  // Memoized button handlers to prevent unnecessary re-renders
+  const handleZoomIn = useCallback(() => map.current?.zoomIn(), [])
+  const handleZoomOut = useCallback(() => map.current?.zoomOut(), [])
+  const handleToggleNorthUp = useCallback(() => setNorthUp(n => !n), [])
+  const handleCycleTrackingMode = useCallback(() => {
+    setTrackingMode(mode => {
+      if (!mode) return 'center'
+      if (mode === 'center') return 'offset'
+      return null
+    })
+  }, [])
 
   // Update layer visibility when state changes
   useEffect(() => {
@@ -845,7 +874,7 @@ function ChartView() {
       {/* Touch-friendly zoom controls for marine use */}
       <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-20">
         <button
-          onClick={() => map.current?.zoomIn()}
+          onClick={handleZoomIn}
           className="bg-terminal-surface hover:bg-terminal-green/10 border border-terminal-border hover:border-terminal-green rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all"
           aria-label="Zoom in"
         >
@@ -854,7 +883,7 @@ function ChartView() {
           </svg>
         </button>
         <button
-          onClick={() => map.current?.zoomOut()}
+          onClick={handleZoomOut}
           className="bg-terminal-surface hover:bg-terminal-green/10 border border-terminal-border hover:border-terminal-green rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all"
           aria-label="Zoom out"
         >
@@ -868,7 +897,7 @@ function ChartView() {
       <div className="absolute top-4 right-4 z-20 flex items-center space-x-2">
         {/* North Up Toggle Button */}
         <button
-          onClick={() => setNorthUp(!northUp)}
+          onClick={handleToggleNorthUp}
           className={`bg-terminal-surface hover:bg-terminal-green/10 border rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all ${
             northUp
               ? 'border-terminal-green bg-terminal-green/20'
@@ -901,15 +930,7 @@ function ChartView() {
 
         {/* Center on Boat Button - cycles: off → center → offset → off */}
         <button
-          onClick={() => {
-            if (!trackingMode) {
-              setTrackingMode('center')  // First press: center on screen
-            } else if (trackingMode === 'center') {
-              setTrackingMode('offset')  // Second press: 1/3 from bottom
-            } else {
-              setTrackingMode(null)      // Third press: decouple
-            }
-          }}
+          onClick={handleCycleTrackingMode}
           className={`bg-terminal-surface hover:bg-terminal-green/10 border rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all ${
             trackingMode
               ? 'border-terminal-green bg-terminal-green/20'

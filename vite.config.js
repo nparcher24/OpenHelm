@@ -11,12 +11,18 @@ export default defineConfig({
   build: {
     target: 'es2020',
     minify: 'terser',
+    terserOptions: {
+      compress: { drop_console: true }
+    },
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom']
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          maplibre: ['maplibre-gl'],
+          three: ['three', '@react-three/fiber', '@react-three/drei']
         }
       }
-    }
+    },
+    sourcemap: false
   }
 })

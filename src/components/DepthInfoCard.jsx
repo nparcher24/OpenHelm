@@ -1,3 +1,5 @@
+import React from 'react'
+
 /**
  * DepthInfoCard Component
  * Displays depth measurement information with smart positioning
@@ -22,7 +24,7 @@ function formatDepthFeet(depth) {
   return `${depthFeet.toFixed(1)} ft`
 }
 
-export default function DepthInfoCard({
+const DepthInfoCard = React.memo(function DepthInfoCard({
   measurement,
   loading,
   onClose
@@ -134,4 +136,6 @@ export default function DepthInfoCard({
       </div>
     </>
   )
-}
+})
+
+export default DepthInfoCard

@@ -190,11 +190,9 @@ if xset q &>/dev/null; then
     fi
 
     if [ -n "$CHROMIUM_CMD" ]; then
-        # Launch Chromium in windowed mode optimized for Pi with context menu disabled
+        # Launch Chromium in windowed mode optimized for Raspberry Pi 5 GPU acceleration
         $CHROMIUM_CMD \
           --no-sandbox \
-          --disable-web-security \
-          --disable-features=VizDisplayCompositor \
           --window-size=1920,1080 \
           --window-position=0,0 \
           --no-first-run \
@@ -204,13 +202,14 @@ if xset q &>/dev/null; then
           --disable-background-timer-throttling \
           --disable-renderer-backgrounding \
           --disable-backgrounding-occluded-windows \
-          --disable-ipc-flooding-protection \
           --enable-gpu-rasterization \
           --enable-oop-rasterization \
           --enable-hardware-overlays \
-          --use-gl=desktop \
-          --ignore-gpu-blacklist \
-          --max_old_space_size=512 \
+          --use-gl=egl \
+          --ignore-gpu-blocklist \
+          --enable-zero-copy \
+          --enable-native-gpu-memory-buffers \
+          --canvas-oop-rasterization \
           --disable-dev-shm-usage \
           --password-store=basic \
           --overscroll-history-navigation=0 \

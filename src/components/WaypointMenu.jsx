@@ -1,3 +1,5 @@
+import React from 'react'
+
 /**
  * WaypointMenu Component
  * Context menu that appears after long-press release on the chart
@@ -6,7 +8,7 @@
 
 import { MapPinIcon } from '@heroicons/react/24/outline'
 
-export default function WaypointMenu({
+const WaypointMenu = React.memo(function WaypointMenu({
   position, // { screenX, screenY, lat, lng }
   onAddWaypoint,
   onMeasureDepth,
@@ -102,4 +104,6 @@ export default function WaypointMenu({
       </div>
     </>
   )
-}
+})
+
+export default WaypointMenu

@@ -1,6 +1,7 @@
+import React from 'react'
 import { CheckIcon } from '@heroicons/react/24/outline'
 
-function LayersMenu({ layers, onToggleLayer, onClose }) {
+const LayersMenu = React.memo(function LayersMenu({ layers, onToggleLayer, onClose }) {
   return (
     <>
       {/* Backdrop */}
@@ -52,6 +53,6 @@ function LayersMenu({ layers, onToggleLayer, onClose }) {
       </div>
     </>
   )
-}
+})
 
 export default LayersMenu
