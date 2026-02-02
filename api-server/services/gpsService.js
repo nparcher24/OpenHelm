@@ -35,7 +35,7 @@ let gpsData = {
 // Heading smoothing state (EMA with circular handling)
 let headingSin = null  // Running average of sin(heading)
 let headingCos = null  // Running average of cos(heading)
-const HEADING_SMOOTHING = 0.3  // 0-1: lower = smoother, higher = more responsive
+const HEADING_SMOOTHING = 0.7  // 0-1: lower = smoother, higher = more responsive
 
 /**
  * Smooth heading using exponential moving average with circular wrap-around handling
@@ -66,6 +66,14 @@ function smoothHeading(rawHeading) {
 let serialPort = null
 let messageBuffer = Buffer.alloc(0)
 let isRunning = false
+let gpsUpdateCallback = null // Callback for real-time GPS updates
+
+/**
+ * Set callback for GPS data updates (used for WebSocket streaming)
+ */
+export function setGpsUpdateCallback(callback) {
+  gpsUpdateCallback = callback
+}
 
 /**
  * Find GPS device - checks all ttyUSB* and ttyACM* devices
@@ -93,6 +101,19 @@ async function findGpsDevice() {
 }
 
 /**
+ * Validate WitMotion checksum
+ * Checksum is sum of bytes 0-9, mod 256
+ */
+function validateChecksum(msg) {
+  if (msg.length < 11) return false
+  let sum = 0
+  for (let i = 0; i < 10; i++) {
+    sum += msg[i]
+  }
+  return (sum & 0xFF) === msg[10]
+}
+
+/**
  * Parse WitMotion binary protocol messages
  * Message format: 0x55 TYPE [8 data bytes] [checksum] = 11 bytes total
  *
@@ -111,6 +132,9 @@ async function findGpsDevice() {
  */
 function parseWitMotionMessage(msg) {
   if (msg.length < 11 || msg[0] !== 0x55) return null
+
+  // Validate checksum to prevent parsing corrupt/misaligned data
+  if (!validateChecksum(msg)) return null
 
   const msgType = String.fromCharCode(msg[1])
   const data = msg.slice(2, 10)
@@ -165,22 +189,38 @@ function parseWitMotionMessage(msg) {
       const latDDMM = (latRaw / 1e7) * 100  // e.g., 36.5305908 * 100 = 3653.05908
       const latDeg = Math.trunc(latDDMM / 100)  // e.g., 36
       const latMin = latDDMM - (latDeg * 100)   // e.g., 53.05908
-      gpsData.latitude = latDeg + (latMin / 60) // e.g., 36 + 0.8843 = 36.8843
+      const parsedLat = latDeg + (latMin / 60) // e.g., 36 + 0.8843 = 36.8843
 
       const lonDDMM = (lonRaw / 1e7) * 100
       const lonSign = lonDDMM < 0 ? -1 : 1
       const lonDDMMAbs = Math.abs(lonDDMM)
       const lonDeg = Math.trunc(lonDDMMAbs / 100)
       const lonMin = lonDDMMAbs - (lonDeg * 100)
-      gpsData.longitude = lonSign * (lonDeg + (lonMin / 60))
+      const parsedLon = lonSign * (lonDeg + (lonMin / 60))
+
+      // Validate lat/lon are within valid ranges before updating
+      if (parsedLat >= -90 && parsedLat <= 90 && parsedLon >= -180 && parsedLon <= 180) {
+        gpsData.latitude = parsedLat
+        gpsData.longitude = parsedLon
+      }
       break
 
     case 'X': // 0x58 - GPS Ground Speed
-      // Speed: bytes 0-3 as int32, altitude: bytes 4-7 as int32
-      const gpsSpeed = data.readInt32LE(0) / 1000 // mm/s to m/s
-      const gpsAlt = data.readInt32LE(4) / 100 // cm to meters
-      gpsData.groundSpeed = gpsSpeed
-      gpsData.altitude = gpsAlt
+      // Correct WitMotion 0x58 format:
+      // Bytes 0-1: GPSHeight (int16, 0.1m units)
+      // Bytes 2-3: GPSYaw (int16, 0.1° units) - Course Over Ground
+      // Bytes 4-7: GPSVelocity (uint32, 1/1000 km/h units)
+      const gpsHeight = data.readInt16LE(0) / 10 // 0.1m to meters
+      const gpsCOG = data.readInt16LE(2) / 10 // 0.1° to degrees
+      const gpsSpeedRaw = data.readUInt32LE(4)
+      const gpsSpeedKmh = gpsSpeedRaw / 1000 // to km/h
+      const gpsSpeedMs = gpsSpeedKmh / 3.6 // to m/s
+
+      // Validate speed is reasonable (< 200 knots / ~100 m/s for any boat)
+      if (gpsSpeedMs >= 0 && gpsSpeedMs < 100) {
+        gpsData.groundSpeed = gpsSpeedMs
+      }
+      gpsData.altitude = gpsHeight
       break
 
     case 'Y': // 0x59 - Quaternion
@@ -205,6 +245,12 @@ function parseWitMotionMessage(msg) {
   }
 
   gpsData.timestamp = Date.now()
+
+  // Notify WebSocket subscribers of update
+  if (gpsUpdateCallback) {
+    gpsUpdateCallback(gpsData)
+  }
+
   return msgType
 }
 
@@ -236,10 +282,16 @@ function processData(data) {
     // Check if this looks like a valid message (second byte should be 0x50-0x5F)
     if (messageBuffer[1] >= 0x50 && messageBuffer[1] <= 0x5F) {
       const msg = messageBuffer.slice(0, 11)
-      parseWitMotionMessage(msg)
-      messageBuffer = messageBuffer.slice(11)
+      const result = parseWitMotionMessage(msg)
+      if (result !== null) {
+        // Valid message parsed, advance by 11 bytes
+        messageBuffer = messageBuffer.slice(11)
+      } else {
+        // Checksum failed - this was a false sync, skip 1 byte and resync
+        messageBuffer = messageBuffer.slice(1)
+      }
     } else {
-      // Not a valid message, skip this byte and try again
+      // Not a valid message type, skip this byte and try again
       messageBuffer = messageBuffer.slice(1)
     }
   }

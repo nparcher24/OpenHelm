@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 
+const WS_URL = 'ws://localhost:3002'
 const API_BASE = 'http://localhost:3002'
 
 // Lazy load the 3D component for better initial load
@@ -9,26 +10,77 @@ function GpsView() {
   const [gpsData, setGpsData] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
-
-  const fetchGpsData = useCallback(async () => {
-    try {
-      const response = await fetch(`${API_BASE}/api/gps`)
-      if (!response.ok) throw new Error('Failed to fetch GPS data')
-      const data = await response.json()
-      setGpsData(data)
-      setError(data.error)
-      setLoading(false)
-    } catch (err) {
-      setError(err.message)
-      setLoading(false)
-    }
-  }, [])
+  const wsRef = useRef(null)
 
   useEffect(() => {
-    fetchGpsData()
-    const interval = setInterval(fetchGpsData, 100)
-    return () => clearInterval(interval)
-  }, [fetchGpsData])
+    let mounted = true
+    let reconnectTimeout = null
+
+    // Connect to WebSocket for real-time GPS updates
+    const connect = () => {
+      if (!mounted) return
+
+      const ws = new WebSocket(WS_URL)
+      wsRef.current = ws
+
+      ws.onopen = () => {
+        if (!mounted) return
+        console.log('GPS WebSocket connected')
+        // Subscribe to GPS stream
+        ws.send(JSON.stringify({ type: 'subscribe-gps' }))
+      }
+
+      ws.onmessage = (event) => {
+        if (!mounted) return
+        try {
+          const message = JSON.parse(event.data)
+          if (message.type === 'gps') {
+            setGpsData(message.data)
+            setError(message.data.error || null)
+            setLoading(false)
+          }
+        } catch (err) {
+          console.error('GPS WebSocket parse error:', err)
+        }
+      }
+
+      ws.onerror = () => {
+        // Error handling done in onclose
+      }
+
+      ws.onclose = () => {
+        if (!mounted) return
+        console.log('GPS WebSocket closed, reconnecting...')
+        reconnectTimeout = setTimeout(connect, 1000)
+      }
+    }
+
+    // Fetch initial data via HTTP first
+    fetch(`${API_BASE}/api/gps`)
+      .then(res => res.json())
+      .then(data => {
+        if (!mounted) return
+        setGpsData(data)
+        setError(data.error || null)
+        setLoading(false)
+      })
+      .catch(err => {
+        if (!mounted) return
+        setError(err.message)
+        setLoading(false)
+      })
+
+    // Then connect WebSocket for real-time updates
+    connect()
+
+    return () => {
+      mounted = false
+      if (reconnectTimeout) clearTimeout(reconnectTimeout)
+      if (wsRef.current) {
+        wsRef.current.close()
+      }
+    }
+  }, [])
 
   const formatCoord = (value, isLat) => {
     if (value === null || value === undefined) return '--'

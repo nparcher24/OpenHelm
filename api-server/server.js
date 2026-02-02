@@ -15,6 +15,7 @@ import encMetadataRoutes from './routes/encMetadata.js'
 import blueTopoRoutes from './routes/bluetopo.js'
 import cuspRoutes from './routes/cusp.js'
 import gpsRoutes from './routes/gps.js'
+import { setGpsUpdateCallback, startGpsService } from './services/gpsService.js'
 import waypointRoutes from './routes/waypoints.js'
 
 const app = express()
@@ -84,6 +85,39 @@ const wss = new WebSocketServer({ server })
 global.progressTrackers = new Map() // jobId -> { progress, status, clients }
 global.activeJobs = new Map() // jobId -> { controller, startTime, status }
 
+// GPS WebSocket subscribers
+const gpsSubscribers = new Set()
+
+// Set up GPS real-time streaming
+setGpsUpdateCallback((gpsData) => {
+  if (gpsSubscribers.size === 0) return
+
+  const message = JSON.stringify({
+    type: 'gps',
+    data: gpsData,
+    timestamp: Date.now()
+  })
+
+  gpsSubscribers.forEach(ws => {
+    if (ws.readyState === ws.OPEN) {
+      try {
+        ws.send(message)
+      } catch (error) {
+        gpsSubscribers.delete(ws)
+      }
+    } else {
+      gpsSubscribers.delete(ws)
+    }
+  })
+})
+
+// Auto-start GPS service on server startup
+startGpsService().then(() => {
+  console.log('🛰️ GPS service auto-started')
+}).catch(err => {
+  console.log('⚠️ GPS service not available:', err.message)
+})
+
 // WebSocket connection handling
 wss.on('connection', (ws, req) => {
   console.log('🔌 WebSocket client connected from:', req.socket.remoteAddress)
@@ -91,16 +125,23 @@ wss.on('connection', (ws, req) => {
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message.toString())
-      
-      if (data.type === 'subscribe' && data.jobId) {
+
+      if (data.type === 'subscribe-gps') {
+        // Subscribe client to GPS updates
+        gpsSubscribers.add(ws)
+        console.log(`🛰️ Client subscribed to GPS stream`)
+      } else if (data.type === 'unsubscribe-gps') {
+        gpsSubscribers.delete(ws)
+        console.log(`🛰️ Client unsubscribed from GPS stream`)
+      } else if (data.type === 'subscribe' && data.jobId) {
         // Subscribe client to specific job updates
         if (!global.progressTrackers.has(data.jobId)) {
           global.progressTrackers.set(data.jobId, { progress: 0, status: 'waiting', clients: new Set() })
         }
-        
+
         global.progressTrackers.get(data.jobId).clients.add(ws)
         console.log(`📡 Client subscribed to job: ${data.jobId}`)
-        
+
         // Send current status immediately
         const tracker = global.progressTrackers.get(data.jobId)
         ws.send(JSON.stringify({
@@ -117,6 +158,8 @@ wss.on('connection', (ws, req) => {
   })
   
   ws.on('close', () => {
+    // Remove client from GPS subscription
+    gpsSubscribers.delete(ws)
     // Remove client from all job subscriptions
     for (const [jobId, tracker] of global.progressTrackers.entries()) {
       tracker.clients.delete(ws)
