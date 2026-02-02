@@ -17,6 +17,7 @@ let gpsData = {
   longitude: null,
   altitude: null,
   heading: null,
+  headingRaw: null,  // Unsmoothed heading for debugging
   roll: null,
   pitch: null,
   speed: null,
@@ -29,6 +30,37 @@ let gpsData = {
   timestamp: null,
   device: null,
   error: null
+}
+
+// Heading smoothing state (EMA with circular handling)
+let headingSin = null  // Running average of sin(heading)
+let headingCos = null  // Running average of cos(heading)
+const HEADING_SMOOTHING = 0.3  // 0-1: lower = smoother, higher = more responsive
+
+/**
+ * Smooth heading using exponential moving average with circular wrap-around handling
+ * Uses sin/cos decomposition to properly handle 0°/360° boundary
+ */
+function smoothHeading(rawHeading) {
+  const radians = rawHeading * Math.PI / 180
+  const sin = Math.sin(radians)
+  const cos = Math.cos(radians)
+
+  if (headingSin === null || headingCos === null) {
+    // Initialize
+    headingSin = sin
+    headingCos = cos
+  } else {
+    // Exponential moving average
+    headingSin = HEADING_SMOOTHING * sin + (1 - HEADING_SMOOTHING) * headingSin
+    headingCos = HEADING_SMOOTHING * cos + (1 - HEADING_SMOOTHING) * headingCos
+  }
+
+  // Convert back to degrees
+  let smoothed = Math.atan2(headingSin, headingCos) * 180 / Math.PI
+  if (smoothed < 0) smoothed += 360
+
+  return smoothed
 }
 
 let serialPort = null
@@ -102,9 +134,10 @@ function parseWitMotionMessage(msg) {
       gpsData.roll = (roll / 32768.0) * 180.0
       gpsData.pitch = (pitch / 32768.0) * 180.0
 
-      let heading = (-yaw / 32768.0) * 180.0
-      if (heading < 0) heading += 360
-      gpsData.heading = heading
+      let rawHeading = (-yaw / 32768.0) * 180.0
+      if (rawHeading < 0) rawHeading += 360
+      gpsData.headingRaw = rawHeading
+      gpsData.heading = smoothHeading(rawHeading)
       break
 
     case 'T': // 0x54 - Magnetometer

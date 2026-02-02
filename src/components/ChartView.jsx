@@ -39,8 +39,9 @@ function ChartView() {
 
   // GPS tracking state
   // trackingMode: null = not tracking, 'center' = boat centered, 'offset' = boat 1/3 from bottom
-  const [trackingMode, setTrackingMode] = useState(null)
+  const [trackingMode, setTrackingMode] = useState('center')  // Start tracking by default
   const [northUp, setNorthUp] = useState(false)  // true = north up, false = heading up
+  const initialGpsCenterDone = useRef(false)  // Track if we've done initial GPS center
   const [gpsData, setGpsData] = useState(null)
   const gpsIntervalRef = useRef(null)
   const boatMarkerRef = useRef(null)
@@ -142,9 +143,25 @@ function ChartView() {
       }
     }
     fetchGps()
-    gpsIntervalRef.current = setInterval(fetchGps, 500)
+    gpsIntervalRef.current = setInterval(fetchGps, 50)  // 20 Hz for smooth heading updates
     return () => clearInterval(gpsIntervalRef.current)
   }, [])
+
+  // Initial center on GPS position when first available
+  useEffect(() => {
+    if (!mapLoaded || !gpsData || !map.current || initialGpsCenterDone.current) return
+    if (!isValidCoordinate(gpsData.latitude, gpsData.longitude)) return
+
+    initialGpsCenterDone.current = true
+
+    // Fly to GPS position at default zoom with heading-up bearing
+    map.current.flyTo({
+      center: [gpsData.longitude, gpsData.latitude],
+      zoom: defaultZoom,
+      bearing: northUp ? 0 : (gpsData.heading || 0),
+      duration: 1000
+    })
+  }, [mapLoaded, gpsData, northUp])
 
   // Load waypoints when map is ready
   const loadWaypoints = async () => {
@@ -245,42 +262,45 @@ function ChartView() {
     }
   }, [mapLoaded, gpsData])
 
-  // Update map bearing when north-up toggle changes (works independent of tracking mode)
+  // Update map bearing when north-up toggle changes (only when NOT tracking - tracking handles its own bearing)
   useEffect(() => {
-    if (!map.current || !mapLoaded) return
+    if (!map.current || !mapLoaded || trackingMode) return
 
     const bearing = northUp ? 0 : (gpsData?.heading || 0)
 
     map.current.easeTo({
       bearing: bearing,
-      duration: 300
+      duration: 100  // Short duration for smooth 20Hz updates
     })
-  }, [northUp, gpsData?.heading, mapLoaded])
+  }, [northUp, gpsData?.heading, mapLoaded, trackingMode])
 
-  // Tracking mode - follow boat position with map rotation
+  // Tracking mode - follow boat position with bearing rotation
   useEffect(() => {
     if (!trackingMode || !gpsData || !map.current) return
     if (!isValidCoordinate(gpsData.latitude, gpsData.longitude)) return
 
     const mapHeight = map.current.getContainer().clientHeight
+    const bearing = northUp ? 0 : (gpsData.heading || 0)
 
     if (trackingMode === 'center') {
       // Mode 1: Boat centered in middle of screen
       map.current.easeTo({
         center: [gpsData.longitude, gpsData.latitude],
+        bearing: bearing,
         padding: { bottom: 0, top: 0, left: 0, right: 0 },
-        duration: 300
+        duration: 100  // Short duration for smooth 20Hz updates
       })
     } else if (trackingMode === 'offset') {
       // Mode 2: Boat 1/3 from bottom, centered laterally
       // To place center at 2/3 from top, we need top padding of 1/3 height
       map.current.easeTo({
         center: [gpsData.longitude, gpsData.latitude],
+        bearing: bearing,
         padding: { top: mapHeight / 3, bottom: 0, left: 0, right: 0 },
-        duration: 300
+        duration: 100  // Short duration for smooth 20Hz updates
       })
     }
-  }, [trackingMode, gpsData])
+  }, [trackingMode, gpsData, northUp])
 
   // Decouple from tracking on user pan
   useEffect(() => {
@@ -301,9 +321,9 @@ function ChartView() {
     }
   }, [mapLoaded])
 
-  // Virginia Beach coordinates (same as ChartView)
+  // Virginia Beach coordinates (fallback if GPS not available)
   const center = [-75.978, 36.853]
-  const zoom = 10
+  const defaultZoom = 15  // Zoomed in for detailed navigation
 
   useEffect(() => {
     if (map.current) return // Initialize map only once
@@ -312,7 +332,7 @@ function ChartView() {
       container: mapContainer.current,
       style: '/styles/cusp-base-style.json',
       center: center,
-      zoom: zoom,
+      zoom: defaultZoom,
       pitch: 0,
       bearing: 0,
       attributionControl: false
