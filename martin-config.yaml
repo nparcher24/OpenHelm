@@ -12,10 +12,15 @@ mbtiles:
   paths:
     - "./tiles"
     - "./tiles/cusp"
+    - "./tiles/enc"
+  sources:
+    # GSHHS coastline with overzooming enabled
+    gshhs_base:
+      path: "./tiles/cusp/gshhs_base.mbtiles"
 
-# PMTiles for modern vector tiles (will auto-discover .pmtiles files) 
+# PMTiles for modern vector tiles (will auto-discover .pmtiles files)
 pmtiles:
-  paths: 
+  paths:
     - "./tiles"
 
 # Cache configuration (increased for Pi 5's 8GB RAM)

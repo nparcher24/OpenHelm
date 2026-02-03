@@ -17,6 +17,7 @@ import cuspRoutes from './routes/cusp.js'
 import gpsRoutes from './routes/gps.js'
 import { setGpsUpdateCallback, startGpsService } from './services/gpsService.js'
 import waypointRoutes from './routes/waypoints.js'
+import ncdsRoutes from './routes/ncds.js'
 
 const app = express()
 const PORT = 3002
@@ -62,6 +63,7 @@ app.use('/api/bluetopo', blueTopoRoutes)
 app.use('/api/cusp', cuspRoutes)
 app.use('/api/gps', gpsRoutes)
 app.use('/api/waypoints', waypointRoutes)
+app.use('/api/ncds', ncdsRoutes)
 
 // Error handling middleware
 app.use((err, req, res, next) => {

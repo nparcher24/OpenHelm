@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { getDownloadedTileMetadata, getTileUrl, getDepthAtLocation } from '../services/blueTopoTileService'
+import { getDownloadedRegions as getDownloadedENCRegions } from '../services/encDownloadService'
 import { getAllWaypoints, createWaypoint } from '../services/waypointService'
 import { SettingsIcon, BoatIcon } from './Icons'
 import DepthCrosshairs from './DepthCrosshairs'
@@ -61,12 +62,21 @@ function ChartView() {
     const saved = localStorage.getItem('chartview_bluetopo_visible')
     return saved !== null ? JSON.parse(saved) : true
   })
+  const [encLayersVisible, setEncLayersVisible] = useState(() => {
+    const saved = localStorage.getItem('chartview_enc_visible')
+    return saved !== null ? JSON.parse(saved) : true
+  })
+  const [encRegionCount, setEncRegionCount] = useState(0)
   const [layersMenuOpen, setLayersMenuOpen] = useState(false)
 
   // Save layer visibility to localStorage when it changes
   useEffect(() => {
     localStorage.setItem('chartview_bluetopo_visible', JSON.stringify(topoLayersVisible))
   }, [topoLayersVisible])
+
+  useEffect(() => {
+    localStorage.setItem('chartview_enc_visible', JSON.stringify(encLayersVisible))
+  }, [encLayersVisible])
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -328,14 +338,66 @@ function ChartView() {
   useEffect(() => {
     if (map.current) return // Initialize map only once
 
+    // Inline style with GSHHS source configured for unlimited overzooming
+    const inlineStyle = {
+      version: 8,
+      name: "GSHHS Base Layer",
+      sources: {
+        gshhs: {
+          type: "vector",
+          tiles: ["http://localhost:3001/gshhs_base/{z}/{x}/{y}"],
+          maxzoom: 13  // Tiles exist up to zoom 13, overzoom beyond
+        }
+      },
+      layers: [
+        {
+          id: "background",
+          type: "background",
+          paint: { "background-color": "#ff0000" }  // BRIGHT RED to confirm this file is being used
+        },
+        // DISABLED FOR TESTING
+        // {
+        //   id: "land-fill",
+        //   type: "fill",
+        //   source: "gshhs",
+        //   "source-layer": "land",
+        //   paint: {
+        //     "fill-color": "#0f3d2a",
+        //     "fill-opacity": 1
+        //   }
+        // },
+        {
+          id: "coastline-outline",
+          type: "line",
+          source: "gshhs",
+          "source-layer": "coastline",
+          minzoom: 4,
+          paint: {
+            "line-color": "#FFFFFF",
+            "line-width": [
+              "interpolate",
+              ["exponential", 1.5],
+              ["zoom"],
+              4, 0.3,
+              6, 0.5,
+              10, 1,
+              14, 1.5,
+              18, 2
+            ]
+          }
+        }
+      ]
+    }
+
     map.current = new maplibregl.Map({
       container: mapContainer.current,
-      style: '/styles/cusp-base-style.json',
+      style: inlineStyle,
       center: center,
       zoom: defaultZoom,
       pitch: 0,
       bearing: 0,
-      attributionControl: false
+      attributionControl: false,
+      maxZoom: 22  // Allow zooming to level 22
     })
 
     // Disable single-finger pan, but keep two-finger zoom/rotate enabled
@@ -354,7 +416,10 @@ function ChartView() {
         }
       })
 
-      // Load BlueTopo tiles after map loads
+      // Load ENC layers first (they go below BlueTopo)
+      await loadENCLayers()
+
+      // Load BlueTopo tiles after ENC (they go on top)
       await loadBlueTopoTiles()
     })
 
@@ -424,6 +489,92 @@ function ChartView() {
     }
   }
 
+  // Load ENC (nautical chart) layers from Martin tileserver
+  const loadENCLayers = async () => {
+    try {
+      const result = await getDownloadedENCRegions()
+
+      // Check if map still exists after async fetch
+      if (!map.current) return
+
+      if (!result.success || !result.regions || result.regions.length === 0) {
+        console.log('[ChartView] No ENC regions downloaded')
+        setEncRegionCount(0)
+        return
+      }
+
+      const regions = result.regions
+      setEncRegionCount(regions.length)
+      console.log(`[ChartView] Loading ${regions.length} ENC regions`)
+
+      // Find the first bluetopo layer to insert ENC layers before it
+      const style = map.current.getStyle()
+      let firstBluetopoLayerId = null
+      if (style && style.layers) {
+        for (const layer of style.layers) {
+          if (layer.id.startsWith('bluetopo-layer-')) {
+            firstBluetopoLayerId = layer.id
+            break
+          }
+        }
+      }
+
+      // Add each ENC region as a raster source and layer
+      for (const region of regions) {
+        if (!map.current) return
+
+        const sourceId = `enc-${region.regionId}`
+        const layerId = `enc-layer-${region.regionId}`
+
+        // Skip if source already exists
+        if (map.current.getSource(sourceId)) {
+          console.log(`[ChartView] ENC source ${sourceId} already exists, skipping`)
+          continue
+        }
+
+        // ENC MBTiles are served by Martin at /regionId/{z}/{x}/{y}
+        // Martin auto-discovers .mbtiles files and serves them (no file extension needed)
+        const tileUrl = `http://localhost:3001/${region.regionId}/{z}/{x}/{y}`
+
+        console.log(`[ChartView] Adding ENC source: ${sourceId} with URL pattern: ${tileUrl}`)
+
+        // Add raster source for this ENC region
+        map.current.addSource(sourceId, {
+          type: 'raster',
+          tiles: [tileUrl],
+          tileSize: 256,
+          minzoom: 3,
+          maxzoom: 18
+        })
+
+        // Add raster layer - insert BEFORE BlueTopo layers so ENC is underneath
+        const layerConfig = {
+          id: layerId,
+          type: 'raster',
+          source: sourceId,
+          paint: {
+            'raster-opacity': encLayersVisible ? 1.0 : 0,
+            'raster-fade-duration': 0
+          }
+        }
+
+        if (firstBluetopoLayerId) {
+          map.current.addLayer(layerConfig, firstBluetopoLayerId)
+          console.log(`[ChartView] Added ENC layer ${layerId} before ${firstBluetopoLayerId}`)
+        } else {
+          map.current.addLayer(layerConfig)
+          console.log(`[ChartView] Added ENC layer ${layerId}`)
+        }
+      }
+
+      console.log(`[ChartView] Loaded ${regions.length} ENC regions successfully`)
+
+    } catch (err) {
+      console.error('Error loading ENC layers:', err)
+      // Don't set error state - ENC is optional
+    }
+  }
+
   // Touch event handlers for depth measurement
   useEffect(() => {
     if (!map.current || !mapLoaded) return
@@ -487,6 +638,11 @@ function ChartView() {
 
         const deltaX = midX - twoFingerPanRef.current.x
         const deltaY = midY - twoFingerPanRef.current.y
+
+        // Disable follow-me mode when user pans
+        if (trackingModeRef.current) {
+          setTrackingMode(null)
+        }
 
         // Pan the map by the delta
         map.current.panBy([-deltaX, -deltaY], { animate: false })
@@ -685,6 +841,12 @@ function ChartView() {
   // Layer configuration
   const layers = [
     {
+      id: 'enc',
+      name: 'Nautical Charts (ENC)',
+      description: `NOAA NCDS raster charts${encRegionCount > 0 ? ` (${encRegionCount} regions)` : ''}`,
+      visible: encLayersVisible
+    },
+    {
       id: 'bluetopo',
       name: 'BlueTopo Bathymetry',
       description: 'NOAA bathymetric tiles (2m-16m resolution)',
@@ -696,8 +858,9 @@ function ChartView() {
   const handleToggleLayer = useCallback((layerId) => {
     if (layerId === 'bluetopo') {
       setTopoLayersVisible(v => !v)
+    } else if (layerId === 'enc') {
+      setEncLayersVisible(v => !v)
     }
-    // Future layers can be added here
   }, [])
 
   // Memoized button handlers to prevent unnecessary re-renders
@@ -719,13 +882,28 @@ function ChartView() {
     const opacity = topoLayersVisible ? 0.85 : 0
 
     // Toggle all BlueTopo layers
-    const layers = map.current.getStyle().layers
-    layers.forEach(layer => {
+    const styleLayers = map.current.getStyle().layers
+    styleLayers.forEach(layer => {
       if (layer.id.startsWith('bluetopo-layer-')) {
         map.current.setPaintProperty(layer.id, 'raster-opacity', opacity)
       }
     })
   }, [topoLayersVisible, mapLoaded, tilesLoaded])
+
+  // Update ENC layer visibility when state changes
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return
+
+    const opacity = encLayersVisible ? 1.0 : 0
+
+    // Toggle all ENC layers
+    const styleLayers = map.current.getStyle()?.layers || []
+    styleLayers.forEach(layer => {
+      if (layer.id.startsWith('enc-layer-')) {
+        map.current.setPaintProperty(layer.id, 'raster-opacity', opacity)
+      }
+    })
+  }, [encLayersVisible, mapLoaded])
 
   // Clear browser cache and reload
   const clearCacheAndReload = async () => {
