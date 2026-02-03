@@ -237,3 +237,26 @@ export async function reprocessAllRawFiles() {
     throw error;
   }
 }
+
+/**
+ * Check if downloaded tiles have newer versions available
+ * @param {Object} options - Options object
+ * @param {boolean} options.online - If true, fetch latest GeoPackage from NOAA S3 first
+ * @returns {Promise<{tiles: Array, summary: {upToDate, outdated, unknown, totalChecked}}>}
+ */
+export async function checkTileUpdates({ online = false } = {}) {
+  try {
+    const params = online ? '?online=true' : '';
+    const response = await fetch(`${API_BASE_URL}/tiles/check-updates${params}`);
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Failed to check updates: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error checking tile updates:', error);
+    throw error;
+  }
+}

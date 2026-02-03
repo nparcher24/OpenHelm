@@ -12,7 +12,8 @@ import {
   deleteTilesBatch,
   deleteRawFile,
   deleteRawFilesBatch,
-  reprocessAllRawFiles
+  reprocessAllRawFiles,
+  checkTileUpdates
 } from '../services/blueTopoDownloadService'
 
 function BlueTopoDownloader() {
@@ -56,6 +57,12 @@ function BlueTopoDownloader() {
 
   // Collapsible section state
   const [downloadedTilesExpanded, setDownloadedTilesExpanded] = useState(false)
+
+  // Update check state
+  const [updateCheckResult, setUpdateCheckResult] = useState(null)
+  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false)
+  const [selectedForUpdate, setSelectedForUpdate] = useState(new Set())
+  const [updateCheckExpanded, setUpdateCheckExpanded] = useState(true)
 
   // Use existing job progress hook with BlueTopo status fetcher
   const jobProgress = useJobProgress(jobId, !!jobId, getTileDownloadStatus)
@@ -370,6 +377,90 @@ function BlueTopoDownloader() {
     }
   }
 
+  // Check for tile updates (local or online)
+  async function handleCheckUpdates(online = false) {
+    setIsCheckingUpdates(true)
+    setError(null)
+    setUpdateCheckResult(null)
+    setSelectedForUpdate(new Set())
+
+    try {
+      const result = await checkTileUpdates({ online })
+      console.log('[BlueTopoDownloader] Update check result:', result)
+      setUpdateCheckResult(result)
+
+      // Auto-select all outdated tiles
+      if (result.tiles) {
+        const outdatedIds = result.tiles
+          .filter(t => t.hasUpdate)
+          .map(t => t.tileId)
+        setSelectedForUpdate(new Set(outdatedIds))
+      }
+    } catch (error) {
+      console.error('[BlueTopoDownloader] Update check failed:', error)
+      setError(`Failed to check for updates: ${error.message}`)
+    } finally {
+      setIsCheckingUpdates(false)
+    }
+  }
+
+  // Toggle tile selection for update
+  function toggleUpdateSelection(tileId) {
+    setSelectedForUpdate(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(tileId)) {
+        newSet.delete(tileId)
+      } else {
+        newSet.add(tileId)
+      }
+      return newSet
+    })
+  }
+
+  // Toggle all outdated tiles selection
+  function toggleAllUpdateSelection() {
+    if (!updateCheckResult?.tiles) return
+
+    const outdatedTiles = updateCheckResult.tiles.filter(t => t.hasUpdate)
+    if (selectedForUpdate.size === outdatedTiles.length) {
+      setSelectedForUpdate(new Set())
+    } else {
+      setSelectedForUpdate(new Set(outdatedTiles.map(t => t.tileId)))
+    }
+  }
+
+  // Update selected tiles (re-download them)
+  async function handleUpdateSelected() {
+    if (selectedForUpdate.size === 0) return
+
+    // Build tiles array for download
+    const tilesToUpdate = updateCheckResult.tiles
+      .filter(t => selectedForUpdate.has(t.tileId) && t.downloadUrl)
+      .map(t => ({
+        tile: t.tileId,
+        url: t.downloadUrl,
+        resolution: 'Update' // Mark as update
+      }))
+
+    if (tilesToUpdate.length === 0) {
+      setError('No valid download URLs for selected tiles')
+      return
+    }
+
+    try {
+      setError(null)
+      const result = await startTileDownload(tilesToUpdate)
+      console.log('[BlueTopoDownloader] Update download started, jobId:', result.jobId)
+      setJobId(result.jobId)
+      setIsStarted(true)
+      setUpdateCheckResult(null) // Clear update check results
+      setSelectedForUpdate(new Set())
+    } catch (error) {
+      console.error('[BlueTopoDownloader] Failed to start update download:', error)
+      setError(error.message)
+    }
+  }
+
   // Format bytes to MB/GB
   function formatBytes(bytes) {
     if (bytes === 0) return '0 MB'
@@ -553,6 +644,239 @@ function BlueTopoDownloader() {
             </button>
           </div>
         </div>
+
+        {/* Check for Updates Section */}
+        {downloadedTilesMetadata.size > 0 && !isStarted && (
+          <div className="bg-terminal-surface rounded-lg border border-terminal-border p-6">
+            <div className="flex items-center justify-between mb-4">
+              <button
+                onClick={() => setUpdateCheckExpanded(!updateCheckExpanded)}
+                className="flex items-center space-x-2 text-left hover:text-terminal-green-bright transition-colors"
+              >
+                <svg
+                  className={`w-5 h-5 text-terminal-green transition-transform duration-200 ${updateCheckExpanded ? 'rotate-90' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                <h2 className="text-lg font-semibold text-terminal-green uppercase tracking-wide">
+                  Check for Updates
+                </h2>
+              </button>
+            </div>
+
+            {updateCheckExpanded && (
+              <div className="space-y-4">
+                <p className="text-sm text-terminal-green-dim">
+                  Compare downloaded tiles against NOAA metadata to find newer versions
+                </p>
+
+                {/* Check Buttons */}
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => handleCheckUpdates(false)}
+                    disabled={isCheckingUpdates}
+                    className="terminal-btn flex items-center space-x-2"
+                  >
+                    {isCheckingUpdates ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-terminal-green"></div>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                    <span>Check Local</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleCheckUpdates(true)}
+                    disabled={isCheckingUpdates}
+                    className="terminal-btn-primary flex items-center space-x-2"
+                  >
+                    {isCheckingUpdates ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-terminal-bg"></div>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                      </svg>
+                    )}
+                    <span>Check Online</span>
+                  </button>
+
+                  {isCheckingUpdates && (
+                    <span className="text-sm text-terminal-green-dim animate-pulse">
+                      Checking {downloadedTilesMetadata.size} tiles...
+                    </span>
+                  )}
+                </div>
+
+                {/* Update Check Results */}
+                {updateCheckResult && (
+                  <div className="space-y-4 mt-4">
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-terminal-green/10 border border-terminal-green/30 rounded-lg p-4 text-center">
+                        <p className="text-3xl font-bold text-terminal-green text-glow font-mono">
+                          {updateCheckResult.summary.upToDate}
+                        </p>
+                        <p className="text-xs text-terminal-green-dim uppercase tracking-wide mt-1">
+                          Up to Date
+                        </p>
+                      </div>
+
+                      <div className={`border rounded-lg p-4 text-center ${
+                        updateCheckResult.summary.outdated > 0
+                          ? 'bg-terminal-amber/10 border-terminal-amber/30'
+                          : 'bg-terminal-bg border-terminal-border'
+                      }`}>
+                        <p className={`text-3xl font-bold font-mono ${
+                          updateCheckResult.summary.outdated > 0
+                            ? 'text-terminal-amber'
+                            : 'text-terminal-green-dim'
+                        }`}>
+                          {updateCheckResult.summary.outdated}
+                        </p>
+                        <p className="text-xs text-terminal-green-dim uppercase tracking-wide mt-1">
+                          Updates Available
+                        </p>
+                      </div>
+
+                      <div className="bg-terminal-bg border border-terminal-border rounded-lg p-4 text-center">
+                        <p className="text-3xl font-bold text-terminal-cyan font-mono">
+                          {updateCheckResult.summary.totalChecked}
+                        </p>
+                        <p className="text-xs text-terminal-green-dim uppercase tracking-wide mt-1">
+                          Total Checked
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Tile Scheme Info */}
+                    <div className="text-xs text-terminal-green-dim font-mono">
+                      Using tile scheme: {updateCheckResult.tileScheme}
+                      {updateCheckResult.checkedAt && (
+                        <span className="ml-4">
+                          Checked: {new Date(updateCheckResult.checkedAt).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Outdated Tiles Table */}
+                    {updateCheckResult.summary.outdated > 0 && (
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-sm font-semibold text-terminal-amber uppercase tracking-wide">
+                            Outdated Tiles
+                          </h3>
+                          <div className="flex items-center space-x-3">
+                            <button
+                              onClick={toggleAllUpdateSelection}
+                              className="text-xs text-terminal-green hover:text-terminal-green-bright transition-colors"
+                            >
+                              {selectedForUpdate.size === updateCheckResult.tiles.filter(t => t.hasUpdate).length
+                                ? 'Deselect All'
+                                : 'Select All'}
+                            </button>
+                            <button
+                              onClick={handleUpdateSelected}
+                              disabled={selectedForUpdate.size === 0}
+                              className="terminal-btn-primary text-sm flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                              </svg>
+                              <span>Update Selected ({selectedForUpdate.size})</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm text-left">
+                            <thead className="text-xs uppercase bg-terminal-bg text-terminal-green border-b border-terminal-border">
+                              <tr>
+                                <th className="px-4 py-3 w-12">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedForUpdate.size === updateCheckResult.tiles.filter(t => t.hasUpdate).length && selectedForUpdate.size > 0}
+                                    onChange={toggleAllUpdateSelection}
+                                    className="terminal-checkbox"
+                                  />
+                                </th>
+                                <th className="px-4 py-3">Tile ID</th>
+                                <th className="px-4 py-3">Local Version</th>
+                                <th className="px-4 py-3">Available Version</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {updateCheckResult.tiles
+                                .filter(t => t.hasUpdate)
+                                .map((tile) => (
+                                  <tr
+                                    key={tile.tileId}
+                                    className="border-b border-terminal-border hover:bg-terminal-amber/5"
+                                  >
+                                    <td className="px-4 py-3">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedForUpdate.has(tile.tileId)}
+                                        onChange={() => toggleUpdateSelection(tile.tileId)}
+                                        className="terminal-checkbox"
+                                      />
+                                    </td>
+                                    <td className="px-4 py-3 font-medium text-terminal-green font-mono">
+                                      {tile.tileId}
+                                    </td>
+                                    <td className="px-4 py-3 text-terminal-green-dim font-mono">
+                                      {tile.localVersion || '—'}
+                                    </td>
+                                    <td className="px-4 py-3 text-terminal-amber font-mono font-medium">
+                                      {tile.remoteVersion || '—'}
+                                    </td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* All Up to Date Message */}
+                    {updateCheckResult.summary.outdated === 0 && updateCheckResult.summary.upToDate > 0 && (
+                      <div className="flex items-center space-x-3 p-4 bg-terminal-green/10 border border-terminal-green/30 rounded-lg">
+                        <CheckCircleIcon className="h-6 w-6 text-terminal-green" />
+                        <div>
+                          <p className="text-terminal-green font-medium">All tiles are up to date!</p>
+                          <p className="text-sm text-terminal-green-dim">
+                            {updateCheckResult.summary.upToDate} tile{updateCheckResult.summary.upToDate !== 1 ? 's' : ''} checked against NOAA metadata
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Unknown Versions Warning */}
+                    {updateCheckResult.summary.unknown > 0 && (
+                      <div className="flex items-center space-x-3 p-4 bg-terminal-bg border border-terminal-border rounded-lg">
+                        <svg className="h-6 w-6 text-terminal-green-dim" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                          <p className="text-terminal-green-dim font-medium">
+                            {updateCheckResult.summary.unknown} tile{updateCheckResult.summary.unknown !== 1 ? 's' : ''} with unknown version
+                          </p>
+                          <p className="text-sm text-terminal-green-dim">
+                            These tiles were downloaded before version tracking was added
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Selected Tiles for Deletion Panel */}
         {selectedTilesForDeletion.size > 0 && (

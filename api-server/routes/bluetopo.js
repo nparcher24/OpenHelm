@@ -655,6 +655,229 @@ router.post('/raw-files/reprocess-all', async (req, res) => {
 });
 
 /**
+ * GET /api/bluetopo/tiles/check-updates
+ * Check if downloaded tiles have newer versions available
+ * Query params: online=true (optional - fetch latest GeoPackage from S3 first)
+ */
+router.get('/tiles/check-updates', async (req, res) => {
+  try {
+    const { online } = req.query;
+    const projectRoot = path.resolve(__dirname, '../..');
+    const tilesDir = path.join(projectRoot, 'tiles', 'bluetopo');
+
+    // Get list of downloaded tile directories
+    let tileDirectories = [];
+    try {
+      const entries = await fs.readdir(tilesDir, { withFileTypes: true });
+      tileDirectories = entries
+        .filter(entry => entry.isDirectory())
+        .map(entry => entry.name);
+    } catch (error) {
+      return res.json({
+        success: true,
+        tiles: [],
+        summary: { upToDate: 0, outdated: 0, unknown: 0, totalChecked: 0 }
+      });
+    }
+
+    if (tileDirectories.length === 0) {
+      return res.json({
+        success: true,
+        tiles: [],
+        summary: { upToDate: 0, outdated: 0, unknown: 0, totalChecked: 0 }
+      });
+    }
+
+    // If online mode requested, download latest GeoPackage first
+    if (online === 'true') {
+      try {
+        console.log('[BlueTopo] Online mode: Fetching latest GeoPackage info...');
+        const listUrl = `${S3_BUCKET_URL}/?prefix=${TILE_SCHEME_PREFIX}&delimiter=/`;
+        const response = await fetch(listUrl);
+
+        if (response.ok) {
+          const xmlText = await response.text();
+          const parser = new XMLParser();
+          const result = parser.parse(xmlText);
+          const contents = result.ListBucketResult?.Contents;
+
+          if (contents) {
+            const gpkgFiles = (Array.isArray(contents) ? contents : [contents])
+              .filter(item => item.Key && item.Key.endsWith('.gpkg'))
+              .map(item => ({
+                key: item.Key,
+                filename: item.Key.split('/').pop(),
+                lastModified: new Date(item.LastModified),
+                url: `${S3_BUCKET_URL}/${item.Key}`
+              }))
+              .sort((a, b) => b.lastModified - a.lastModified);
+
+            if (gpkgFiles.length > 0) {
+              const latest = gpkgFiles[0];
+              const localPath = path.join(projectRoot, latest.filename);
+
+              // Check if we already have this version
+              try {
+                await fs.access(localPath);
+                console.log('[BlueTopo] Latest GeoPackage already exists locally');
+              } catch {
+                // Download the latest GeoPackage
+                console.log(`[BlueTopo] Downloading latest GeoPackage: ${latest.filename}`);
+                const downloadResponse = await fetch(latest.url);
+                if (downloadResponse.ok) {
+                  const fileStream = fsSync.createWriteStream(localPath);
+                  await new Promise((resolve, reject) => {
+                    downloadResponse.body.pipe(fileStream);
+                    downloadResponse.body.on('error', reject);
+                    fileStream.on('finish', resolve);
+                  });
+                  console.log('[BlueTopo] Downloaded latest GeoPackage');
+                }
+              }
+            }
+          }
+        }
+      } catch (onlineError) {
+        console.error('[BlueTopo] Failed to fetch online GeoPackage:', onlineError.message);
+        // Continue with local GeoPackage
+      }
+    }
+
+    // Find local tile scheme GeoPackage
+    const allFiles = await fs.readdir(projectRoot);
+    const gpkgFiles = allFiles.filter(file =>
+      file.startsWith('BlueTopo_Tile_Scheme_') && file.endsWith('.gpkg')
+    );
+
+    if (gpkgFiles.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No tile scheme GeoPackage found. Please download it first.'
+      });
+    }
+
+    // Use the most recent GeoPackage
+    const tileScheme = gpkgFiles.sort().reverse()[0];
+    const tileSchemePath = path.join(projectRoot, tileScheme);
+    console.log(`[BlueTopo] Using tile scheme: ${tileScheme}`);
+
+    // Get the layer name from the GeoPackage (it includes the date suffix)
+    const layerName = tileScheme.replace('.gpkg', '');
+    console.log(`[BlueTopo] Layer name: ${layerName}`);
+
+    // Read local version info for each tile
+    const tileVersions = new Map();
+    for (const tileId of tileDirectories) {
+      const versionPath = path.join(tilesDir, tileId, '.version.json');
+      try {
+        const versionData = await fs.readFile(versionPath, 'utf8');
+        tileVersions.set(tileId, JSON.parse(versionData));
+      } catch {
+        // No version file - treat as unknown version
+        tileVersions.set(tileId, { tileId, version: null });
+      }
+    }
+
+    // Batch query GeoPackage for remote versions (50 tiles per query)
+    const BATCH_SIZE = 50;
+    const remoteVersions = new Map();
+
+    for (let i = 0; i < tileDirectories.length; i += BATCH_SIZE) {
+      const batch = tileDirectories.slice(i, i + BATCH_SIZE);
+      const tileList = batch.map(t => `'${t}'`).join(',');
+
+      try {
+        const query = `ogrinfo -al -q "${tileSchemePath}" -sql "SELECT tile, GeoTIFF_Link FROM \\"${layerName}\\" WHERE tile IN (${tileList})" 2>/dev/null`;
+        const { stdout } = await execAsync(query, { maxBuffer: 10 * 1024 * 1024 });
+
+        // Parse ogrinfo output
+        // Format: tile (String) = BC26926V \n GeoTIFF_Link (String) = https://...BC26926V_20221111.tiff
+        const lines = stdout.split('\n');
+        let currentTile = null;
+
+        for (const line of lines) {
+          const tileMatch = line.match(/tile \(String\) = (\w+)/);
+          if (tileMatch) {
+            currentTile = tileMatch[1];
+          }
+
+          const linkMatch = line.match(/GeoTIFF_Link \(String\) = (.+)/);
+          if (linkMatch && currentTile) {
+            const url = linkMatch[1].trim();
+            const versionMatch = url.match(/_(\d{8})\.tiff$/i);
+            remoteVersions.set(currentTile, {
+              version: versionMatch ? versionMatch[1] : null,
+              downloadUrl: url
+            });
+            currentTile = null;
+          }
+        }
+      } catch (queryError) {
+        console.error(`[BlueTopo] Batch query failed:`, queryError.message);
+      }
+    }
+
+    // Compare versions and build result
+    const tiles = [];
+    let upToDate = 0;
+    let outdated = 0;
+    let unknown = 0;
+
+    for (const tileId of tileDirectories) {
+      const localInfo = tileVersions.get(tileId);
+      const remoteInfo = remoteVersions.get(tileId);
+
+      const localVersion = localInfo?.version || null;
+      const remoteVersion = remoteInfo?.version || null;
+      const downloadUrl = remoteInfo?.downloadUrl || null;
+
+      let hasUpdate = false;
+
+      if (!localVersion || !remoteVersion) {
+        unknown++;
+      } else if (remoteVersion > localVersion) {
+        hasUpdate = true;
+        outdated++;
+      } else {
+        upToDate++;
+      }
+
+      tiles.push({
+        tileId,
+        localVersion,
+        remoteVersion,
+        hasUpdate,
+        downloadUrl,
+        downloadedAt: localInfo?.downloadedAt || null
+      });
+    }
+
+    // Sort: outdated first, then by tile ID
+    tiles.sort((a, b) => {
+      if (a.hasUpdate !== b.hasUpdate) return b.hasUpdate - a.hasUpdate;
+      return a.tileId.localeCompare(b.tileId);
+    });
+
+    res.json({
+      success: true,
+      tiles,
+      summary: {
+        upToDate,
+        outdated,
+        unknown,
+        totalChecked: tileDirectories.length
+      },
+      tileScheme: tileScheme,
+      checkedAt: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('[BlueTopo] Error checking for updates:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * GET /api/bluetopo/depth
  * Query depth at a specific location
  * Query params: lat, lon

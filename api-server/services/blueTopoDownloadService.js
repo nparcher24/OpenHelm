@@ -461,6 +461,26 @@ export class DownloadQueue {
         }
       }
 
+      // Extract version from tile URL (format: ...TILE_ID_YYYYMMDD.tiff)
+      const versionMatch = tile.url.match(/_(\d{8})\.tiff$/i);
+      const version = versionMatch ? versionMatch[1] : null;
+
+      // Save version metadata
+      const versionInfo = {
+        tileId: tile.tile,
+        version: version,
+        downloadedAt: new Date().toISOString(),
+        sourceUrl: tile.url
+      };
+
+      const versionFilePath = path.join(outputDir, '.version.json');
+      try {
+        await fs.writeFile(versionFilePath, JSON.stringify(versionInfo, null, 2));
+        console.log(`[BlueTopo Job ${this.jobId}] Saved version info: ${tile.tile} v${version}`);
+      } catch (versionError) {
+        console.warn(`[BlueTopo Job ${this.jobId}] Failed to save version info:`, versionError.message);
+      }
+
       // Update state: completed
       if (tileState) {
         tileState.status = 'completed';
@@ -468,6 +488,7 @@ export class DownloadQueue {
         tileState.convertedPath = outputDir;
         tileState.rawFilePath = rawFilePath;
         tileState.endTime = Date.now();
+        tileState.version = version;
       }
 
       console.log(`[BlueTopo Job ${this.jobId}] Completed ${tile.tile}`);
