@@ -353,7 +353,7 @@ function ChartView() {
         {
           id: "background",
           type: "background",
-          paint: { "background-color": "#ff0000" }  // BRIGHT RED to confirm this file is being used
+          paint: { "background-color": "#000000" }
         },
         // DISABLED FOR TESTING
         // {
@@ -397,7 +397,10 @@ function ChartView() {
       pitch: 0,
       bearing: 0,
       attributionControl: false,
-      maxZoom: 22  // Allow zooming to level 22
+      maxZoom: 22,  // Allow zooming to level 22
+      fadeDuration: 0,  // Tiles appear instantly instead of fading in
+      maxTileCacheSize: 200,  // Cache more tiles for smoother panning
+      refreshExpiredTiles: false  // Don't re-request tiles that are already loaded
     })
 
     // Disable single-finger pan, but keep two-finger zoom/rotate enabled
