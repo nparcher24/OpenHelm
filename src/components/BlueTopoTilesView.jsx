@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -20,6 +20,7 @@ function BlueTopoTilesView() {
     const [lassoPoints, setLassoPoints] = useState([]);
     const [hasInitiallyFit, setHasInitiallyFit] = useState(false);
     const lassoLineId = "lasso-line";
+    const lastLassoUpdateRef = useRef(0);
 
     // Downloaded tiles state
     const [downloadedTileIds, setDownloadedTileIds] = useState(new Set());
@@ -449,6 +450,12 @@ function BlueTopoTilesView() {
             if (isDrawing && lassoMode) {
                 e.preventDefault();
                 e.stopPropagation();
+
+                // Throttle to 20 Hz (50ms) - smooth enough for drawing
+                const now = Date.now();
+                if (now - lastLassoUpdateRef.current < 50) return;
+                lastLassoUpdateRef.current = now;
+
                 const rect = canvas.getBoundingClientRect();
                 const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
                 const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;

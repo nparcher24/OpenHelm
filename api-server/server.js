@@ -90,9 +90,14 @@ global.activeJobs = new Map() // jobId -> { controller, startTime, status }
 // GPS WebSocket subscribers
 const gpsSubscribers = new Set()
 
-// Set up GPS real-time streaming
+// Set up GPS real-time streaming (throttled to 5 Hz)
+let lastGpsBroadcast = 0
 setGpsUpdateCallback((gpsData) => {
   if (gpsSubscribers.size === 0) return
+
+  const now = Date.now()
+  if (now - lastGpsBroadcast < 200) return  // 5 Hz max
+  lastGpsBroadcast = now
 
   const message = JSON.stringify({
     type: 'gps',

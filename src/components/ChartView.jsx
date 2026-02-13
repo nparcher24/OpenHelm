@@ -44,7 +44,6 @@ function ChartView() {
   const [northUp, setNorthUp] = useState(false)  // true = north up, false = heading up
   const initialGpsCenterDone = useRef(false)  // Track if we've done initial GPS center
   const [gpsData, setGpsData] = useState(null)
-  const gpsIntervalRef = useRef(null)
   const boatMarkerRef = useRef(null)
   const trackingModeRef = useRef(null)
 
@@ -130,31 +129,68 @@ function ChartView() {
            lng >= -180 && lng <= 180
   }
 
-  // GPS polling - always active to show boat position
-  // Optimized to only update state when position/heading actually changes
+  // GPS via WebSocket - always active to show boat position
+  const wsRef = useRef(null)
   useEffect(() => {
-    const fetchGps = async () => {
-      try {
-        const res = await fetch('http://localhost:3002/api/gps')
-        const data = await res.json()
-        if (isValidCoordinate(data.latitude, data.longitude)) {
-          setGpsData(prev => {
-            // Skip re-render if position and heading unchanged
-            if (prev?.latitude === data.latitude &&
-                prev?.longitude === data.longitude &&
-                prev?.heading === data.heading) {
-              return prev
-            }
-            return data
-          })
+    let mounted = true
+    let reconnectTimeout = null
+
+    const connect = () => {
+      if (!mounted) return
+      const ws = new WebSocket('ws://localhost:3002')
+      wsRef.current = ws
+
+      ws.onopen = () => {
+        if (!mounted) return
+        ws.send(JSON.stringify({ type: 'subscribe-gps' }))
+      }
+
+      ws.onmessage = (event) => {
+        if (!mounted) return
+        try {
+          const message = JSON.parse(event.data)
+          if (message.type === 'gps' && isValidCoordinate(message.data.latitude, message.data.longitude)) {
+            setGpsData(prev => {
+              if (prev?.latitude === message.data.latitude &&
+                  prev?.longitude === message.data.longitude &&
+                  prev?.heading === message.data.heading) {
+                return prev
+              }
+              return message.data
+            })
+          }
+        } catch (err) {
+          // Parse error, ignore
         }
-      } catch (err) {
-        // Silently fail - GPS may not be available
+      }
+
+      ws.onclose = () => {
+        if (!mounted) return
+        reconnectTimeout = setTimeout(connect, 1000)
+      }
+
+      ws.onerror = () => {
+        // Error handling done in onclose
       }
     }
-    fetchGps()
-    gpsIntervalRef.current = setInterval(fetchGps, 50)  // 20 Hz for smooth heading updates
-    return () => clearInterval(gpsIntervalRef.current)
+
+    // Fetch initial data via HTTP, then switch to WebSocket
+    fetch('http://localhost:3002/api/gps')
+      .then(res => res.json())
+      .then(data => {
+        if (mounted && isValidCoordinate(data.latitude, data.longitude)) {
+          setGpsData(data)
+        }
+      })
+      .catch(() => {})
+
+    connect()
+
+    return () => {
+      mounted = false
+      if (reconnectTimeout) clearTimeout(reconnectTimeout)
+      if (wsRef.current) wsRef.current.close()
+    }
   }, [])
 
   // Initial center on GPS position when first available
@@ -237,6 +273,7 @@ function ChartView() {
   }, [mapLoaded, waypoints])
 
   // Boat marker - always visible at GPS position
+  // Only depends on position + heading fields, not entire gpsData object
   useEffect(() => {
     if (!mapLoaded || !gpsData || !map.current) return
     if (!isValidCoordinate(gpsData.latitude, gpsData.longitude)) return
@@ -270,7 +307,7 @@ function ChartView() {
     if (gpsData.heading !== undefined) {
       boatMarkerRef.current.setRotation(gpsData.heading)
     }
-  }, [mapLoaded, gpsData])
+  }, [mapLoaded, gpsData?.latitude, gpsData?.longitude, gpsData?.heading])
 
   // Update map bearing when north-up toggle changes (only when NOT tracking - tracking handles its own bearing)
   useEffect(() => {
@@ -280,11 +317,12 @@ function ChartView() {
 
     map.current.easeTo({
       bearing: bearing,
-      duration: 100  // Short duration for smooth 20Hz updates
+      duration: 200  // Match 5 Hz update interval for smooth motion
     })
   }, [northUp, gpsData?.heading, mapLoaded, trackingMode])
 
   // Tracking mode - follow boat position with bearing rotation
+  // Only depends on position + heading fields, not entire gpsData object
   useEffect(() => {
     if (!trackingMode || !gpsData || !map.current) return
     if (!isValidCoordinate(gpsData.latitude, gpsData.longitude)) return
@@ -298,7 +336,7 @@ function ChartView() {
         center: [gpsData.longitude, gpsData.latitude],
         bearing: bearing,
         padding: { bottom: 0, top: 0, left: 0, right: 0 },
-        duration: 100  // Short duration for smooth 20Hz updates
+        duration: 200  // Match 5 Hz update interval for smooth motion
       })
     } else if (trackingMode === 'offset') {
       // Mode 2: Boat 1/3 from bottom, centered laterally
@@ -307,10 +345,10 @@ function ChartView() {
         center: [gpsData.longitude, gpsData.latitude],
         bearing: bearing,
         padding: { top: mapHeight / 3, bottom: 0, left: 0, right: 0 },
-        duration: 100  // Short duration for smooth 20Hz updates
+        duration: 200  // Match 5 Hz update interval for smooth motion
       })
     }
-  }, [trackingMode, gpsData, northUp])
+  }, [trackingMode, gpsData?.latitude, gpsData?.longitude, gpsData?.heading, northUp])
 
   // Decouple from tracking on user pan
   useEffect(() => {

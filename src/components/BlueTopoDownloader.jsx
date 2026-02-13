@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeftIcon, XCircleIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
 import { useJobProgress } from '../hooks/useJobProgress'
@@ -108,39 +108,36 @@ function BlueTopoDownloader() {
     loadDownloadedTiles()
   }, [])
 
-  // Reload EVERYTHING on EVERY progress update during downloads
+  // Throttled reload on progress updates (at most once every 5 seconds)
+  const lastReloadRef = useRef(0)
+  const reloadTimeoutRef = useRef(null)
   useEffect(() => {
     if (!jobProgress.tiles || !isStarted) return
 
-    console.log('[BlueTopoDownloader] Progress update - reloading ALL data')
+    const now = Date.now()
+    const timeSinceLastReload = now - lastReloadRef.current
+    const isStatusChange = jobProgress.status === 'completed' || jobProgress.status === 'completed_with_errors'
 
-    // Reload downloaded tiles list
-    ;(async () => {
-      try {
-        const result = await getDownloadedTiles()
-        if (result.success && result.tiles) {
-          const metadataMap = new Map()
-          result.tiles.forEach(tile => {
-            metadataMap.set(tile.tileId, tile)
-          })
-          setDownloadedTilesMetadata(metadataMap)
-          console.log('[BlueTopoDownloader] Reloaded tiles, count:', result.tiles.length)
-        }
-      } catch (error) {
-        console.error('[BlueTopoDownloader] Failed to reload tiles:', error)
+    // Reload immediately on status changes (completion), otherwise throttle to 5s
+    if (timeSinceLastReload < 5000 && !isStatusChange) {
+      // Schedule a deferred reload if one isn't already pending
+      if (!reloadTimeoutRef.current) {
+        reloadTimeoutRef.current = setTimeout(() => {
+          reloadTimeoutRef.current = null
+          lastReloadRef.current = Date.now()
+          reloadDownloadedTiles()
+        }, 5000 - timeSinceLastReload)
       }
-    })()
+      return
+    }
 
-    // Reload storage info
-    ;(async () => {
-      try {
-        const info = await getStorageInfo()
-        setStorageInfo(info)
-        console.log('[BlueTopoDownloader] Reloaded storage info')
-      } catch (error) {
-        console.error('[BlueTopoDownloader] Failed to reload storage:', error)
-      }
-    })()
+    if (reloadTimeoutRef.current) {
+      clearTimeout(reloadTimeoutRef.current)
+      reloadTimeoutRef.current = null
+    }
+    lastReloadRef.current = now
+
+    reloadDownloadedTiles()
   }, [jobProgress, isStarted])
 
   // Handle reprocess completion
@@ -479,23 +476,31 @@ function BlueTopoDownloader() {
     return `${minutes}m ${secs}s`
   }
 
-  // Calculate overall stats
-  const completedCount = jobProgress.tiles?.filter(t => t.status === 'completed').length || 0
-  const failedCount = jobProgress.tiles?.filter(t => t.status === 'failed').length || 0
-  const downloadingCount = jobProgress.tiles?.filter(t => t.status === 'downloading').length || 0
+  // Memoize computed stats to avoid recalculating on every render
+  const { completedCount, failedCount, downloadingCount, totalDownloadedBytes, totalExpectedBytes, combinedSpeedMBps } = useMemo(() => {
+    const tiles = jobProgress.tiles
+    if (!tiles) return { completedCount: 0, failedCount: 0, downloadingCount: 0, totalDownloadedBytes: 0, totalExpectedBytes: estimatedSizeMB * 1024 * 1024, combinedSpeedMBps: 0 }
 
-  // Calculate total downloaded size
-  const totalDownloadedBytes = jobProgress.tiles?.reduce((sum, tile) =>
-    sum + (tile.downloadedBytes || 0), 0
-  ) || 0
-
-  const totalExpectedBytes = jobProgress.tiles?.reduce((sum, tile) =>
-    sum + (tile.totalBytes || 0), 0
-  ) || (estimatedSizeMB * 1024 * 1024)
-
-  // Calculate combined speed
-  const combinedSpeedMBps = jobProgress.tiles?.filter(t => t.status === 'downloading')
-    .reduce((sum, tile) => sum + (tile.speedMBps || 0), 0) || 0
+    let completed = 0, failed = 0, downloading = 0, downloadedBytes = 0, expectedBytes = 0, speed = 0
+    for (const tile of tiles) {
+      if (tile.status === 'completed') completed++
+      else if (tile.status === 'failed') failed++
+      else if (tile.status === 'downloading') {
+        downloading++
+        speed += tile.speedMBps || 0
+      }
+      downloadedBytes += tile.downloadedBytes || 0
+      expectedBytes += tile.totalBytes || 0
+    }
+    return {
+      completedCount: completed,
+      failedCount: failed,
+      downloadingCount: downloading,
+      totalDownloadedBytes: downloadedBytes,
+      totalExpectedBytes: expectedBytes || (estimatedSizeMB * 1024 * 1024),
+      combinedSpeedMBps: speed
+    }
+  }, [jobProgress.tiles, estimatedSizeMB])
 
   return (
     <div className="bg-terminal-bg min-h-full">

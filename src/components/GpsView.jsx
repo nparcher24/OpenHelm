@@ -21,13 +21,13 @@ function GpsView() {
   const wsRef = useRef(null)
   const ageIntervalRef = useRef(null)
 
-  // Update data age display every 100ms
+  // Update data age display every 1000ms (1 Hz is sufficient for "data age" display)
   useEffect(() => {
     ageIntervalRef.current = setInterval(() => {
       if (gpsData?.timestamp) {
         setDataAge(Date.now() - gpsData.timestamp)
       }
-    }, 100)
+    }, 1000)
 
     return () => {
       if (ageIntervalRef.current) {
@@ -77,7 +77,16 @@ function GpsView() {
         try {
           const message = JSON.parse(event.data)
           if (message.type === 'gps') {
-            setGpsData(message.data)
+            setGpsData(prev => {
+              // Skip re-render if key fields unchanged
+              if (prev?.latitude === message.data.latitude &&
+                  prev?.longitude === message.data.longitude &&
+                  prev?.heading === message.data.heading &&
+                  prev?.sog === message.data.sog) {
+                return prev
+              }
+              return message.data
+            })
             setError(message.data.error || null)
             setLoading(false)
             // Track pressure for trend
