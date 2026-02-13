@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense, useCallback } from 'react'
 
 const WS_URL = 'ws://localhost:3002'
 const API_BASE = 'http://localhost:3002'
@@ -6,11 +6,53 @@ const API_BASE = 'http://localhost:3002'
 // Lazy load the 3D component for better initial load
 const AttitudeIndicator3D = lazy(() => import('./AttitudeIndicator3D'))
 
+// Pressure history for trend calculation
+const PRESSURE_HISTORY_SIZE = 10
+const PRESSURE_TREND_THRESHOLD = 0.5 // hPa change to indicate rising/falling
+const PRESSURE_TREND_WINDOW = 5 * 60 * 1000 // 5 minutes in ms
+
 function GpsView() {
   const [gpsData, setGpsData] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [dataAge, setDataAge] = useState(null)
+  const [pressureHistory, setPressureHistory] = useState([])
+  const [showDebug, setShowDebug] = useState(false)
   const wsRef = useRef(null)
+  const ageIntervalRef = useRef(null)
+
+  // Update data age display every 100ms
+  useEffect(() => {
+    ageIntervalRef.current = setInterval(() => {
+      if (gpsData?.timestamp) {
+        setDataAge(Date.now() - gpsData.timestamp)
+      }
+    }, 100)
+
+    return () => {
+      if (ageIntervalRef.current) {
+        clearInterval(ageIntervalRef.current)
+      }
+    }
+  }, [gpsData?.timestamp])
+
+  // Track pressure history for trend calculation
+  const updatePressureHistory = useCallback((pressure) => {
+    if (pressure === null || pressure === undefined) return
+
+    setPressureHistory(prev => {
+      const now = Date.now()
+      const newEntry = { value: pressure, time: now }
+      const updated = [...prev, newEntry]
+      // Keep only readings within the trend window
+      const filtered = updated.filter(entry => now - entry.time < PRESSURE_TREND_WINDOW)
+      // Also limit to max size
+      if (filtered.length > PRESSURE_HISTORY_SIZE) {
+        return filtered.slice(-PRESSURE_HISTORY_SIZE)
+      }
+      return filtered
+    })
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -38,6 +80,8 @@ function GpsView() {
             setGpsData(message.data)
             setError(message.data.error || null)
             setLoading(false)
+            // Track pressure for trend
+            updatePressureHistory(message.data.pressure)
           }
         } catch (err) {
           console.error('GPS WebSocket parse error:', err)
@@ -63,6 +107,7 @@ function GpsView() {
         setGpsData(data)
         setError(data.error || null)
         setLoading(false)
+        updatePressureHistory(data.pressure)
       })
       .catch(err => {
         if (!mounted) return
@@ -80,7 +125,7 @@ function GpsView() {
         wsRef.current.close()
       }
     }
-  }, [])
+  }, [updatePressureHistory])
 
   const formatCoord = (value, isLat) => {
     if (value === null || value === undefined) return '--'
@@ -95,6 +140,36 @@ function GpsView() {
     if (value === null || value === undefined) return '--'
     return value.toFixed(decimals)
   }
+
+  // Calculate pressure trend from history
+  const getPressureTrend = () => {
+    if (pressureHistory.length < 2) return { trend: 'steady', arrow: '→' }
+    const oldest = pressureHistory[0]
+    const newest = pressureHistory[pressureHistory.length - 1]
+    const diff = newest.value - oldest.value
+    if (diff > PRESSURE_TREND_THRESHOLD) return { trend: 'rising', arrow: '↑' }
+    if (diff < -PRESSURE_TREND_THRESHOLD) return { trend: 'falling', arrow: '↓' }
+    return { trend: 'steady', arrow: '→' }
+  }
+
+  // Calculate drift angle (difference between heading and COG)
+  const getDriftAngle = () => {
+    if (gpsData?.heading === null || gpsData?.cog === null) return null
+    let drift = gpsData.heading - gpsData.cog
+    // Normalize to -180 to +180
+    while (drift > 180) drift -= 360
+    while (drift < -180) drift += 360
+    return drift
+  }
+
+  // Format data age display
+  const formatAge = (ageMs) => {
+    if (ageMs === null) return '--'
+    if (ageMs > 2000) return 'STALE'
+    return `${(ageMs / 1000).toFixed(1)}s`
+  }
+
+  const isStale = dataAge !== null && dataAge > 2000
 
   if (loading) {
     return (
@@ -122,9 +197,14 @@ function GpsView() {
             {gpsData?.satellites || 0} sats
           </span>
         </div>
-        <span className="text-terminal-green-dim text-xs">
-          {hasDevice ? gpsData.device : 'No device'}
-        </span>
+        <div className="flex items-center gap-4">
+          <span className={`text-sm font-mono ${isStale ? 'text-terminal-red font-bold' : 'text-terminal-green-dim'}`}>
+            Data: {formatAge(dataAge)}
+          </span>
+          <span className="text-terminal-green-dim text-xs">
+            {hasDevice ? gpsData.device : 'No device'}
+          </span>
+        </div>
       </div>
 
       {error && (
@@ -216,6 +296,26 @@ function GpsView() {
               {gpsData?.groundSpeed !== null ? `${(gpsData.groundSpeed * 3.6).toFixed(1)} km/h` : ''}
             </div>
           </div>
+
+          {/* Course Over Ground */}
+          <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border">
+            <div className="text-xs text-terminal-green-dim uppercase">Course Over Ground</div>
+            <div className="text-lg font-mono text-terminal-green text-glow">
+              {gpsData?.cog !== null ? `${gpsData.cog.toFixed(0)}° ${getCompassDirection(gpsData.cog)}` : '--'}
+            </div>
+            {/* Drift angle */}
+            {(() => {
+              const drift = getDriftAngle()
+              if (drift === null) return null
+              const absDrift = Math.abs(drift)
+              const dir = drift > 0 ? 'port' : drift < 0 ? 'stbd' : ''
+              return (
+                <div className="text-xs text-terminal-green-dim font-mono">
+                  Drift: {absDrift.toFixed(0)}° {dir}
+                </div>
+              )
+            })()}
+          </div>
         </div>
 
         {/* Right column - Compass & Quality */}
@@ -272,6 +372,127 @@ function GpsView() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Environment */}
+          <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border">
+            <div className="text-xs text-terminal-green-dim uppercase mb-1">Environment</div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-terminal-green-dim">Pressure</span>
+              <span className="text-sm font-mono text-terminal-green">
+                {gpsData?.pressure !== null ? (
+                  <>
+                    {gpsData.pressure.toFixed(1)} hPa{' '}
+                    <span className={
+                      getPressureTrend().trend === 'rising' ? 'text-green-400' :
+                      getPressureTrend().trend === 'falling' ? 'text-red-400' :
+                      'text-terminal-green-dim'
+                    }>
+                      {getPressureTrend().arrow}
+                    </span>
+                  </>
+                ) : '--'}
+              </span>
+            </div>
+          </div>
+
+          {/* Motion Data */}
+          <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border">
+            <div className="text-xs text-terminal-green-dim uppercase mb-1">Motion</div>
+            {/* Rate of Turn */}
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-terminal-green-dim">Rate of Turn</span>
+              <span className="text-sm font-mono text-terminal-green">
+                {gpsData?.wz !== null ? (
+                  <>
+                    {Math.abs(gpsData.wz).toFixed(1)}°/s{' '}
+                    <span className="text-terminal-green-dim">
+                      {gpsData.wz > 0.5 ? 'port' : gpsData.wz < -0.5 ? 'stbd' : ''}
+                    </span>
+                  </>
+                ) : '--'}
+              </span>
+            </div>
+            {/* Accelerations */}
+            <div className="grid grid-cols-3 gap-1 text-center text-xs">
+              <div>
+                <span className="text-terminal-green-dim">aX</span>
+                <span className="font-mono text-terminal-green ml-1">
+                  {gpsData?.ax !== null ? `${gpsData.ax.toFixed(2)}g` : '--'}
+                </span>
+              </div>
+              <div>
+                <span className="text-terminal-green-dim">aY</span>
+                <span className="font-mono text-terminal-green ml-1">
+                  {gpsData?.ay !== null ? `${gpsData.ay.toFixed(2)}g` : '--'}
+                </span>
+              </div>
+              <div>
+                <span className="text-terminal-green-dim">aZ</span>
+                <span className="font-mono text-terminal-green ml-1">
+                  {gpsData?.az !== null ? `${gpsData.az.toFixed(2)}g` : '--'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Debug Section (Collapsible) */}
+          <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border">
+            <button
+              onClick={() => setShowDebug(!showDebug)}
+              className="w-full flex items-center justify-between text-xs text-terminal-green-dim uppercase"
+            >
+              <span>Debug</span>
+              <span>{showDebug ? '▼' : '▶'}</span>
+            </button>
+            {showDebug && (
+              <div className="mt-2 space-y-1">
+                {/* Magnetometer */}
+                <div className="text-xs text-terminal-green-dim">Magnetometer</div>
+                <div className="grid grid-cols-3 gap-1 text-center text-xs">
+                  <div>
+                    <span className="text-terminal-green-dim">hX</span>
+                    <span className="font-mono text-terminal-green ml-1">
+                      {gpsData?.hx !== null ? gpsData.hx : '--'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-terminal-green-dim">hY</span>
+                    <span className="font-mono text-terminal-green ml-1">
+                      {gpsData?.hy !== null ? gpsData.hy : '--'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-terminal-green-dim">hZ</span>
+                    <span className="font-mono text-terminal-green ml-1">
+                      {gpsData?.hz !== null ? gpsData.hz : '--'}
+                    </span>
+                  </div>
+                </div>
+                {/* Angular velocities */}
+                <div className="text-xs text-terminal-green-dim mt-2">Angular Velocity</div>
+                <div className="grid grid-cols-3 gap-1 text-center text-xs">
+                  <div>
+                    <span className="text-terminal-green-dim">wX</span>
+                    <span className="font-mono text-terminal-green ml-1">
+                      {gpsData?.wx !== null ? `${gpsData.wx.toFixed(1)}` : '--'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-terminal-green-dim">wY</span>
+                    <span className="font-mono text-terminal-green ml-1">
+                      {gpsData?.wy !== null ? `${gpsData.wy.toFixed(1)}` : '--'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-terminal-green-dim">wZ</span>
+                    <span className="font-mono text-terminal-green ml-1">
+                      {gpsData?.wz !== null ? `${gpsData.wz.toFixed(1)}` : '--'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

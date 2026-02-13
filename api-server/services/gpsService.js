@@ -29,7 +29,19 @@ let gpsData = {
   vdop: null,
   timestamp: null,
   device: null,
-  error: null
+  error: null,
+  // Additional sensor data
+  cog: null,           // Course Over Ground (degrees)
+  pressure: null,      // Barometric pressure (hPa)
+  ax: null,            // Acceleration X (g)
+  ay: null,            // Acceleration Y (g)
+  az: null,            // Acceleration Z (g)
+  wx: null,            // Angular velocity X (°/sec)
+  wy: null,            // Angular velocity Y (°/sec)
+  wz: null,            // Angular velocity Z / Rate of Turn (°/sec)
+  hx: null,            // Magnetometer X
+  hy: null,            // Magnetometer Y
+  hz: null             // Magnetometer Z
 }
 
 // Heading smoothing state (EMA with circular handling)
@@ -140,12 +152,24 @@ function parseWitMotionMessage(msg) {
   const data = msg.slice(2, 10)
 
   switch (msgType) {
-    case 'Q': // 0x51 - Accelerations (not status!)
-      // ax, ay, az as int16 - we don't need these for navigation
+    case 'Q': // 0x51 - Accelerations
+      // ax, ay, az as int16, scale: /32768 * 16g
+      const axRaw = data.readInt16LE(0)
+      const ayRaw = data.readInt16LE(2)
+      const azRaw = data.readInt16LE(4)
+      gpsData.ax = (axRaw / 32768.0) * 16.0
+      gpsData.ay = (ayRaw / 32768.0) * 16.0
+      gpsData.az = (azRaw / 32768.0) * 16.0
       break
 
     case 'R': // 0x52 - Angular velocities
-      // wx, wy, wz as int16 - we don't need these for navigation
+      // wx, wy, wz as int16, scale: /32768 * 2000°/sec
+      const wxRaw = data.readInt16LE(0)
+      const wyRaw = data.readInt16LE(2)
+      const wzRaw = data.readInt16LE(4)
+      gpsData.wx = (wxRaw / 32768.0) * 2000.0
+      gpsData.wy = (wyRaw / 32768.0) * 2000.0
+      gpsData.wz = (wzRaw / 32768.0) * 2000.0  // Rate of Turn
       break
 
     case 'S': // 0x53 - Euler angles (roll, pitch, yaw)
@@ -165,13 +189,18 @@ function parseWitMotionMessage(msg) {
       break
 
     case 'T': // 0x54 - Magnetometer
-      // hx, hy, hz - we use yaw from Euler angles instead
+      // hx, hy, hz as int16
+      gpsData.hx = data.readInt16LE(0)
+      gpsData.hy = data.readInt16LE(2)
+      gpsData.hz = data.readInt16LE(4)
       break
 
     case 'V': // 0x56 - Barometry/Altimeter
       // Pressure and altitude data
-      const pressure = data.readInt32LE(0) // Pa
+      const pressureRaw = data.readInt32LE(0) // Pa
       const baroAlt = data.readInt32LE(4) / 100 // cm to meters
+      // Store pressure in hPa (more common unit)
+      gpsData.pressure = pressureRaw / 100.0
       // We'll prefer GPS altitude if available
       if (gpsData.altitude === null) {
         gpsData.altitude = baroAlt
@@ -211,10 +240,14 @@ function parseWitMotionMessage(msg) {
       // Bytes 2-3: GPSYaw (int16, 0.1° units) - Course Over Ground
       // Bytes 4-7: GPSVelocity (uint32, 1/1000 km/h units)
       const gpsHeight = data.readInt16LE(0) / 10 // 0.1m to meters
-      const gpsCOG = data.readInt16LE(2) / 10 // 0.1° to degrees
+      let gpsCOG = data.readInt16LE(2) / 10 // 0.1° to degrees
       const gpsSpeedRaw = data.readUInt32LE(4)
       const gpsSpeedKmh = gpsSpeedRaw / 1000 // to km/h
       const gpsSpeedMs = gpsSpeedKmh / 3.6 // to m/s
+
+      // Normalize COG to 0-360 range
+      if (gpsCOG < 0) gpsCOG += 360
+      gpsData.cog = gpsCOG
 
       // Validate speed is reasonable (< 200 knots / ~100 m/s for any boat)
       if (gpsSpeedMs >= 0 && gpsSpeedMs < 100) {

@@ -1,14 +1,14 @@
 #!/bin/bash
 
-# OpenHelm GUI Launcher
-# Ensures services are running, then launches Chromium with GPU
+# OpenHelm Fullscreen GUI Launcher
+# Ensures services are running, then launches Chromium in fullscreen kiosk mode
 
 cd "$(dirname "$0")"
 
 # Set display
 export DISPLAY=:0
 
-echo "🚀 Launching OpenHelm..."
+echo "🚀 Launching OpenHelm (Fullscreen)..."
 
 # Check if services are already running
 if ! lsof -ti :3000 > /dev/null 2>&1; then
@@ -25,14 +25,12 @@ else
     echo "✅ Services already running"
 fi
 
-echo "🌐 Launching Chromium with GPU..."
+echo "🌐 Launching Chromium in fullscreen mode..."
 
-# Launch Chromium with GPU acceleration for Raspberry Pi 5
-# System config in /etc/chromium.d/01-openhelm-gpu adds GPU flags
-# Enable remote debugging for MCP browser automation
+# Launch Chromium in kiosk mode (fullscreen without borders)
+# Press Alt+F4 or use touchscreen gestures to exit
 chromium-browser \
-    --window-size=1920,1080 \
-    --window-position=0,0 \
+    --kiosk \
     --password-store=basic \
     --overscroll-history-navigation=0 \
     --touch-events=enabled \
@@ -40,4 +38,4 @@ chromium-browser \
     http://localhost:3000 &
 
 sleep 2
-echo "✅ OpenHelm launched!"
+echo "✅ OpenHelm launched in fullscreen!"

@@ -20,7 +20,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const TILES_DIR = path.join(PROJECT_ROOT, 'tiles', 'cusp');
 const RAW_FILES_DIR = path.join(PROJECT_ROOT, 'tiles', 'cusp_raw');
 const TEMP_DIR = '/tmp/cusp_downloads';
-const MBTILES_FILENAME = 'north_america.mbtiles';
+const MBTILES_FILENAME = 'gshhs_base.mbtiles';
 
 // Continental US bounds [minX, minY, maxX, maxY]
 const CONUS_BOUNDS = [-125, 24, -66, 50];
@@ -211,64 +211,94 @@ async function filterToContinentalUS(inputShp, outputGeoJSON, signal) {
 }
 
 /**
- * Convert GeoJSON to MBTiles using Tippecanoe
- * @param {string} geojsonPath - Path to input GeoJSON file
- * @param {string} mbtilesPath - Path to output MBTiles file
+ * Extract coastline boundaries from land polygons using ogr2ogr
+ * @param {string} landGeoJSON - Path to land polygon GeoJSON
+ * @param {string} coastlineGeoJSON - Path to output coastline GeoJSON
+ * @param {AbortSignal} signal - Cancellation signal
+ */
+async function extractCoastlineLines(landGeoJSON, coastlineGeoJSON, signal) {
+  // First, query the layer name from the GeoJSON file using ogrinfo
+  console.log('[CUSP] Querying layer name from GeoJSON...');
+  const { stdout: infoOutput } = await execAsync(`ogrinfo -al -so "${landGeoJSON}" | grep "Layer name:"`, { signal });
+  const layerMatch = infoOutput.match(/Layer name:\s*(\S+)/);
+  const layerName = layerMatch ? layerMatch[1] : 'OGRGeoJSON';
+
+  console.log(`[CUSP] Using layer name: ${layerName}`);
+
+  const cmd = [
+    'ogr2ogr',
+    '-f GeoJSON',
+    '-dialect SQLite',
+    `-sql "SELECT ST_Boundary(geometry) as geometry FROM ${layerName}"`,
+    `"${coastlineGeoJSON}"`,
+    `"${landGeoJSON}"`
+  ].join(' ');
+
+  console.log('[CUSP] Extracting coastline boundaries from land polygons...');
+  try {
+    const { stdout, stderr } = await execAsync(cmd, { signal, maxBuffer: 1024 * 1024 * 100 });
+    if (stderr) {
+      console.warn('[CUSP] ogr2ogr warnings:', stderr);
+    }
+    console.log('[CUSP] Coastline boundaries extracted successfully');
+  } catch (error) {
+    console.error('[CUSP] Failed to extract coastlines:', error.message);
+    throw new Error(`Failed to extract coastlines: ${error.message}`);
+  }
+}
+
+/**
+ * Generate land polygon tiles using Tippecanoe
+ * @param {string} geojsonPath - Path to land polygon GeoJSON
+ * @param {string} mbtilesPath - Path to output MBTiles
  * @param {string} jobId - Job ID for progress updates
  * @param {AbortSignal} signal - Cancellation signal
  */
-async function convertToMBTiles(geojsonPath, mbtilesPath, jobId, signal) {
-  const outputDir = path.dirname(mbtilesPath);
-  await fs.mkdir(outputDir, { recursive: true });
-
-  // Tippecanoe command for coastline data - optimized for maximum detail
+async function generateLandTiles(geojsonPath, mbtilesPath, jobId, signal) {
   const cmd = [
     'tippecanoe',
     `-o "${mbtilesPath}"`,
-    '-z14',                                  // Max zoom 14 for high detail coastlines
-    '-Z0',                                   // Min zoom level
-    '-l coastline',                          // Layer name
-    '--no-feature-limit',                    // Don't limit features per tile
-    '--no-tile-size-limit',                  // Don't limit tile size
-    '--simplification=1',                    // Minimal simplification for max detail
-    '--force',                               // Overwrite existing file
-    '-P',                                    // Parallel processing
-    `--progress-interval=1`,                 // Report progress every 1 second
-    `-n "GSHHS Coastline"`,                  // Tileset name
-    `-A "NOAA NGDC"`,                        // Attribution
+    '-z14 -Z0',
+    '-l land',
+    '--no-feature-limit',
+    '--no-tile-size-limit',
+    '--simplification=2',
+    '--coalesce-densest-as-needed',
+    '--force -P',
+    `--progress-interval=1`,
+    `-n "GSHHS Land Polygons"`,
+    `-A "NOAA NGDC - GSHHS"`,
     `"${geojsonPath}"`
   ].join(' ');
 
-  console.log('[CUSP] Converting GeoJSON to MBTiles with Tippecanoe...');
+  console.log('[CUSP] Generating land polygon tiles...');
 
-  // Run tippecanoe with live progress tracking
   return new Promise((resolve, reject) => {
     const child = exec(cmd, { maxBuffer: 1024 * 1024 * 200 }, (error, stdout, stderr) => {
       if (error && !signal.aborted) {
         reject(error);
       } else {
-        console.log('[CUSP] MBTiles created successfully');
+        console.log('[CUSP] Land tiles created successfully');
         resolve();
       }
     });
 
     // Parse tippecanoe progress from stderr
-    let lastProgress = 60;
+    let lastProgress = 50;
     child.stderr?.on('data', (data) => {
       const output = data.toString();
-      // Tippecanoe outputs: "  99.9%  10/12/2046"
       const match = output.match(/(\d+\.\d+)%/);
       if (match) {
         const tippyProgress = parseFloat(match[1]);
-        // Map tippecanoe 0-100% to our 60-95% range
-        const overallProgress = 60 + (tippyProgress / 100) * 35;
-        if (overallProgress > lastProgress + 1) { // Only update every 1%
+        // Map tippecanoe 0-100% to our 50-70% range
+        const overallProgress = 50 + (tippyProgress / 100) * 20;
+        if (overallProgress > lastProgress + 1) {
           lastProgress = overallProgress;
           global.broadcastProgress(
             jobId,
             overallProgress,
             'converting',
-            `Generating vector tiles: ${tippyProgress.toFixed(1)}%`,
+            `Generating land tiles: ${tippyProgress.toFixed(1)}%`,
             null
           );
         }
@@ -279,10 +309,143 @@ async function convertToMBTiles(geojsonPath, mbtilesPath, jobId, signal) {
     if (signal) {
       signal.addEventListener('abort', () => {
         child.kill();
-        reject(new Error('Conversion cancelled'));
+        reject(new Error('Land tile generation cancelled'));
       });
     }
   });
+}
+
+/**
+ * Generate coastline line tiles using Tippecanoe
+ * @param {string} geojsonPath - Path to coastline line GeoJSON
+ * @param {string} mbtilesPath - Path to output MBTiles
+ * @param {string} jobId - Job ID for progress updates
+ * @param {AbortSignal} signal - Cancellation signal
+ */
+async function generateCoastlineTiles(geojsonPath, mbtilesPath, jobId, signal) {
+  const cmd = [
+    'tippecanoe',
+    `-o "${mbtilesPath}"`,
+    '-z14 -Z0',
+    '-l coastline',
+    '--no-feature-limit',
+    '--no-tile-size-limit',
+    '--simplification=1',
+    '--minimum-zoom-by-size=8:500:10:100:12:50',
+    '--force -P',
+    `--progress-interval=1`,
+    `-n "GSHHS Coastline"`,
+    `-A "NOAA NGDC - GSHHS"`,
+    `"${geojsonPath}"`
+  ].join(' ');
+
+  console.log('[CUSP] Generating coastline tiles...');
+
+  return new Promise((resolve, reject) => {
+    const child = exec(cmd, { maxBuffer: 1024 * 1024 * 200 }, (error, stdout, stderr) => {
+      if (error && !signal.aborted) {
+        reject(error);
+      } else {
+        console.log('[CUSP] Coastline tiles created successfully');
+        resolve();
+      }
+    });
+
+    // Parse tippecanoe progress from stderr
+    let lastProgress = 70;
+    child.stderr?.on('data', (data) => {
+      const output = data.toString();
+      const match = output.match(/(\d+\.\d+)%/);
+      if (match) {
+        const tippyProgress = parseFloat(match[1]);
+        // Map tippecanoe 0-100% to our 70-90% range
+        const overallProgress = 70 + (tippyProgress / 100) * 20;
+        if (overallProgress > lastProgress + 1) {
+          lastProgress = overallProgress;
+          global.broadcastProgress(
+            jobId,
+            overallProgress,
+            'converting',
+            `Generating coastline tiles: ${tippyProgress.toFixed(1)}%`,
+            null
+          );
+        }
+      }
+    });
+
+    // Handle cancellation
+    if (signal) {
+      signal.addEventListener('abort', () => {
+        child.kill();
+        reject(new Error('Coastline tile generation cancelled'));
+      });
+    }
+  });
+}
+
+/**
+ * Merge multiple MBTiles files into one using tile-join
+ * @param {string[]} inputTiles - Array of input MBTiles paths
+ * @param {string} outputPath - Path to output merged MBTiles
+ * @param {AbortSignal} signal - Cancellation signal
+ */
+async function mergeMBTiles(inputTiles, outputPath, signal) {
+  const cmd = [
+    'tile-join',
+    `-o "${outputPath}"`,
+    '--force',
+    ...inputTiles.map(t => `"${t}"`)
+  ].join(' ');
+
+  console.log('[CUSP] Merging MBTiles files...');
+  try {
+    const { stdout, stderr } = await execAsync(cmd, { signal, maxBuffer: 1024 * 1024 * 100 });
+    if (stderr) {
+      console.warn('[CUSP] tile-join warnings:', stderr);
+    }
+    console.log('[CUSP] MBTiles merged successfully');
+  } catch (error) {
+    console.error('[CUSP] Failed to merge tiles:', error.message);
+    throw new Error(`Failed to merge tiles: ${error.message}`);
+  }
+}
+
+/**
+ * Convert GeoJSON to unified MBTiles with land and coastline layers
+ * @param {string} geojsonPath - Path to input GeoJSON file (land polygons)
+ * @param {string} mbtilesPath - Path to output MBTiles file
+ * @param {string} jobId - Job ID for progress updates
+ * @param {AbortSignal} signal - Cancellation signal
+ */
+async function convertToMBTiles(geojsonPath, mbtilesPath, jobId, signal) {
+  const outputDir = path.dirname(mbtilesPath);
+  await fs.mkdir(outputDir, { recursive: true });
+
+  // Extract coastline boundaries from land polygons
+  const coastlineGeoJSON = path.join(outputDir, `coastline_lines_${jobId}.geojson`);
+  global.broadcastProgress(jobId, 45, 'converting', 'Extracting coastline boundaries...', null);
+  await extractCoastlineLines(geojsonPath, coastlineGeoJSON, signal);
+
+  // Generate land tiles
+  const landMBTiles = path.join('/tmp', `land_${jobId}.mbtiles`);
+  global.broadcastProgress(jobId, 50, 'converting', 'Generating land tiles...', null);
+  await generateLandTiles(geojsonPath, landMBTiles, jobId, signal);
+
+  // Generate coastline tiles
+  const coastlineMBTiles = path.join('/tmp', `coastline_${jobId}.mbtiles`);
+  global.broadcastProgress(jobId, 70, 'converting', 'Generating coastline tiles...', null);
+  await generateCoastlineTiles(coastlineGeoJSON, coastlineMBTiles, jobId, signal);
+
+  // Merge both MBTiles into single file
+  global.broadcastProgress(jobId, 90, 'converting', 'Merging tiles...', null);
+  await mergeMBTiles([landMBTiles, coastlineMBTiles], mbtilesPath, signal);
+
+  // Cleanup temp files
+  await fs.unlink(coastlineGeoJSON).catch(() => {});
+  await fs.unlink(landMBTiles).catch(() => {});
+  await fs.unlink(coastlineMBTiles).catch(() => {});
+
+  console.log('[CUSP] MBTiles created successfully with land and coastline layers');
 }
 
 /**
@@ -398,33 +561,33 @@ export async function processCUSPJob(jobId, signal) {
     const filteredGeoJSON = path.join(filteredDir, 'cusp_conus.geojson');
     const mbtilesPath = path.join(TILES_DIR, MBTILES_FILENAME);
 
-    // Phase 1: Download (0-40%)
+    // Phase 1: Download (0-30%)
     console.log('[CUSP] Phase 1: Downloading CUSP shapefile...');
-    global.broadcastProgress(jobId, 0, 'downloading', 'Downloading CUSP shapefile...', null);
+    global.broadcastProgress(jobId, 0, 'downloading', 'Downloading GSHHS shapefile...', null);
 
     await downloadCUSPShapefile(
       zipPath,
       (downloaded, total, speed) => {
-        const progress = Math.min(40, (downloaded / total) * 40);
+        const progress = Math.min(30, (downloaded / total) * 30);
         const message = `Downloading: ${(downloaded / 1024 / 1024).toFixed(1)} MB / ${(total / 1024 / 1024).toFixed(1)} MB (${speed.toFixed(1)} MB/s)`;
         global.broadcastProgress(jobId, progress, 'downloading', message, null);
       },
       signal
     );
 
-    // Phase 2: Extract and filter (40-60%)
+    // Phase 2: Extract and filter (30-45%)
     console.log('[CUSP] Phase 2: Extracting and filtering to Continental US...');
-    global.broadcastProgress(jobId, 40, 'processing', 'Extracting shapefile...', null);
+    global.broadcastProgress(jobId, 30, 'processing', 'Extracting shapefile...', null);
 
     await extractZip(zipPath, extractDir);
     const originalShp = await findShapefile(extractDir);
 
-    global.broadcastProgress(jobId, 50, 'processing', 'Filtering to Continental US bounds...', null);
+    global.broadcastProgress(jobId, 37, 'processing', 'Filtering to Continental US bounds...', null);
     await filterToContinentalUS(originalShp, filteredGeoJSON, signal);
 
-    // Phase 3: Convert to vector tiles (60-95%)
+    // Phase 3: Convert to vector tiles (45-95%)
+    // convertToMBTiles now handles: 45-50% (extract boundaries), 50-70% (land), 70-90% (coastline), 90-95% (merge)
     console.log('[CUSP] Phase 3: Converting to MBTiles vector tiles...');
-    global.broadcastProgress(jobId, 60, 'converting', 'Generating vector tiles with Tippecanoe...', null);
 
     await convertToMBTiles(filteredGeoJSON, mbtilesPath, jobId, signal);
 

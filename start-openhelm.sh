@@ -192,7 +192,6 @@ if xset q &>/dev/null; then
     if [ -n "$CHROMIUM_CMD" ]; then
         # Launch Chromium in windowed mode optimized for Raspberry Pi 5 GPU acceleration
         $CHROMIUM_CMD \
-          --no-sandbox \
           --window-size=1920,1080 \
           --window-position=0,0 \
           --no-first-run \

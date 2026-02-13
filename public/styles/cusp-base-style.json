@@ -1,18 +1,17 @@
 {
   "version": 8,
-  "name": "ENC Coastline",
+  "name": "GSHHS Base Layer",
   "metadata": {
     "author": "OpenHelm",
-    "description": "NOAA ENC shoreline data - direct GeoJSON"
+    "description": "NOAA GSHHS coastline data served via Martin vector tiles"
   },
   "sources": {
-    "coastline": {
-      "type": "geojson",
-      "data": "/data/enc_coastline.geojson"
-    },
-    "land": {
-      "type": "geojson",
-      "data": "/data/cusp_conus.geojson"
+    "gshhs": {
+      "type": "vector",
+      "tiles": ["http://localhost:3001/gshhs_base/{z}/{x}/{y}"],
+      "minzoom": 0,
+      "maxzoom": 13,
+      "bounds": [-125, 24, -66, 50]
     }
   },
   "layers": [
@@ -26,7 +25,8 @@
     {
       "id": "land-fill",
       "type": "fill",
-      "source": "land",
+      "source": "gshhs",
+      "source-layer": "land",
       "paint": {
         "fill-color": "#0f3d2a",
         "fill-opacity": 1
@@ -35,13 +35,16 @@
     {
       "id": "coastline-outline",
       "type": "line",
-      "source": "coastline",
+      "source": "gshhs",
+      "source-layer": "coastline",
+      "minzoom": 4,
       "paint": {
         "line-color": "#FFFFFF",
         "line-width": [
           "interpolate",
           ["exponential", 1.5],
           ["zoom"],
+          4, 0.3,
           6, 0.5,
           10, 1,
           14, 1.5,

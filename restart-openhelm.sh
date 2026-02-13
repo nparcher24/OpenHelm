@@ -61,9 +61,17 @@ done
 
 if [ "$ALL_OK" = true ]; then
     echo ""
-    echo "🌐 Launching Chromium..."
+    echo "🌐 Launching Chromium with GPU acceleration..."
+    # System config in /etc/chromium.d/01-openhelm-gpu adds GPU flags
     # Enable remote debugging for MCP browser automation
-    chromium-browser --password-store=basic --remote-debugging-port=9222 http://localhost:3000 &
+    chromium-browser \
+        --window-size=1920,1080 \
+        --window-position=0,0 \
+        --password-store=basic \
+        --overscroll-history-navigation=0 \
+        --touch-events=enabled \
+        --remote-debugging-port=9222 \
+        http://localhost:3000 &
     sleep 2
     echo "✅ OpenHelm restarted successfully!"
 else
