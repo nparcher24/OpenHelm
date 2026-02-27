@@ -44,6 +44,8 @@ function ChartView() {
   const [gpsData, setGpsData] = useState(null)
   const boatMarkerRef = useRef(null)
   const trackingModeRef = useRef(null)
+  const northUpRef = useRef(false)
+  const bearingFrozenRef = useRef(false)  // True when bearing is frozen after pan decouple
 
   // Waypoint state
   const [waypoints, setWaypoints] = useState([])
@@ -88,6 +90,10 @@ function ChartView() {
     trackingModeRef.current = trackingMode
   }, [trackingMode])
 
+  useEffect(() => {
+    northUpRef.current = northUp
+  }, [northUp])
+
   // Query live depth when crosshairs appear
   useEffect(() => {
     if (!map.current || !touchState?.showingCrosshairs) {
@@ -95,24 +101,29 @@ function ChartView() {
       return
     }
 
-    // Debounce the depth query to avoid too many calls
-    const timeoutId = setTimeout(async () => {
-      const adjustedY = Math.max(touchState.currentY - 100, 50)
-      const point = map.current.unproject([touchState.currentX, adjustedY])
+    const adjustedY = Math.max(touchState.currentY - 100, 50)
+    const point = map.current.unproject([touchState.currentX, adjustedY])
 
+    // Immediately update lat/lon so position tracks finger in real time
+    setLiveDepthData(prev => ({
+      lat: point.lat,
+      lon: point.lng,
+      depth: prev?.depth ?? null
+    }))
+
+    // Debounce the depth query to avoid too many API calls
+    const timeoutId = setTimeout(async () => {
       try {
         const result = await getDepthAtLocation(point.lng, point.lat)
-        setLiveDepthData({
-          lat: point.lat,
-          lon: point.lng,
+        setLiveDepthData(prev => prev ? {
+          ...prev,
           depth: result.success ? result.depth : null
-        })
+        } : null)
       } catch (error) {
-        setLiveDepthData({
-          lat: point.lat,
-          lon: point.lng,
+        setLiveDepthData(prev => prev ? {
+          ...prev,
           depth: null
-        })
+        } : null)
       }
     }, 100)
 
@@ -311,11 +322,18 @@ function ChartView() {
   useEffect(() => {
     if (!map.current || !mapLoaded || trackingMode) return
 
-    const bearing = northUp ? 0 : (gpsData?.heading || 0)
+    if (northUp) {
+      // Bearing frozen by pan decouple - don't snap to 0, just leave map as-is
+      if (bearingFrozenRef.current) return
+      map.current.easeTo({ bearing: 0, duration: 200 })
+      return
+    }
 
+    // Heading-up mode: follow GPS heading
+    bearingFrozenRef.current = false
     map.current.easeTo({
-      bearing: bearing,
-      duration: 200  // Match 5 Hz update interval for smooth motion
+      bearing: gpsData?.heading || 0,
+      duration: 200
     })
   }, [northUp, gpsData?.heading, mapLoaded, trackingMode])
 
@@ -354,8 +372,15 @@ function ChartView() {
 
     const handleMoveStart = (e) => {
       // Only decouple if user-initiated (has originalEvent)
-      if (e.originalEvent && trackingModeRef.current) {
-        setTrackingMode(null)
+      if (e.originalEvent) {
+        if (trackingModeRef.current) {
+          setTrackingMode(null)
+        }
+        // Also exit heading-follow mode, freezing the current bearing
+        if (!northUpRef.current) {
+          bearingFrozenRef.current = true
+          setNorthUp(true)
+        }
       }
     }
 
@@ -875,7 +900,10 @@ function ChartView() {
   // Memoized button handlers to prevent unnecessary re-renders
   const handleZoomIn = useCallback(() => map.current?.zoomIn(), [])
   const handleZoomOut = useCallback(() => map.current?.zoomOut(), [])
-  const handleToggleNorthUp = useCallback(() => setNorthUp(n => !n), [])
+  const handleToggleNorthUp = useCallback(() => {
+    bearingFrozenRef.current = false  // Manual toggle always resets frozen state
+    setNorthUp(n => !n)
+  }, [])
   const handleCycleTrackingMode = useCallback(() => {
     setTrackingMode(mode => {
       if (!mode) return 'center'
@@ -891,7 +919,7 @@ function ChartView() {
     const opacity = topoLayersVisible ? 0.85 : 0
 
     // Toggle all BlueTopo layers
-    const styleLayers = map.current.getStyle().layers
+    const styleLayers = map.current.getStyle()?.layers || []
     styleLayers.forEach(layer => {
       if (layer.id.startsWith('bluetopo-layer-')) {
         map.current.setPaintProperty(layer.id, 'raster-opacity', opacity)
