@@ -30,13 +30,11 @@ function ChartView() {
   const holdTimerRef = useRef(null)
   const touchStateRef = useRef(null)
   const activeMeasurementRef = useRef(null)
-  const HOLD_DURATION = 300
+  const HOLD_DURATION = 1000
+  const MOVE_THRESHOLD = 15
 
   // Live depth/position display during crosshairs hold
   const [liveDepthData, setLiveDepthData] = useState(null)
-
-  // Two-finger pan state
-  const twoFingerPanRef = useRef(null)
 
   // GPS tracking state
   // trackingMode: null = not tracking, 'center' = boat centered, 'offset' = boat 1/3 from bottom
@@ -441,9 +439,8 @@ function ChartView() {
       refreshExpiredTiles: false  // Don't re-request tiles that are already loaded
     })
 
-    // Disable single-finger pan, but keep two-finger zoom/rotate enabled
-    // We'll manually implement two-finger panning in our touch handlers
-    map.current.dragPan.disable()
+    // Enable native single-finger pan and two-finger pinch-to-zoom
+    map.current.dragPan.enable()
     map.current.touchZoomRotate.enable()
 
     map.current.on('load', async () => {
@@ -623,31 +620,20 @@ function ChartView() {
     const canvas = map.current.getCanvasContainer()
 
     const handleTouchStart = (e) => {
-      // Handle two-finger pan initialization
+      // Two-finger touch: cancel hold, let MapLibre handle pinch-to-zoom
       if (e.touches.length === 2) {
         cancelHold()
-        const rect = canvas.getBoundingClientRect()
-        const touch1 = e.touches[0]
-        const touch2 = e.touches[1]
-        const midX = (touch1.clientX + touch2.clientX) / 2 - rect.left
-        const midY = (touch1.clientY + touch2.clientY) / 2 - rect.top
-
-        twoFingerPanRef.current = { x: midX, y: midY }
+        setTouchState(null)
         return
       }
 
-      // Single-finger touch for crosshairs
+      // Single-finger touch: start hold timer for crosshairs
       if (e.touches.length !== 1) {
         cancelHold()
         return
       }
 
-      // Prevent MapLibre's dragPan from activating on single-finger touches
-      e.preventDefault()
-      e.stopPropagation()
-
-      // Don't dismiss existing measurement - allow user to take a new measurement
-      // The old measurement will be replaced when the new one completes
+      // Do NOT preventDefault/stopPropagation — let MapLibre handle panning
 
       const touch = e.touches[0]
       const rect = canvas.getBoundingClientRect()
@@ -664,95 +650,77 @@ function ChartView() {
       })
 
       holdTimerRef.current = setTimeout(() => {
+        // Hold timer fired — finger stayed still, activate crosshairs
+        map.current.dragPan.disable()
+        map.current.stop()
         setTouchState(prev => prev ? { ...prev, showingCrosshairs: true } : null)
       }, HOLD_DURATION)
     }
 
     const handleTouchMove = (e) => {
-      // Handle two-finger pan
-      if (e.touches.length === 2 && twoFingerPanRef.current) {
-        const rect = canvas.getBoundingClientRect()
-        const touch1 = e.touches[0]
-        const touch2 = e.touches[1]
-        const midX = (touch1.clientX + touch2.clientX) / 2 - rect.left
-        const midY = (touch1.clientY + touch2.clientY) / 2 - rect.top
-
-        const deltaX = midX - twoFingerPanRef.current.x
-        const deltaY = midY - twoFingerPanRef.current.y
-
-        // Disable follow-me mode when user pans
-        if (trackingModeRef.current) {
-          setTrackingMode(null)
-        }
-
-        // Pan the map by the delta
-        map.current.panBy([-deltaX, -deltaY], { animate: false })
-
-        twoFingerPanRef.current = { x: midX, y: midY }
-        return
-      }
-
-      // Single-finger crosshairs movement
       if (!touchStateRef.current || e.touches.length !== 1) {
         cancelHold()
         return
       }
-
-      // Prevent MapLibre's dragPan from activating on single-finger touches
-      e.preventDefault()
-      e.stopPropagation()
 
       const touch = e.touches[0]
       const rect = canvas.getBoundingClientRect()
       const x = touch.clientX - rect.left
       const y = touch.clientY - rect.top
 
-      // Update position - crosshairs will follow the finger
-      setTouchState(prev => prev ? { ...prev, currentX: x, currentY: y } : null)
+      if (touchStateRef.current.showingCrosshairs) {
+        // Crosshairs active — block MapLibre and move crosshairs
+        e.preventDefault()
+        e.stopPropagation()
+        setTouchState(prev => prev ? { ...prev, currentX: x, currentY: y } : null)
+      } else {
+        // Crosshairs not yet active — check if finger moved too far (it's a pan)
+        const dx = x - touchStateRef.current.startX
+        const dy = y - touchStateRef.current.startY
+        const distance = Math.sqrt(dx * dx + dy * dy)
+
+        if (distance > MOVE_THRESHOLD) {
+          // User is panning, cancel the hold timer and stop tracking touch
+          cancelHold()
+          setTouchState(null)
+        }
+      }
     }
 
     const handleTouchEnd = (e) => {
-      // Clear two-finger pan state when fingers are lifted
-      if (e.touches.length < 2) {
-        twoFingerPanRef.current = null
-      }
-
       const currentTouchState = touchStateRef.current
+      if (!currentTouchState) return
 
-      // Only prevent default/stop propagation if we have an active single-finger touch
-      if (currentTouchState) {
+      if (currentTouchState.showingCrosshairs) {
+        // Crosshairs were showing — show waypoint menu
         e.preventDefault()
         e.stopPropagation()
 
-        const holdTime = Date.now() - currentTouchState.startTime
+        const adjustedY = Math.max(currentTouchState.currentY - 100, 50)
+        const point = map.current.unproject([currentTouchState.currentX, adjustedY])
 
-        // If crosshairs were showing, show waypoint menu instead of directly measuring
-        if (holdTime >= HOLD_DURATION && currentTouchState.showingCrosshairs) {
-          const adjustedY = Math.max(currentTouchState.currentY - 100, 50)
-          const point = map.current.unproject([currentTouchState.currentX, adjustedY])
+        setWaypointMenuPosition({
+          screenX: currentTouchState.currentX,
+          screenY: adjustedY,
+          lat: point.lat,
+          lng: point.lng
+        })
+        setWaypointMenuOpen(true)
 
-          setWaypointMenuPosition({
-            screenX: currentTouchState.currentX,
-            screenY: adjustedY,
-            lat: point.lat,
-            lng: point.lng
-          })
-          setWaypointMenuOpen(true)
-        }
-
-        cancelHold()
-        setTouchState(null)
+        // Re-enable panning
+        map.current.dragPan.enable()
       }
+
+      cancelHold()
+      setTouchState(null)
     }
 
     const handleTouchCancel = (e) => {
-      // Clear two-finger pan state
-      twoFingerPanRef.current = null
-
-      // Only prevent default/stop propagation if we have an active single-finger touch
       if (touchStateRef.current) {
-        e.preventDefault()
-        e.stopPropagation()
+        if (touchStateRef.current.showingCrosshairs) {
+          // Re-enable panning if crosshairs were active
+          map.current.dragPan.enable()
+        }
         cancelHold()
         setTouchState(null)
       }
