@@ -514,12 +514,19 @@ function ChartView() {
       setTileCount(tiles.length)
 
       // Add each tile as a separate raster source and layer
+      let added = 0
       for (const tile of tiles) {
         // Check map still exists before each operation
         if (!map.current) return
 
         const sourceId = `bluetopo-${tile.tileId}`
         const layerId = `bluetopo-layer-${tile.tileId}`
+
+        // Skip if source already exists (from previous mount)
+        if (map.current.getSource(sourceId)) {
+          added++
+          continue
+        }
 
         // Add raster source for this tile
         map.current.addSource(sourceId, {
@@ -542,8 +549,10 @@ function ChartView() {
             'raster-fade-duration': 0
           }
         })
+        added++
       }
 
+      console.log(`[ChartView] Loaded ${added} BlueTopo tiles`)
       setTilesLoaded(true)
     } catch (err) {
       console.error('Error loading BlueTopo tiles:', err)

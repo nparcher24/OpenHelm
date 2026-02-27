@@ -13,7 +13,8 @@ import {
   deleteRawFile,
   deleteRawFilesBatch,
   reprocessAllRawFiles,
-  checkTileUpdates
+  checkTileUpdates,
+  quickEstimateMB
 } from '../services/blueTopoDownloadService'
 
 function BlueTopoDownloader() {
@@ -162,8 +163,8 @@ function BlueTopoDownloader() {
   //   }
   // }, [selectedTiles, navigate, jobId])
 
-  // Calculate estimated size
-  const estimatedSizeMB = selectedTiles.length * 170
+  // Calculate estimated size (resolution-aware)
+  const estimatedSizeMB = quickEstimateMB(selectedTiles)
   const estimatedSizeGB = (estimatedSizeMB / 1024).toFixed(2)
 
   // Start download

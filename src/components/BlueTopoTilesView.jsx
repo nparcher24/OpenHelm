@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { getDownloadedTiles } from "../services/blueTopoDownloadService";
+import { getDownloadedTiles, getStorageInfo, quickEstimateMB } from "../services/blueTopoDownloadService";
 
 function BlueTopoTilesView() {
     const location = useLocation();
@@ -55,69 +55,59 @@ function BlueTopoTilesView() {
         fetchDownloadedTiles();
     }, []);
 
-    // Load tiles from CSV
+    // Storage info state
+    const [storageInfo, setStorageInfo] = useState(null);
+    const [tileSourceStatus, setTileSourceStatus] = useState("loading"); // "loading" | "syncing" | "ready" | "error"
+
+    // Load tiles from GeoPackage API (with NOAA refresh)
     useEffect(() => {
-        fetch("/bluetopo_tiles_global.csv")
-            .then((response) => response.text())
-            .then((csvText) => {
-                // Split by newlines (handle both \n and \r\n)
-                const lines = csvText
-                    .split(/\r?\n/)
-                    .filter((line) => line.trim());
+        const API_BASE = window.location.hostname === 'localhost'
+            ? 'http://localhost:3002'
+            : `http://${window.location.hostname}:3002`;
 
-                const parsedTiles = lines
-                    .slice(1)
-                    .map((line) => {
-                        // Split by comma
-                        const parts = line.split(",").map((p) => p.trim());
+        async function loadTiles() {
+            try {
+                setTileSourceStatus("syncing");
+                const response = await fetch(`${API_BASE}/api/bluetopo/tile-scheme/tiles?refresh=true`);
+                if (!response.ok) throw new Error(`API error: ${response.statusText}`);
 
-                        // CSV format: tile,url,resolution,utm,date,minx,miny,maxx,maxy
-                        // Date field contains spaces like "2025-02-26 14:27:54"
-                        return {
-                            tile: parts[0],
-                            url: parts[1],
-                            resolution: parts[2] || "Unknown",
-                            utm: parts[3],
-                            date: parts[4],
-                            minx: parseFloat(parts[5]),
-                            miny: parseFloat(parts[6]),
-                            maxx: parseFloat(parts[7]),
-                            maxy: parseFloat(parts[8]),
-                        };
-                    })
-                    .filter((tile) => {
-                        // Filter out tiles with invalid coordinates
-                        const valid =
-                            !isNaN(tile.minx) &&
-                            !isNaN(tile.miny) &&
-                            !isNaN(tile.maxx) &&
-                            !isNaN(tile.maxy);
-                        if (!valid) {
-                            console.warn("Invalid tile coordinates:", tile);
-                        }
-                        return valid;
-                    });
+                const data = await response.json();
+                const parsedTiles = (data.tiles || []).filter((tile) => {
+                    const valid =
+                        !isNaN(tile.minx) &&
+                        !isNaN(tile.miny) &&
+                        !isNaN(tile.maxx) &&
+                        !isNaN(tile.maxy);
+                    if (!valid) console.warn("Invalid tile coordinates:", tile);
+                    return valid;
+                });
 
-                console.log("Loaded tiles:", parsedTiles.length);
-                if (parsedTiles.length > 0) {
-                    console.log("Sample tile:", parsedTiles[0]);
-                }
+                console.log("[BlueTopoTilesView] Loaded tiles from GeoPackage:", parsedTiles.length);
+                if (parsedTiles.length > 0) console.log("Sample tile:", parsedTiles[0]);
 
                 setTiles(parsedTiles);
 
-                // Calculate stats
                 const resolutions = {};
                 parsedTiles.forEach((tile) => {
-                    resolutions[tile.resolution] =
-                        (resolutions[tile.resolution] || 0) + 1;
+                    resolutions[tile.resolution] = (resolutions[tile.resolution] || 0) + 1;
                 });
                 setStats({ total: parsedTiles.length, resolutions });
+                setTileSourceStatus("ready");
                 setLoading(false);
-            })
-            .catch((error) => {
-                console.error("Error loading tiles:", error);
+            } catch (error) {
+                console.error("[BlueTopoTilesView] Error loading tiles:", error);
+                setTileSourceStatus("error");
                 setLoading(false);
-            });
+            }
+        }
+        loadTiles();
+    }, []);
+
+    // Load storage info on mount
+    useEffect(() => {
+        getStorageInfo()
+            .then(setStorageInfo)
+            .catch((err) => console.error("[BlueTopoTilesView] Failed to load storage info:", err));
     }, []);
 
     // Initialize map
@@ -634,7 +624,9 @@ function BlueTopoTilesView() {
                     <div className="text-center space-y-4">
                         <div className="w-8 h-8 border-4 border-terminal-green border-t-transparent rounded-full animate-spin mx-auto shadow-glow-green"></div>
                         <p className="text-terminal-green-dim">
-                            {loading
+                            {tileSourceStatus === "syncing"
+                                ? "Syncing with NOAA..."
+                                : loading
                                 ? "Loading tile data..."
                                 : loadingDownloaded
                                 ? "Loading downloaded tiles..."
@@ -901,6 +893,33 @@ function BlueTopoTilesView() {
                                 </div>
                             )}
                         </div>
+
+                        {/* Storage & estimate info */}
+                        {(() => {
+                            const newTiles = tiles.filter(t => selectedTiles.has(t.tile) && !downloadedTileIds.has(t.tile));
+                            const estMB = quickEstimateMB(newTiles);
+                            const estGB = (estMB / 1024).toFixed(1);
+                            const freeGB = storageInfo?.disk?.freeGB;
+                            const exceedsFree = freeGB != null && estMB / 1024 > freeGB;
+
+                            return newTiles.length > 0 ? (
+                                <div className="text-xs font-mono space-y-1 border-t border-terminal-border pt-2">
+                                    <div className="text-terminal-green-dim">
+                                        Est. download: <span className="text-terminal-green">{estMB >= 1024 ? `${estGB} GB` : `${estMB} MB`}</span>
+                                    </div>
+                                    {freeGB != null && (
+                                        <div className="text-terminal-green-dim">
+                                            Free space: <span className="text-terminal-green">{freeGB} GB</span>
+                                        </div>
+                                    )}
+                                    {exceedsFree && (
+                                        <div className="text-terminal-red font-medium">
+                                            Warning: estimated size exceeds free disk space
+                                        </div>
+                                    )}
+                                </div>
+                            ) : null;
+                        })()}
 
                         {/* Actions */}
                         <div className="flex items-center justify-between">

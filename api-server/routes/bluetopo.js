@@ -80,36 +80,11 @@ router.get('/tile-scheme/latest', async (req, res) => {
  */
 router.get('/tile-scheme/local', async (req, res) => {
   try {
-    // Find local .gpkg files
-    const projectRoot = path.resolve(__dirname, '../..');
+    const latest = await findLatestValidGpkg();
 
-    // Read all files in the project root
-    const allFiles = await fs.readdir(projectRoot);
-
-    // Filter for BlueTopo tile scheme files
-    const gpkgFiles = allFiles.filter(file =>
-      file.startsWith('BlueTopo_Tile_Scheme_') && file.endsWith('.gpkg')
-    );
-
-    if (gpkgFiles.length === 0) {
+    if (!latest) {
       return res.json({ exists: false });
     }
-
-    // Get the most recent file
-    const fileStats = await Promise.all(
-      gpkgFiles.map(async (filename) => {
-        const filePath = path.join(projectRoot, filename);
-        const stats = await fs.stat(filePath);
-        return {
-          path: filePath,
-          filename: filename,
-          lastModified: stats.mtime,
-          size: stats.size
-        };
-      })
-    );
-
-    const latest = fileStats.sort((a, b) => b.lastModified - a.lastModified)[0];
 
     res.json({
       exists: true,
@@ -157,7 +132,14 @@ router.post('/tile-scheme/download', async (req, res) => {
       fileStream.on('finish', resolve);
     });
 
-    console.log(`Downloaded tile scheme to: ${outputPath}`);
+    // Verify downloaded file is not 0 bytes
+    const stats = await fs.stat(outputPath);
+    if (stats.size === 0) {
+      await fs.unlink(outputPath);
+      throw new Error('Downloaded file is 0 bytes - deleted');
+    }
+
+    console.log(`Downloaded tile scheme to: ${outputPath} (${formatBytes(stats.size)})`);
 
     res.json({
       success: true,
@@ -167,6 +149,157 @@ router.post('/tile-scheme/download', async (req, res) => {
 
   } catch (error) {
     console.error('Error downloading tile scheme:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Cache for tile-scheme/tiles endpoint (10 minute TTL)
+let tileSchemeCache = { data: null, timestamp: 0, gpkgFilename: null };
+const TILE_SCHEME_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+/**
+ * GET /api/bluetopo/tile-scheme/tiles
+ * Returns all tiles from the local GeoPackage as JSON.
+ * Query params:
+ *   refresh=true - check NOAA for a newer GeoPackage first
+ */
+router.get('/tile-scheme/tiles', async (req, res) => {
+  const { refresh } = req.query;
+  const projectRoot = path.resolve(__dirname, '../..');
+
+  try {
+    // If refresh requested, check NOAA for a newer GeoPackage
+    if (refresh === 'true') {
+      try {
+        const listUrl = `${S3_BUCKET_URL}/?prefix=${TILE_SCHEME_PREFIX}&delimiter=/`;
+        const response = await fetch(listUrl);
+
+        if (response.ok) {
+          const xmlText = await response.text();
+          const parser = new XMLParser();
+          const result = parser.parse(xmlText);
+          const contents = result.ListBucketResult?.Contents;
+
+          if (contents) {
+            const remoteFiles = (Array.isArray(contents) ? contents : [contents])
+              .filter(item => item.Key && item.Key.endsWith('.gpkg'))
+              .map(item => ({
+                filename: item.Key.split('/').pop(),
+                lastModified: new Date(item.LastModified),
+                url: `${S3_BUCKET_URL}/${item.Key}`
+              }))
+              .sort((a, b) => b.lastModified - a.lastModified);
+
+            if (remoteFiles.length > 0) {
+              const latest = remoteFiles[0];
+              const localPath = path.join(projectRoot, latest.filename);
+
+              // Check if we already have this version (and it's valid)
+              let alreadyHaveValid = false;
+              try {
+                const localStats = await fs.stat(localPath);
+                alreadyHaveValid = localStats.size > 0;
+              } catch { /* doesn't exist */ }
+
+              if (!alreadyHaveValid) {
+                // Delete stale 0-byte file if it exists
+                try { await fs.unlink(localPath); } catch { /* doesn't exist */ }
+
+                console.log(`[BlueTopo] Downloading newer GeoPackage: ${latest.filename}`);
+                const dlResponse = await fetch(latest.url);
+                if (dlResponse.ok) {
+                  const contentLength = parseInt(dlResponse.headers.get('content-length') || '0', 10);
+                  if (contentLength === 0) {
+                    console.error('[BlueTopo] GeoPackage has content-length 0, skipping download');
+                  } else {
+                    const fileStream = fsSync.createWriteStream(localPath);
+                    await new Promise((resolve, reject) => {
+                      dlResponse.body.pipe(fileStream);
+                      dlResponse.body.on('error', reject);
+                      fileStream.on('finish', resolve);
+                    });
+                    const dlStats = await fs.stat(localPath);
+                    if (dlStats.size === 0) {
+                      await fs.unlink(localPath);
+                      console.error('[BlueTopo] Downloaded GeoPackage is 0 bytes - deleted');
+                    } else {
+                      console.log(`[BlueTopo] Downloaded GeoPackage: ${latest.filename} (${formatBytes(dlStats.size)})`);
+                      // Invalidate cache since we have a new file
+                      tileSchemeCache = { data: null, timestamp: 0, gpkgFilename: null };
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (refreshError) {
+        console.error('[BlueTopo] NOAA refresh failed (using local):', refreshError.message);
+      }
+    }
+
+    // Find latest valid local GeoPackage
+    const latestGpkg = await findLatestValidGpkg();
+    if (!latestGpkg) {
+      return res.status(404).json({ error: 'No valid tile scheme GeoPackage found' });
+    }
+
+    // Check cache (valid if same file and within TTL)
+    const now = Date.now();
+    if (
+      tileSchemeCache.data &&
+      tileSchemeCache.gpkgFilename === latestGpkg.filename &&
+      (now - tileSchemeCache.timestamp) < TILE_SCHEME_CACHE_TTL
+    ) {
+      return res.json(tileSchemeCache.data);
+    }
+
+    // Query GeoPackage via ogr2ogr to produce GeoJSON
+    const layerName = latestGpkg.filename.replace('.gpkg', '');
+    const cmd = `ogr2ogr -f GeoJSON /dev/stdout "${latestGpkg.path}" "${layerName}" -select "tile,GeoTIFF_Link,Resolution,UTM,Delivered_Date" 2>/dev/null`;
+    const { stdout } = await execAsync(cmd, { maxBuffer: 20 * 1024 * 1024 });
+
+    const geojson = JSON.parse(stdout);
+
+    // Transform GeoJSON features into flat tile objects matching CSV schema
+    const tiles = geojson.features
+      .filter(f => f.properties.tile && f.geometry)
+      .map(f => {
+        const p = f.properties;
+        // Compute bounds from geometry coordinates
+        const coords = f.geometry.type === 'MultiPolygon'
+          ? f.geometry.coordinates.flat(2)
+          : f.geometry.coordinates.flat(1);
+        const lngs = coords.map(c => c[0]);
+        const lats = coords.map(c => c[1]);
+
+        return {
+          tile: p.tile,
+          url: p.GeoTIFF_Link,
+          resolution: p.Resolution || 'Unknown',
+          utm: p.UTM,
+          date: p.Delivered_Date,
+          minx: Math.min(...lngs),
+          miny: Math.min(...lats),
+          maxx: Math.max(...lngs),
+          maxy: Math.max(...lats),
+        };
+      });
+
+    const result = {
+      tiles,
+      count: tiles.length,
+      gpkgFilename: latestGpkg.filename,
+      gpkgDate: latestGpkg.lastModified.toISOString(),
+    };
+
+    // Cache result
+    tileSchemeCache = { data: result, timestamp: now, gpkgFilename: latestGpkg.filename };
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('[BlueTopo] Error serving tile scheme tiles:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -202,6 +335,74 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
+
+// Per-resolution average tile size estimates (MB) for disk space calculations
+const TILE_SIZE_ESTIMATES_MB = { '2m': 500, '4m': 250, '8m': 170, '16m': 100 };
+const DEFAULT_TILE_SIZE_MB = 170;
+
+/**
+ * Estimate total download size for a set of tiles using per-resolution averages
+ * @param {Array} tiles - Array of tile objects with resolution field
+ * @returns {number} Estimated total size in MB
+ */
+function quickEstimateMB(tiles) {
+  return tiles.reduce((total, tile) => {
+    const res = tile.resolution || tile.res;
+    return total + (TILE_SIZE_ESTIMATES_MB[res] || DEFAULT_TILE_SIZE_MB);
+  }, 0);
+}
+
+/**
+ * Find the latest valid (non-zero size) GeoPackage file in the project root.
+ * @returns {Promise<{path: string, filename: string, size: number, lastModified: Date}|null>}
+ */
+async function findLatestValidGpkg() {
+  const projectRoot = path.resolve(__dirname, '../..');
+  const allFiles = await fs.readdir(projectRoot);
+  const gpkgFiles = allFiles.filter(file =>
+    file.startsWith('BlueTopo_Tile_Scheme_') && file.endsWith('.gpkg')
+  );
+
+  if (gpkgFiles.length === 0) return null;
+
+  const fileStats = await Promise.all(
+    gpkgFiles.map(async (filename) => {
+      const filePath = path.join(projectRoot, filename);
+      const stats = await fs.stat(filePath);
+      return { path: filePath, filename, lastModified: stats.mtime, size: stats.size };
+    })
+  );
+
+  // Filter out 0-byte files and sort by modification time (newest first)
+  const valid = fileStats.filter(f => f.size > 0).sort((a, b) => b.lastModified - a.lastModified);
+  return valid.length > 0 ? valid[0] : null;
+}
+
+/**
+ * Clean up 0-byte GeoPackage files at startup
+ */
+async function cleanupZeroByteGpkg() {
+  const projectRoot = path.resolve(__dirname, '../..');
+  try {
+    const allFiles = await fs.readdir(projectRoot);
+    const gpkgFiles = allFiles.filter(file =>
+      file.startsWith('BlueTopo_Tile_Scheme_') && file.endsWith('.gpkg')
+    );
+    for (const filename of gpkgFiles) {
+      const filePath = path.join(projectRoot, filename);
+      const stats = await fs.stat(filePath);
+      if (stats.size === 0) {
+        await fs.unlink(filePath);
+        console.log(`[BlueTopo] Cleaned up 0-byte GeoPackage: ${filename}`);
+      }
+    }
+  } catch (error) {
+    console.error('[BlueTopo] Error cleaning up 0-byte GeoPackages:', error.message);
+  }
+}
+
+// Run cleanup on module load
+cleanupZeroByteGpkg();
 
 /**
  * GET /api/bluetopo/tiles/downloaded
@@ -287,19 +488,15 @@ router.get('/tiles/downloaded/:tileId', async (req, res) => {
     const rawFileInfo = await checkRawFileExists(tileId);
 
     // Find tile scheme for metadata
-    const allFiles = await fs.readdir(projectRoot);
-    const gpkgFiles = allFiles.filter(file =>
-      file.startsWith('BlueTopo_Tile_Scheme_') && file.endsWith('.gpkg')
-    );
-
     let publishedDate = null;
     let version = null;
     let tileSchemeVersion = 'unknown';
 
-    if (gpkgFiles.length > 0) {
-      const tileScheme = gpkgFiles.sort().reverse()[0];
+    const latestGpkg = await findLatestValidGpkg();
+    if (latestGpkg) {
+      const tileScheme = latestGpkg.filename;
       tileSchemeVersion = tileScheme.match(/\d{8}_\d{6}/)?.[0] || 'unknown';
-      const tileSchemePath = path.join(projectRoot, tileScheme);
+      const tileSchemePath = latestGpkg.path;
 
       try {
         const query = `ogrinfo -al -where "tile='${tileId}'" "${tileSchemePath}" 2>/dev/null | grep -E "(Delivered_Date|GeoTIFF_Link)"`;
@@ -525,16 +722,17 @@ router.post('/download/start', async (req, res) => {
   }
 
   try {
-    // Check disk space before starting
+    // Check disk space before starting (use resolution-aware estimates)
     const storageInfo = await getStorageInfo();
-    const neededGB = (tiles.length * 170 * 1.5) / 1024; // 170 MB per tile × 1.5 for temp space
+    const estimatedMB = quickEstimateMB(tiles);
+    const neededGB = (estimatedMB * 1.5) / 1024; // × 1.5 for temp space
     const freeGB = storageInfo.disk.freeGB;
 
     if (freeGB < neededGB) {
       return res.status(400).json({
         success: false,
         error: 'Insufficient disk space',
-        message: `Need ${neededGB.toFixed(2)} GB, only ${freeGB} GB free`
+        message: `Need ~${neededGB.toFixed(1)} GB, only ${freeGB} GB free`
       });
     }
 
@@ -546,7 +744,7 @@ router.post('/download/start', async (req, res) => {
       jobId,
       message: 'BlueTopo download started',
       tileCount: tiles.length,
-      estimatedSizeMB: tiles.length * 170,
+      estimatedSizeMB: estimatedMB,
       websocketUrl: 'ws://localhost:3002'
     });
 
@@ -716,11 +914,18 @@ router.get('/tiles/check-updates', async (req, res) => {
               const latest = gpkgFiles[0];
               const localPath = path.join(projectRoot, latest.filename);
 
-              // Check if we already have this version
+              // Check if we already have this version (and it's valid)
+              let alreadyHaveValid = false;
               try {
-                await fs.access(localPath);
-                console.log('[BlueTopo] Latest GeoPackage already exists locally');
+                const localStats = await fs.stat(localPath);
+                alreadyHaveValid = localStats.size > 0;
               } catch {
+                // File doesn't exist
+              }
+
+              if (alreadyHaveValid) {
+                console.log('[BlueTopo] Latest GeoPackage already exists locally');
+              } else {
                 // Download the latest GeoPackage
                 console.log(`[BlueTopo] Downloading latest GeoPackage: ${latest.filename}`);
                 const downloadResponse = await fetch(latest.url);
@@ -731,7 +936,14 @@ router.get('/tiles/check-updates', async (req, res) => {
                     downloadResponse.body.on('error', reject);
                     fileStream.on('finish', resolve);
                   });
-                  console.log('[BlueTopo] Downloaded latest GeoPackage');
+                  // Verify downloaded file
+                  const dlStats = await fs.stat(localPath);
+                  if (dlStats.size === 0) {
+                    await fs.unlink(localPath);
+                    console.error('[BlueTopo] Downloaded GeoPackage is 0 bytes - deleted');
+                  } else {
+                    console.log(`[BlueTopo] Downloaded latest GeoPackage (${formatBytes(dlStats.size)})`);
+                  }
                 }
               }
             }
@@ -743,22 +955,18 @@ router.get('/tiles/check-updates', async (req, res) => {
       }
     }
 
-    // Find local tile scheme GeoPackage
-    const allFiles = await fs.readdir(projectRoot);
-    const gpkgFiles = allFiles.filter(file =>
-      file.startsWith('BlueTopo_Tile_Scheme_') && file.endsWith('.gpkg')
-    );
+    // Find local tile scheme GeoPackage (valid, non-zero)
+    const latestGpkg = await findLatestValidGpkg();
 
-    if (gpkgFiles.length === 0) {
+    if (!latestGpkg) {
       return res.status(400).json({
         success: false,
         error: 'No tile scheme GeoPackage found. Please download it first.'
       });
     }
 
-    // Use the most recent GeoPackage
-    const tileScheme = gpkgFiles.sort().reverse()[0];
-    const tileSchemePath = path.join(projectRoot, tileScheme);
+    const tileScheme = latestGpkg.filename;
+    const tileSchemePath = latestGpkg.path;
     console.log(`[BlueTopo] Using tile scheme: ${tileScheme}`);
 
     // Get the layer name from the GeoPackage (it includes the date suffix)

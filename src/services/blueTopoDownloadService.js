@@ -238,6 +238,23 @@ export async function reprocessAllRawFiles() {
   }
 }
 
+// Per-resolution average tile size estimates (MB)
+const TILE_SIZE_ESTIMATES_MB = { '2m': 500, '4m': 250, '8m': 170, '16m': 100 };
+const DEFAULT_TILE_SIZE_MB = 170;
+
+/**
+ * Estimate total download size for a set of tiles using per-resolution averages.
+ * Works with tile objects that have a `resolution` field.
+ * @param {Array} tiles - Array of tile objects with resolution field
+ * @returns {number} Estimated total size in MB
+ */
+export function quickEstimateMB(tiles) {
+  return tiles.reduce((total, tile) => {
+    const res = tile.resolution || tile.res;
+    return total + (TILE_SIZE_ESTIMATES_MB[res] || DEFAULT_TILE_SIZE_MB);
+  }, 0);
+}
+
 /**
  * Check if downloaded tiles have newer versions available
  * @param {Object} options - Options object
