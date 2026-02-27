@@ -18,8 +18,10 @@ function GpsView() {
   const [dataAge, setDataAge] = useState(null)
   const [pressureHistory, setPressureHistory] = useState([])
   const [showDebug, setShowDebug] = useState(false)
+  const [updateHz, setUpdateHz] = useState(null)
   const wsRef = useRef(null)
   const ageIntervalRef = useRef(null)
+  const msgTimestampsRef = useRef([]) // Circular buffer for Hz calculation
 
   // Update data age display every 1000ms (1 Hz is sufficient for "data age" display)
   useEffect(() => {
@@ -82,7 +84,10 @@ function GpsView() {
               if (prev?.latitude === message.data.latitude &&
                   prev?.longitude === message.data.longitude &&
                   prev?.heading === message.data.heading &&
-                  prev?.sog === message.data.sog) {
+                  prev?.sog === message.data.sog &&
+                  prev?.waveHeight === message.data.waveHeight &&
+                  prev?.ax === message.data.ax &&
+                  prev?.az === message.data.az) {
                 return prev
               }
               return message.data
@@ -91,6 +96,17 @@ function GpsView() {
             setLoading(false)
             // Track pressure for trend
             updatePressureHistory(message.data.pressure)
+            // Track message timestamps for Hz calculation
+            const now = Date.now()
+            const buf = msgTimestampsRef.current
+            buf.push(now)
+            // Keep only timestamps within last 2 seconds
+            const cutoff = now - 2000
+            while (buf.length > 0 && buf[0] < cutoff) buf.shift()
+            if (buf.length >= 2) {
+              const span = (buf[buf.length - 1] - buf[0]) / 1000
+              setUpdateHz(span > 0 ? ((buf.length - 1) / span) : null)
+            }
           }
         } catch (err) {
           console.error('GPS WebSocket parse error:', err)
@@ -140,12 +156,12 @@ function GpsView() {
     if (value === null || value === undefined) return '--'
     const abs = Math.abs(value)
     const deg = Math.floor(abs)
-    const min = ((abs - deg) * 60).toFixed(3)
+    const min = ((abs - deg) * 60).toFixed(5)
     const dir = isLat ? (value >= 0 ? 'N' : 'S') : (value >= 0 ? 'E' : 'W')
     return `${deg}° ${min}' ${dir}`
   }
 
-  const formatDecimal = (value, decimals = 6) => {
+  const formatDecimal = (value, decimals = 8) => {
     if (value === null || value === undefined) return '--'
     return value.toFixed(decimals)
   }
@@ -210,6 +226,9 @@ function GpsView() {
           <span className={`text-sm font-mono ${isStale ? 'text-terminal-red font-bold' : 'text-terminal-green-dim'}`}>
             Data: {formatAge(dataAge)}
           </span>
+          <span className="text-sm font-mono text-terminal-green-dim">
+            {updateHz !== null ? `${updateHz.toFixed(1)} Hz` : '-- Hz'}
+          </span>
           <span className="text-terminal-green-dim text-xs">
             {hasDevice ? gpsData.device : 'No device'}
           </span>
@@ -240,6 +259,9 @@ function GpsView() {
                   roll={gpsData?.roll || 0}
                   pitch={gpsData?.pitch || 0}
                   yaw={gpsData?.heading || 0}
+                  ax={gpsData?.ax || 0}
+                  ay={gpsData?.ay || 0}
+                  az={gpsData?.az || 0}
                 />
               </Suspense>
             </div>
@@ -403,6 +425,44 @@ function GpsView() {
                 ) : '--'}
               </span>
             </div>
+          </div>
+
+          {/* Sea State */}
+          <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border">
+            <div className="text-xs text-terminal-green-dim uppercase mb-1">Sea State</div>
+            {gpsData?.seaStateDesc === 'Collecting data...' ? (
+              <div className="text-xs text-terminal-green-dim font-mono animate-pulse">
+                Collecting data...
+              </div>
+            ) : gpsData?.waveHeight != null ? (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-terminal-green-dim">Wave Ht</span>
+                  <span className="text-sm font-mono text-terminal-green">
+                    {gpsData.waveHeight.toFixed(2)} m / {(gpsData.waveHeight * 3.28084).toFixed(1)} ft
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-terminal-green-dim">Period</span>
+                  <span className="text-sm font-mono text-terminal-green">
+                    {gpsData?.wavePeriod != null ? `${gpsData.wavePeriod.toFixed(1)} s` : '--'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-terminal-green-dim">State</span>
+                  <span className={`text-sm font-mono font-bold ${
+                    gpsData.seaState <= 2 ? 'text-green-400' :
+                    gpsData.seaState <= 4 ? 'text-yellow-400' :
+                    gpsData.seaState <= 6 ? 'text-orange-400' :
+                    'text-red-400'
+                  }`}>
+                    {gpsData.seaState} — {gpsData.seaStateDesc}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-xs text-terminal-green-dim font-mono">--</div>
+            )}
           </div>
 
           {/* Motion Data */}

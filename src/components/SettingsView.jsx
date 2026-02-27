@@ -10,6 +10,8 @@ import ErrorBoundary from './ErrorBoundary'
 function SettingsView() {
   const [searchParams] = useSearchParams()
 
+  const [showQuitConfirm, setShowQuitConfirm] = useState(false)
+
   // Load last active section from localStorage or URL params, default to 'general'
   const [activeSection, setActiveSection] = useState(() => {
     const urlSection = searchParams.get('section')
@@ -28,6 +30,7 @@ function SettingsView() {
   // Save active section to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('settingsActiveSection', activeSection)
+    setShowQuitConfirm(false)
   }, [activeSection])
 
   const sections = [
@@ -41,6 +44,14 @@ function SettingsView() {
     { id: 'display', name: 'Display', icon: '[#]' },
     { id: 'system', name: 'System', icon: '[S]' }
   ]
+
+  const handleQuit = async () => {
+    try {
+      await fetch('http://localhost:3002/api/system/shutdown', { method: 'POST' })
+    } catch {
+      // Expected - server shuts down before response completes
+    }
+  }
 
   const renderContent = () => {
     switch (activeSection) {
@@ -213,6 +224,36 @@ function SettingsView() {
                   <div>Martin Tiles: v0.18.1</div>
                   <div>OS: Raspberry Pi OS</div>
                 </div>
+              </div>
+
+              <div className="bg-terminal-surface p-4 rounded-lg border border-red-500/30">
+                <h3 className="font-semibold text-terminal-green mb-3 uppercase tracking-wide">Application</h3>
+                {showQuitConfirm ? (
+                  <div className="space-y-3">
+                    <p className="text-red-400 text-sm">Are you sure you want to quit OpenHelm? All services will be stopped.</p>
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={handleQuit}
+                        className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg uppercase tracking-wide transition-colors touch-manipulation min-h-[44px]"
+                      >
+                        Confirm Quit
+                      </button>
+                      <button
+                        onClick={() => setShowQuitConfirm(false)}
+                        className="px-6 py-3 bg-terminal-surface hover:bg-terminal-green/10 text-terminal-green font-bold rounded-lg uppercase tracking-wide border border-terminal-border transition-colors touch-manipulation min-h-[44px]"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowQuitConfirm(true)}
+                    className="px-6 py-3 bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-red-300 font-bold rounded-lg uppercase tracking-wide border border-red-500/30 hover:border-red-500/60 transition-colors touch-manipulation min-h-[44px]"
+                  >
+                    Quit OpenHelm
+                  </button>
+                )}
               </div>
             </div>
           </div>

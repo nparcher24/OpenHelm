@@ -74,6 +74,24 @@ node api-server/server.js    # API server (port 3002)
 npm run stop
 ```
 
+## Post-Implementation Verification (REQUIRED)
+
+After completing any feature or code change, you MUST verify the app still works before considering the task done:
+
+1. **Check for runtime errors** via Chrome DevTools Protocol:
+   ```bash
+   # Get the page ID then check for JS exceptions
+   curl -s http://localhost:9222/json/list | head -5
+   ```
+   Use a Node script to connect to `ws://localhost:9222/devtools/page/{ID}`, enable `Runtime.enable`, and check for `Runtime.exceptionThrown` events. Also verify `document.querySelector("#root").innerHTML` is non-empty.
+
+2. **Common gotchas that cause black screens**:
+   - `!== null` does NOT catch `undefined`. Use `!= null` (loose equality) when checking fields that may not exist yet in API responses.
+   - API server must be restarted for backend changes to take effect. Frontend-only changes hot-reload via Vite HMR.
+   - Three.js objects in react-three-fiber: prefer `<primitive object={...}>` with imperative refs over declarative `<arrowHelper args={...}/>` when updating per-frame.
+
+3. **If errors are found**: fix them and re-verify before reporting completion.
+
 ## Design Constraints
 
 - **Touch targets**: Minimum 44px for marine touchscreen use

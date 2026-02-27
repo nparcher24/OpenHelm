@@ -65,6 +65,28 @@ app.use('/api/gps', gpsRoutes)
 app.use('/api/waypoints', waypointRoutes)
 app.use('/api/ncds', ncdsRoutes)
 
+// System shutdown endpoint
+app.post('/api/system/shutdown', (req, res) => {
+  console.log('🛑 Shutdown requested from UI')
+  res.json({ status: 'shutting_down' })
+
+  // Give response time to send, then kill all OpenHelm processes
+  setTimeout(async () => {
+    const { exec } = await import('child_process')
+    // Close Chromium first (handles both binary names)
+    exec("pkill -f 'chromium-browser|chromium'", () => {
+      // Kill the parent start-openhelm.sh script (triggers its cleanup trap)
+      exec("pkill -f 'start-openhelm'", () => {
+        // Fallback: kill remaining services
+        exec("pkill -f 'martin|vite'", () => {
+          // Exit the API server itself
+          process.exit(0)
+        })
+      })
+    })
+  }, 500)
+})
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('API Error:', err.message)

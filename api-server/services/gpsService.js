@@ -41,7 +41,12 @@ let gpsData = {
   wz: null,            // Angular velocity Z / Rate of Turn (°/sec)
   hx: null,            // Magnetometer X
   hy: null,            // Magnetometer Y
-  hz: null             // Magnetometer Z
+  hz: null,            // Magnetometer Z
+  // Wave estimation data
+  waveHeight: null,    // Significant wave height (meters)
+  wavePeriod: null,    // Estimated dominant wave period (seconds)
+  seaState: null,      // Douglas Sea Scale (0-9)
+  seaStateDesc: null   // Text descriptor
 }
 
 // Heading smoothing state (EMA with circular handling)
@@ -74,6 +79,189 @@ function smoothHeading(rawHeading) {
 
   return smoothed
 }
+
+// ============================================================
+// Wave Height Estimation
+// ============================================================
+
+// Douglas Sea Scale mapping: [maxHs, number, description]
+const DOUGLAS_SEA_SCALE = [
+  [0,     0, 'Calm (glassy)'],
+  [0.1,   1, 'Calm (rippled)'],
+  [0.5,   2, 'Smooth'],
+  [1.25,  3, 'Slight'],
+  [2.5,   4, 'Moderate'],
+  [4.0,   5, 'Rough'],
+  [6.0,   6, 'Very rough'],
+  [9.0,   7, 'High'],
+  [14.0,  8, 'Very high'],
+  [Infinity, 9, 'Phenomenal']
+]
+
+function getSeaState(hs) {
+  for (const [maxHs, num, desc] of DOUGLAS_SEA_SCALE) {
+    if (hs <= maxHs) return { seaState: num, seaStateDesc: desc }
+  }
+  return { seaState: 9, seaStateDesc: 'Phenomenal' }
+}
+
+// Circular buffer for vertical acceleration samples (60 seconds)
+const WAVE_BUFFER_SECONDS = 60
+const waveBuffer = [] // Array of { vertAccel, timestamp }
+
+// High-pass IIR filter state (removes DC bias/drift from vertical acceleration)
+let hpFilterState = null // { prevInput, prevOutput }
+const HP_CUTOFF_HZ = 0.05 // 0.05 Hz cutoff - passes wave frequencies, blocks drift
+
+// Throttle wave computation output to ~1Hz
+let lastWaveCompute = 0
+const WAVE_COMPUTE_INTERVAL = 1000 // ms
+
+/**
+ * Rotate body-frame acceleration to earth frame and remove gravity.
+ * Returns vertical (Z-axis) earth-frame acceleration in g-units.
+ */
+function getVerticalAccel(ax, ay, az, rollDeg, pitchDeg) {
+  const rollRad = (rollDeg || 0) * Math.PI / 180
+  const pitchRad = (pitchDeg || 0) * Math.PI / 180
+
+  // Rotation from body to earth frame (simplified - no yaw needed for vertical)
+  // Earth Z = -sin(pitch)*ax + sin(roll)*cos(pitch)*ay + cos(roll)*cos(pitch)*az
+  const earthZ = -Math.sin(pitchRad) * ax +
+                  Math.sin(rollRad) * Math.cos(pitchRad) * ay +
+                  Math.cos(rollRad) * Math.cos(pitchRad) * az
+
+  // Subtract gravity (1g on Z axis when stationary)
+  return earthZ - 1.0
+}
+
+/**
+ * Apply first-order high-pass IIR filter to remove drift/bias.
+ * y[n] = alpha * (y[n-1] + x[n] - x[n-1])
+ */
+function highPassFilter(input, dt) {
+  // Compute alpha from cutoff frequency and sample interval
+  const rc = 1.0 / (2.0 * Math.PI * HP_CUTOFF_HZ)
+  const alpha = rc / (rc + dt)
+
+  if (hpFilterState === null) {
+    hpFilterState = { prevInput: input, prevOutput: 0 }
+    return 0
+  }
+
+  const output = alpha * (hpFilterState.prevOutput + input - hpFilterState.prevInput)
+  hpFilterState.prevInput = input
+  hpFilterState.prevOutput = output
+  return output
+}
+
+/**
+ * Compute wave height estimation from the circular buffer.
+ * Uses zero-crossing method for period and std dev for Hs.
+ */
+function computeWaveEstimate() {
+  if (waveBuffer.length < 10) {
+    gpsData.waveHeight = null
+    gpsData.wavePeriod = null
+    gpsData.seaState = null
+    gpsData.seaStateDesc = null
+    return
+  }
+
+  const span = (waveBuffer[waveBuffer.length - 1].timestamp - waveBuffer[0].timestamp) / 1000
+  if (span < 10) {
+    // Need at least 10 seconds of data
+    gpsData.waveHeight = null
+    gpsData.wavePeriod = null
+    gpsData.seaState = null
+    gpsData.seaStateDesc = 'Collecting data...'
+    return
+  }
+
+  // Count upward zero-crossings for wave period estimation
+  let zeroCrossings = 0
+  for (let i = 1; i < waveBuffer.length; i++) {
+    if (waveBuffer[i - 1].vertAccel <= 0 && waveBuffer[i].vertAccel > 0) {
+      zeroCrossings++
+    }
+  }
+
+  // Compute standard deviation of filtered vertical acceleration
+  let sum = 0
+  let sumSq = 0
+  for (const sample of waveBuffer) {
+    sum += sample.vertAccel
+    sumSq += sample.vertAccel * sample.vertAccel
+  }
+  const mean = sum / waveBuffer.length
+  const variance = (sumSq / waveBuffer.length) - (mean * mean)
+  const stdDev = Math.sqrt(Math.max(0, variance)) // in g-units
+
+  // Wave period from zero-crossings
+  const wavePeriod = zeroCrossings > 0 ? span / zeroCrossings : null
+
+  // Significant wave height: Hs = sigma_a * T^2 / pi^2
+  // sigma_a in m/s^2 (convert from g), T in seconds
+  let waveHeight = null
+  if (wavePeriod !== null && wavePeriod > 0.5) {
+    const stdDevMs2 = stdDev * 9.81 // g to m/s^2
+    waveHeight = (stdDevMs2 * wavePeriod * wavePeriod) / (Math.PI * Math.PI)
+    // Clamp to reasonable range
+    waveHeight = Math.max(0, Math.min(waveHeight, 30))
+  }
+
+  gpsData.waveHeight = waveHeight !== null ? Math.round(waveHeight * 100) / 100 : null
+  gpsData.wavePeriod = wavePeriod !== null ? Math.round(wavePeriod * 10) / 10 : null
+
+  if (waveHeight !== null) {
+    const { seaState, seaStateDesc } = getSeaState(waveHeight)
+    gpsData.seaState = seaState
+    gpsData.seaStateDesc = seaStateDesc
+  } else {
+    gpsData.seaState = null
+    gpsData.seaStateDesc = null
+  }
+}
+
+/**
+ * Process an accelerometer sample for wave estimation.
+ * Called on each 0x51 (acceleration) message.
+ */
+function processWaveSample(ax, ay, az) {
+  const roll = gpsData.roll
+  const pitch = gpsData.pitch
+  if (roll === null || pitch === null) return
+
+  const now = Date.now()
+
+  // Get earth-frame vertical acceleration (gravity removed)
+  const rawVertAccel = getVerticalAccel(ax, ay, az, roll, pitch)
+
+  // Compute dt from previous sample for filter
+  const dt = waveBuffer.length > 0
+    ? (now - waveBuffer[waveBuffer.length - 1].timestamp) / 1000
+    : 0.2 // default ~5Hz
+
+  // High-pass filter to remove drift
+  const filteredAccel = highPassFilter(rawVertAccel, dt)
+
+  // Add to circular buffer
+  waveBuffer.push({ vertAccel: filteredAccel, timestamp: now })
+
+  // Trim entries older than the buffer window
+  const cutoff = now - (WAVE_BUFFER_SECONDS * 1000)
+  while (waveBuffer.length > 0 && waveBuffer[0].timestamp < cutoff) {
+    waveBuffer.shift()
+  }
+
+  // Throttle computation to ~1Hz
+  if (now - lastWaveCompute >= WAVE_COMPUTE_INTERVAL) {
+    lastWaveCompute = now
+    computeWaveEstimate()
+  }
+}
+
+// ============================================================
 
 let serialPort = null
 let messageBuffer = Buffer.alloc(0)
@@ -160,6 +348,8 @@ function parseWitMotionMessage(msg) {
       gpsData.ax = (axRaw / 32768.0) * 16.0
       gpsData.ay = (ayRaw / 32768.0) * 16.0
       gpsData.az = (azRaw / 32768.0) * 16.0
+      // Feed accelerometer data into wave height estimator
+      processWaveSample(gpsData.ax, gpsData.ay, gpsData.az)
       break
 
     case 'R': // 0x52 - Angular velocities
