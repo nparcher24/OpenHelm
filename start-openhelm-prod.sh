@@ -1,18 +1,19 @@
 #!/bin/bash
 
-# OpenHelm Production Startup Script
-# Uses production build for better performance on Raspberry Pi 5
+# OpenHelm Production Kiosk Startup Script
+# Launches OpenHelm in fullscreen kiosk mode on Raspberry Pi 5 (Wayland/labwc)
+# Usage: ./start-openhelm-prod.sh [--rebuild]
 
-set -e
+cd /home/hic/OpenHelm
 
-echo "Starting OpenHelm (Production Mode)..."
+echo "Starting OpenHelm (Production Kiosk Mode)..."
 
 # Colors for output
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 print_status() { echo -e "${BLUE}[OpenHelm]${NC} $1"; }
 print_success() { echo -e "${GREEN}[OpenHelm]${NC} $1"; }
@@ -26,117 +27,150 @@ pkill -f "vite" 2>/dev/null || true
 pkill -f "npm.*dev" 2>/dev/null || true
 pkill -f "npm.*preview" 2>/dev/null || true
 pkill -f "api-server/server.js" 2>/dev/null || true
-pkill -f "chromium-browser" 2>/dev/null || true
+pkill -f "chromium-browser|chromium" 2>/dev/null || true
 
 API_PORT_PID=$(lsof -ti :3002 2>/dev/null || true)
 [ -n "$API_PORT_PID" ] && kill $API_PORT_PID 2>/dev/null || true
 
 sleep 2
 
-# Step 2: Build production bundle
-print_status "Building production bundle..."
-npm run build
-print_success "Production build complete"
+# Step 2: Build production bundle (skip if dist/ exists unless --rebuild)
+if [ "$1" = "--rebuild" ] || [ ! -d "dist" ]; then
+    print_status "Building production bundle..."
+    if npm run build; then
+        print_success "Production build complete"
+    else
+        print_error "Production build failed"
+        exit 1
+    fi
+else
+    print_success "Using existing production build (dist/)"
+fi
 
-# Step 3: Start Martin tile server
-print_status "Starting Martin tile server on port 3001..."
+# Step 3: Start backend services in parallel
+print_status "Starting backend services..."
+
 martin --config martin-config.yaml > martin.log 2>&1 &
 MARTIN_PID=$!
-sleep 3
 
+node api-server/server.js > api.log 2>&1 &
+API_PID=$!
+
+npm run preview -- --host 0.0.0.0 --port 3000 > vite.log 2>&1 &
+VITE_PID=$!
+
+# Wait for all services to be ready (poll instead of fixed sleep)
+# Cold boot on Pi 5 can take 60s+ for node/npm to start
+print_status "Waiting for services to be ready..."
+MAX_WAIT=90
+WAITED=0
+while [ $WAITED -lt $MAX_WAIT ]; do
+    if curl -s -o /dev/null -w '' http://localhost:3000 2>/dev/null; then
+        print_success "Frontend server is ready (${WAITED}s)"
+        break
+    fi
+    sleep 1
+    WAITED=$((WAITED + 1))
+done
+if [ $WAITED -ge $MAX_WAIT ]; then
+    print_error "Frontend server did not start within ${MAX_WAIT}s"
+    kill $MARTIN_PID $API_PID $VITE_PID 2>/dev/null || true
+    exit 1
+fi
+
+# Verify services started
+FAILED=0
 if kill -0 $MARTIN_PID 2>/dev/null; then
     print_success "Martin tile server started (PID: $MARTIN_PID)"
 else
     print_error "Failed to start Martin tile server"
-    exit 1
+    FAILED=1
 fi
-
-# Step 4: Start API server
-print_status "Starting API server on port 3002..."
-node api-server/server.js > api.log 2>&1 &
-API_PID=$!
-sleep 3
 
 if kill -0 $API_PID 2>/dev/null; then
     print_success "API server started (PID: $API_PID)"
 else
     print_error "Failed to start API server"
-    kill $MARTIN_PID 2>/dev/null
-    exit 1
+    FAILED=1
 fi
-
-# Step 5: Start Vite preview server (serves production build)
-print_status "Starting production server on port 3000..."
-npm run preview -- --host 0.0.0.0 --port 3000 > vite.log 2>&1 &
-VITE_PID=$!
-sleep 5
 
 if kill -0 $VITE_PID 2>/dev/null; then
     print_success "Production server started (PID: $VITE_PID)"
 else
     print_error "Failed to start production server"
-    kill $MARTIN_PID $API_PID 2>/dev/null
+    FAILED=1
+fi
+
+if [ "$FAILED" -eq 1 ]; then
+    print_error "One or more services failed to start. Cleaning up..."
+    kill $MARTIN_PID $API_PID $VITE_PID 2>/dev/null || true
     exit 1
 fi
 
-# Step 6: Configure display and launch Chromium
-if [ -z "$DISPLAY" ]; then
-    export DISPLAY=:0
+# Step 4: Launch Chromium in kiosk mode
+# Ensure XDG_RUNTIME_DIR is set (may be missing in autostart context)
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+
+# Detect Wayland vs X11
+if [ -n "$WAYLAND_DISPLAY" ]; then
+    print_status "Wayland display detected ($WAYLAND_DISPLAY)"
+    PLATFORM_FLAGS="--ozone-platform=wayland"
+elif [ -n "$DISPLAY" ]; then
+    print_status "X11 display detected ($DISPLAY)"
+    PLATFORM_FLAGS=""
+else
+    # Autostart context - WAYLAND_DISPLAY may not be set yet
+    # Auto-detect the wayland socket from /run/user/1000/
+    export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+    WAYLAND_SOCK=$(ls "$XDG_RUNTIME_DIR"/wayland-* 2>/dev/null | grep -v '\.lock' | head -1 | xargs basename 2>/dev/null)
+    export WAYLAND_DISPLAY="${WAYLAND_SOCK:-wayland-0}"
+    print_status "Auto-detected display: $WAYLAND_DISPLAY (XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR)"
+    PLATFORM_FLAGS="--ozone-platform=wayland"
 fi
 
-if xset q &>/dev/null; then
-    xset s off 2>/dev/null || true
-    xset -dpms 2>/dev/null || true
-    xset s noblank 2>/dev/null || true
-    sleep 2
-
-    if command -v chromium-browser &> /dev/null; then
-        CHROMIUM_CMD="chromium-browser"
-    elif command -v chromium &> /dev/null; then
-        CHROMIUM_CMD="chromium"
-    else
-        print_warning "Chromium not found - access at http://localhost:3000"
-        CHROMIUM_PID=""
-    fi
-
-    if [ -n "$CHROMIUM_CMD" ]; then
-        print_status "Launching Chromium (GPU-accelerated)..."
-        $CHROMIUM_CMD \
-          --no-sandbox \
-          --window-size=1920,1080 \
-          --window-position=0,0 \
-          --no-first-run \
-          --no-default-browser-check \
-          --disable-infobars \
-          --disable-translate \
-          --disable-background-timer-throttling \
-          --disable-renderer-backgrounding \
-          --disable-backgrounding-occluded-windows \
-          --enable-gpu-rasterization \
-          --enable-oop-rasterization \
-          --enable-hardware-overlays \
-          --use-gl=egl \
-          --ignore-gpu-blocklist \
-          --enable-zero-copy \
-          --enable-native-gpu-memory-buffers \
-          --canvas-oop-rasterization \
-          --disable-dev-shm-usage \
-          --password-store=basic \
-          --overscroll-history-navigation=0 \
-          --touch-events=enabled \
-          http://localhost:3000 &
-        CHROMIUM_PID=$!
-    fi
+if command -v chromium-browser &> /dev/null; then
+    CHROMIUM_CMD="chromium-browser"
+elif command -v chromium &> /dev/null; then
+    CHROMIUM_CMD="chromium"
 else
-    print_warning "No X server detected - access at http://localhost:3000"
+    print_warning "Chromium not found - access at http://localhost:3000"
+    CHROMIUM_CMD=""
+fi
+
+if [ -n "$CHROMIUM_CMD" ]; then
+    print_status "Launching Chromium in kiosk mode..."
+    $CHROMIUM_CMD \
+      --kiosk \
+      --no-sandbox \
+      --no-first-run \
+      --no-default-browser-check \
+      --disable-infobars \
+      --disable-translate \
+      --disable-background-timer-throttling \
+      --disable-renderer-backgrounding \
+      --disable-backgrounding-occluded-windows \
+      --enable-gpu-rasterization \
+      --ignore-gpu-blocklist \
+      --disable-dev-shm-usage \
+      --password-store=basic \
+      --overscroll-history-navigation=0 \
+      --touch-events=enabled \
+      --remote-debugging-port=9222 \
+      --check-for-update-interval=31536000 \
+      $PLATFORM_FLAGS \
+      http://localhost:3000 &
+    CHROMIUM_PID=$!
+    print_success "Chromium kiosk launched (PID: $CHROMIUM_PID)"
+else
     CHROMIUM_PID=""
 fi
 
-print_success "OpenHelm started in PRODUCTION mode!"
+print_success "OpenHelm started in PRODUCTION KIOSK mode!"
 echo ""
 echo "Frontend: http://localhost:3000 (production build)"
 echo "Tiles:    http://localhost:3001"
 echo "API:      http://localhost:3002"
+echo "Debug:    http://localhost:9222"
 echo ""
 echo "PIDs: Martin=$MARTIN_PID, API=$API_PID, Vite=$VITE_PID, Chromium=$CHROMIUM_PID"
 echo ""

@@ -14,6 +14,7 @@
 
 ## Known Issues/Gotchas
 
+- **Boot blank/white screen** (Feb 2026): Two distinct failure modes. (1) **White screen, empty HTML** = Chromium launched before Vite preview was ready (race condition). Fixed in `start-openhelm-prod.sh` with curl polling loop (up to 30s). Quick fix: CDP `Page.reload`. (2) **Black screen, empty `#root`** = JS crash, usually WebGL/MapLibre. Chromium 145+ auto-detects ANGLE; don't pass explicit `--use-gl`/`--use-angle` flags. GPU flags in `/etc/chromium.d/01-openhelm-gpu`. Diagnose both via `curl -s http://localhost:9222/json/list` + CDP eval.
 - **MapLibre fitBounds auto-zoom**: Without `hasInitiallyFit` flag, map re-zooms on every state change. Use flag to ensure `fitBounds()` runs only once per mount.
 - **Martin tile discovery**: Martin auto-discovers tiles from `/tiles/` directory structure. No manual config needed for new tile sources if structure matches `{source}/{z}/{x}/{y}.png`.
 - **Lasso stopPropagation**: Must call `e.stopPropagation()` on ALL lasso mouse/touch handlers or MapLibre still intercepts events even when interactions disabled.

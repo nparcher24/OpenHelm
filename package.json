@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "start": "./start-openhelm.sh",
     "tiles": "martin --config martin-config.yaml",
-    "stop": "pkill -f 'martin|vite|chromium-browser' || true"
+    "stop": "pkill -f 'martin|vite|chromium-browser' || true",
+    "dev:restart": "./start-dev.sh"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

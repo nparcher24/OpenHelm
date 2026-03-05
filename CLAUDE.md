@@ -27,7 +27,7 @@ High-performance touchscreen marine navigation app for Raspberry Pi 5 with offli
 - **Maps**: MapLibre GL JS (primary) + Leaflet
 - **Tile Server**: Martin Tileserver on port 3001
 - **API Server**: Express.js on port 3002
-- **Runtime**: Chromium frameless browser
+- **Runtime**: Chromium kiosk browser (Wayland/labwc)
 - **Icons**: Heroicons (`@heroicons/react`)
 
 ## Project Structure
@@ -55,15 +55,23 @@ High-performance touchscreen marine navigation app for Raspberry Pi 5 with offli
 │   └── services/               # Backend business logic
 ├── tiles/                      # Downloaded map tiles (Martin serves from here)
 ├── BlueTopo_Tile_Scheme_*.gpkg # NOAA tile metadata (GeoPackage)
-├── start-openhelm.sh           # Main startup script
+├── start-openhelm.sh           # Dev mode startup script
+├── start-openhelm-prod.sh      # Production kiosk startup script
+├── start-dev.sh                # Switch from kiosk to dev mode
+├── exit-kiosk.sh               # Exit kiosk, restore desktop (called by API)
 └── martin-config.yaml          # Martin tileserver config
 ```
 
 ## Startup Commands
 
 ```bash
-# Full application (Martin + API + Vite + Chromium)
-npm start                    # or ./start-openhelm.sh
+# Production kiosk (boots automatically via labwc autostart)
+./start-openhelm-prod.sh        # Fullscreen kiosk, pre-built dist/
+./start-openhelm-prod.sh --rebuild  # Force rebuild before launching
+
+# Development mode (from SSH or after exiting kiosk)
+./start-dev.sh                  # Kill prod, launch dev with HMR
+npm start                       # or ./start-openhelm.sh (dev mode)
 
 # Individual services
 npm run dev                  # Vite dev server (port 3000)
@@ -73,6 +81,72 @@ node api-server/server.js    # API server (port 3002)
 # Stop all services
 npm run stop
 ```
+
+## Kiosk Mode
+
+The Pi boots directly into fullscreen OpenHelm via `~/.config/labwc/autostart` (overrides system autostart). No desktop, no taskbar.
+
+- **Exit kiosk from UI**: Settings > System > Exit to Desktop (keeps backend services running)
+- **Exit kiosk from SSH**: `./start-dev.sh` (kills prod, starts dev mode)
+- **Re-enter kiosk**: `./start-openhelm-prod.sh` or reboot
+- **Remote debug**: `curl http://localhost:9222/json/list`
+- **Autostart config**: `~/.config/labwc/autostart`
+
+### Autostart Troubleshooting
+
+When OpenHelm doesn't start after reboot, diagnose with these steps:
+
+**1. Check what's running:**
+```bash
+ps aux | grep -E "(chromium|node|vite|martin)" | grep -v grep
+```
+Expected: chromium, vite preview (:3000), node api-server (:3002), martin (:3001)
+
+**2. Check which ports respond:**
+```bash
+for p in 3000 3001 3002 9222; do
+  echo -n ":$p "; curl -s -o /dev/null -w "%{http_code}" http://localhost:$p 2>/dev/null; echo
+done
+```
+
+**3. Read startup logs (most recent attempt is at the bottom):**
+```bash
+tail -60 /home/hic/OpenHelm/openhelm.log
+```
+
+**4. Common failure modes:**
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| "Frontend server did not start within Ns" | Cold boot slow, timeout too short | Increase `MAX_WAIT` in `start-openhelm-prod.sh` (currently 90s) |
+| "Failed to connect to Wayland display" | Wrong `WAYLAND_DISPLAY` value | Check actual socket: `ls /run/user/1000/wayland-*` — script auto-detects but verify |
+| "The platform failed to initialize" | Missing `XDG_RUNTIME_DIR` or wrong Wayland socket | Ensure `XDG_RUNTIME_DIR=/run/user/$(id -u)` is exported |
+| Vite running but no Chromium | Startup script hit timeout and exited before Chromium launch | Manually start: see recovery commands below |
+| All services running but blank screen | Chromium loaded before server ready (race condition) | Reload page via CDP (see Post-Implementation Verification) |
+
+**5. Manual recovery (start services that are missing):**
+```bash
+cd /home/hic/OpenHelm
+
+# Start whichever services are not running:
+martin --config martin-config.yaml > martin.log 2>&1 &
+node api-server/server.js > api.log 2>&1 &
+npm run preview -- --host 0.0.0.0 --port 3000 > vite.log 2>&1 &
+
+# Launch Chromium (from SSH, must set display env):
+WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 chromium-browser \
+  --kiosk --no-sandbox --no-first-run --disable-infobars \
+  --enable-gpu-rasterization --ignore-gpu-blocklist \
+  --disable-dev-shm-usage --remote-debugging-port=9222 \
+  --touch-events=enabled --ozone-platform=wayland \
+  http://localhost:3000 >> openhelm.log 2>&1 &
+```
+
+**6. Wayland display detection:**
+- labwc creates the socket at `/run/user/1000/wayland-0` (not `wayland-1`)
+- The autostart script inherits `WAYLAND_DISPLAY` from labwc, so detection works there
+- SSH sessions do NOT have `WAYLAND_DISPLAY` or `XDG_RUNTIME_DIR` — must export both manually
+- Verify: `ls /run/user/1000/wayland-*` to find the actual socket name
 
 ## Post-Implementation Verification (REQUIRED)
 
@@ -85,7 +159,14 @@ After completing any feature or code change, you MUST verify the app still works
    ```
    Use a Node script to connect to `ws://localhost:9222/devtools/page/{ID}`, enable `Runtime.enable`, and check for `Runtime.exceptionThrown` events. Also verify `document.querySelector("#root").innerHTML` is non-empty.
 
-2. **Common gotchas that cause black screens**:
+2. **Common gotchas that cause blank/white screens**:
+   - **Boot race condition (white screen)**: Chromium can launch before Vite preview server is ready, resulting in an empty page that never retries. `start-openhelm-prod.sh` polls `localhost:3000` before launching Chromium (up to 90s). If still blank after boot, the fix is a page reload via CDP:
+     ```bash
+     PAGE_ID=$(curl -s http://localhost:9222/json/list | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['id'])")
+     node -e "const ws=new(require('ws'))('ws://localhost:9222/devtools/page/$PAGE_ID');ws.on('open',()=>{ws.send(JSON.stringify({id:1,method:'Page.reload',params:{ignoreCache:true}}));setTimeout(()=>process.exit(0),2000)})"
+     ```
+   - **Diagnosing blank screen**: Check if `#root` has content via CDP. Empty `<html><head></head><body></body></html>` = server wasn't ready (race condition). Empty `#root` div present but no children = JS crash (check WebGL/MapLibre).
+   - **Chromium GPU/WebGL failure**: Chromium 145+ removed `--use-gl=egl`; only ANGLE backends work. Do NOT pass explicit `--use-gl` or `--use-angle` flags — let Chromium auto-detect (it picks `--use-angle=gles` with `/dev/dri/card1`). If WebGL fails, MapLibre crashes React entirely (empty `#root`). Additional Chromium GPU flags live in `/etc/chromium.d/01-openhelm-gpu`. Diagnose with CDP: evaluate `document.createElement('canvas').getContext('webgl')` to test WebGL availability.
    - `!== null` does NOT catch `undefined`. Use `!= null` (loose equality) when checking fields that may not exist yet in API responses.
    - API server must be restarted for backend changes to take effect. Frontend-only changes hot-reload via Vite HMR.
    - Three.js objects in react-three-fiber: prefer `<primitive object={...}>` with imperative refs over declarative `<arrowHelper args={...}/>` when updating per-frame.
@@ -125,6 +206,8 @@ Frontend (3000) → API Server (3002) → External APIs (NOAA, etc.)
 - `GET /api/enc/catalogue` - ENC catalogue from NOAA (30min cache)
 - `GET /api/enc/cache/status` - Cache status
 - `DELETE /api/enc/cache` - Clear cache
+- `POST /api/system/shutdown` - Kill all OpenHelm processes
+- `POST /api/system/exit-kiosk` - Exit kiosk, restore desktop (services keep running)
 
 **Adding new routes:**
 1. Create `api-server/routes/newRoute.js`

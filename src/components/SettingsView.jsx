@@ -11,6 +11,7 @@ function SettingsView() {
   const [searchParams] = useSearchParams()
 
   const [showQuitConfirm, setShowQuitConfirm] = useState(false)
+  const [showExitKioskConfirm, setShowExitKioskConfirm] = useState(false)
 
   // Load last active section from localStorage or URL params, default to 'general'
   const [activeSection, setActiveSection] = useState(() => {
@@ -31,6 +32,7 @@ function SettingsView() {
   useEffect(() => {
     localStorage.setItem('settingsActiveSection', activeSection)
     setShowQuitConfirm(false)
+    setShowExitKioskConfirm(false)
   }, [activeSection])
 
   const sections = [
@@ -44,6 +46,14 @@ function SettingsView() {
     { id: 'display', name: 'Display', icon: '[#]' },
     { id: 'system', name: 'System', icon: '[S]' }
   ]
+
+  const handleExitKiosk = async () => {
+    try {
+      await fetch('http://localhost:3002/api/system/exit-kiosk', { method: 'POST' })
+    } catch {
+      // Expected - Chromium closes before response completes
+    }
+  }
 
   const handleQuit = async () => {
     try {
@@ -224,6 +234,36 @@ function SettingsView() {
                   <div>Martin Tiles: v0.18.1</div>
                   <div>OS: Raspberry Pi OS</div>
                 </div>
+              </div>
+
+              <div className="bg-terminal-surface p-4 rounded-lg border border-amber-500/30">
+                <h3 className="font-semibold text-terminal-green mb-3 uppercase tracking-wide">Kiosk Mode</h3>
+                {showExitKioskConfirm ? (
+                  <div className="space-y-3">
+                    <p className="text-amber-400 text-sm">Exit fullscreen? OpenHelm services will keep running. You can relaunch from the desktop.</p>
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={handleExitKiosk}
+                        className="px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg uppercase tracking-wide transition-colors touch-manipulation min-h-[44px]"
+                      >
+                        Confirm Exit
+                      </button>
+                      <button
+                        onClick={() => setShowExitKioskConfirm(false)}
+                        className="px-6 py-3 bg-terminal-surface hover:bg-terminal-green/10 text-terminal-green font-bold rounded-lg uppercase tracking-wide border border-terminal-border transition-colors touch-manipulation min-h-[44px]"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowExitKioskConfirm(true)}
+                    className="px-6 py-3 bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 hover:text-amber-300 font-bold rounded-lg uppercase tracking-wide border border-amber-500/30 hover:border-amber-500/60 transition-colors touch-manipulation min-h-[44px]"
+                  >
+                    Exit to Desktop
+                  </button>
+                )}
               </div>
 
               <div className="bg-terminal-surface p-4 rounded-lg border border-red-500/30">

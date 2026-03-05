@@ -191,6 +191,7 @@ if xset q &>/dev/null; then
 
     if [ -n "$CHROMIUM_CMD" ]; then
         # Launch Chromium in windowed mode optimized for Raspberry Pi 5 GPU acceleration
+        # Note: Do NOT pass --use-gl=egl or --use-angle flags - Chromium 145+ auto-detects
         $CHROMIUM_CMD \
           --window-size=1920,1080 \
           --window-position=0,0 \
@@ -202,17 +203,13 @@ if xset q &>/dev/null; then
           --disable-renderer-backgrounding \
           --disable-backgrounding-occluded-windows \
           --enable-gpu-rasterization \
-          --enable-oop-rasterization \
-          --enable-hardware-overlays \
-          --use-gl=egl \
           --ignore-gpu-blocklist \
           --enable-zero-copy \
-          --enable-native-gpu-memory-buffers \
-          --canvas-oop-rasterization \
           --disable-dev-shm-usage \
           --password-store=basic \
           --overscroll-history-navigation=0 \
           --touch-events=enabled \
+          --remote-debugging-port=9222 \
           http://localhost:3000 &
 
         CHROMIUM_PID=$!

@@ -65,6 +65,23 @@ app.use('/api/gps', gpsRoutes)
 app.use('/api/waypoints', waypointRoutes)
 app.use('/api/ncds', ncdsRoutes)
 
+// Exit kiosk mode - kills Chromium, restores desktop, keeps services running
+app.post('/api/system/exit-kiosk', (req, res) => {
+  console.log('Exit kiosk mode requested from UI')
+  res.json({ status: 'exiting_kiosk' })
+
+  setTimeout(async () => {
+    const { exec } = await import('child_process')
+    exec('/home/hic/OpenHelm/exit-kiosk.sh', (error, stdout, stderr) => {
+      if (error) {
+        console.error('exit-kiosk.sh error:', error.message)
+      } else {
+        console.log('Kiosk exited, desktop restored')
+      }
+    })
+  }, 500)
+})
+
 // System shutdown endpoint
 app.post('/api/system/shutdown', (req, res) => {
   console.log('🛑 Shutdown requested from UI')

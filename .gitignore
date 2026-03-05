@@ -13,12 +13,17 @@ logs/
 # Database files
 data/*.db
 data/*.db-journal
+data/*.db-shm
+data/*.db-wal
 data/*.xml
 api-server/*.db
 api-server/*.db-journal
 
 # Tile data
+tiles/bluetopo/
+tiles/cusp/
 tiles/**/*.mbtiles
+tiles/**/*.mbtiles-journal
 tiles/**/*.pmtiles
 tiles/**/*.png
 tiles/**/*.tif
@@ -26,6 +31,9 @@ tiles/**/*.tiff
 tiles/**/*.xml
 tiles/**/sample-tiles/
 tiles/*_raw/
+
+# NOAA GeoPackage tile scheme files
+BlueTopo_Tile_Scheme_*.gpkg
 
 # Build outputs
 dist/
