@@ -10,10 +10,11 @@
     "preview": "vite preview",
     "start": "./start-openhelm.sh",
     "tiles": "martin --config martin-config.yaml",
-    "stop": "pkill -f 'martin|vite|chromium-browser' || true",
+    "stop": "sudo systemctl stop openhelm-backend 2>/dev/null; pkill -f 'martin|vite|chromium-browser' || true",
     "dev:restart": "./start-dev.sh"
   },
   "dependencies": {
+    "@canboat/canboatjs": "^3.14.0",
     "@heroicons/react": "^2.2.0",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",

@@ -24,6 +24,19 @@ export const SettingsIcon = ({ className = "w-6 h-6" }) => (
   </svg>
 );
 
+export const VesselIcon = ({ className = "w-6 h-6" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    {/* Tachometer outer ring */}
+    <circle cx="12" cy="12" r="9" strokeWidth={2} />
+    {/* Tick marks */}
+    <path strokeLinecap="round" strokeWidth={2} d="M12 5v2M7.05 7.05l1.41 1.41M5 12h2M18.36 7.05l-1.41 1.41M19 12h-2" />
+    {/* Needle */}
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 12l4-6" />
+    {/* Center dot */}
+    <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+  </svg>
+);
+
 // Center console boat icon - green filled, tactical look
 // Bow points up (north), rotates with heading
 export const BoatIcon = ({ className = "w-6 h-6" }) => (

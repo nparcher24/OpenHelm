@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ChartIcon, GPSIcon, SettingsIcon } from './Icons'
+import { ChartIcon, GPSIcon, VesselIcon, SettingsIcon } from './Icons'
 
 function Navbar() {
   const navigate = useNavigate()
@@ -8,6 +8,7 @@ function Navbar() {
   const navItems = [
     { id: 'chart', label: 'Chart', icon: ChartIcon, path: '/chart' },
     { id: 'gps', label: 'GPS', icon: GPSIcon, path: '/gps' },
+    { id: 'vessel', label: 'Vessel', icon: VesselIcon, path: '/vessel' },
     { id: 'settings', label: 'Settings', icon: SettingsIcon, path: '/settings' }
   ]
 

@@ -1,6 +1,7 @@
 import ChartView from './ChartView'
 import SettingsView from './SettingsView'
 import GpsView from './GpsView'
+import VesselView from './VesselView'
 
 function MainContent({ activeTab }) {
   const renderContent = () => {
@@ -9,6 +10,8 @@ function MainContent({ activeTab }) {
         return <ChartView />
       case 'gps':
         return <GpsView />
+      case 'vessel':
+        return <VesselView />
       case 'settings':
         return <SettingsView />
       default:

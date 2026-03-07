@@ -7,6 +7,7 @@
 import express from 'express'
 import cors from 'cors'
 import fs from 'fs/promises'
+import { existsSync } from 'fs'
 import path from 'path'
 import { createServer } from 'http'
 import { WebSocketServer } from 'ws'
@@ -16,6 +17,8 @@ import blueTopoRoutes from './routes/bluetopo.js'
 import cuspRoutes from './routes/cusp.js'
 import gpsRoutes from './routes/gps.js'
 import { setGpsUpdateCallback, startGpsService } from './services/gpsService.js'
+import vesselRoutes from './routes/vessel.js'
+import { setVesselUpdateCallback, startNmea2000Service } from './services/nmea2000Service.js'
 import waypointRoutes from './routes/waypoints.js'
 import ncdsRoutes from './routes/ncds.js'
 
@@ -62,10 +65,11 @@ app.use('/api/enc-metadata', encMetadataRoutes)
 app.use('/api/bluetopo', blueTopoRoutes)
 app.use('/api/cusp', cuspRoutes)
 app.use('/api/gps', gpsRoutes)
+app.use('/api/vessel', vesselRoutes)
 app.use('/api/waypoints', waypointRoutes)
 app.use('/api/ncds', ncdsRoutes)
 
-// Exit kiosk mode - kills Chromium, restores desktop, keeps services running
+// Exit kiosk mode - kills Chromium, restores desktop, keeps backend running
 app.post('/api/system/exit-kiosk', (req, res) => {
   console.log('Exit kiosk mode requested from UI')
   res.json({ status: 'exiting_kiosk' })
@@ -92,13 +96,10 @@ app.post('/api/system/shutdown', (req, res) => {
     const { exec } = await import('child_process')
     // Close Chromium first (handles both binary names)
     exec("pkill -f 'chromium-browser|chromium'", () => {
-      // Kill the parent start-openhelm.sh script (triggers its cleanup trap)
-      exec("pkill -f 'start-openhelm'", () => {
-        // Fallback: kill remaining services
-        exec("pkill -f 'martin|vite'", () => {
-          // Exit the API server itself
-          process.exit(0)
-        })
+      // Stop backend via systemd (falls back to pkill if not using systemd)
+      exec("sudo systemctl stop openhelm-backend 2>/dev/null || pkill -f 'start-openhelm|martin'", () => {
+        // Exit the API server itself
+        process.exit(0)
       })
     })
   }, 500)
@@ -107,15 +108,36 @@ app.post('/api/system/shutdown', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('API Error:', err.message)
-  res.status(500).json({ 
+  res.status(500).json({
     error: 'Internal server error',
-    message: err.message 
+    message: err.message
   })
 })
 
-// 404 handler
-app.use('*', (req, res) => {
+// Serve SPA from dist/ (eliminates need for vite preview server)
+const distPath = path.join(process.cwd(), 'dist')
+if (existsSync(distPath)) {
+  app.use(express.static(distPath, {
+    maxAge: '1h',
+    etag: true,
+    lastModified: true
+  }))
+  console.log(`📦 Serving SPA from ${distPath}`)
+}
+
+// API 404 for unmatched /api/ routes
+app.use('/api/*', (req, res) => {
   res.status(404).json({ error: 'API endpoint not found' })
+})
+
+// SPA fallback - serve index.html for all other routes (client-side routing)
+app.use('*', (req, res) => {
+  const indexPath = path.join(distPath, 'index.html')
+  if (existsSync(indexPath)) {
+    res.sendFile(indexPath)
+  } else {
+    res.status(404).json({ error: 'SPA not built. Run: npm run build' })
+  }
 })
 
 // Create HTTP server and WebSocket server
@@ -128,6 +150,9 @@ global.activeJobs = new Map() // jobId -> { controller, startTime, status }
 
 // GPS WebSocket subscribers
 const gpsSubscribers = new Set()
+
+// Vessel WebSocket subscribers
+const vesselSubscribers = new Set()
 
 // Set up GPS real-time streaming (throttled to 5 Hz)
 let lastGpsBroadcast = 0
@@ -157,11 +182,46 @@ setGpsUpdateCallback((gpsData) => {
   })
 })
 
+// Set up vessel real-time streaming (throttled to 5 Hz)
+let lastVesselBroadcast = 0
+setVesselUpdateCallback((vesselData) => {
+  if (vesselSubscribers.size === 0) return
+
+  const now = Date.now()
+  if (now - lastVesselBroadcast < 200) return  // 5 Hz max
+  lastVesselBroadcast = now
+
+  const message = JSON.stringify({
+    type: 'vessel',
+    data: vesselData,
+    timestamp: Date.now()
+  })
+
+  vesselSubscribers.forEach(ws => {
+    if (ws.readyState === ws.OPEN) {
+      try {
+        ws.send(message)
+      } catch (error) {
+        vesselSubscribers.delete(ws)
+      }
+    } else {
+      vesselSubscribers.delete(ws)
+    }
+  })
+})
+
 // Auto-start GPS service on server startup
 startGpsService().then(() => {
   console.log('🛰️ GPS service auto-started')
 }).catch(err => {
   console.log('⚠️ GPS service not available:', err.message)
+})
+
+// Auto-start NMEA 2000 service on server startup
+startNmea2000Service().then(() => {
+  console.log('⚓ NMEA 2000 service auto-started')
+}).catch(err => {
+  console.log('⚠️ NMEA 2000 service not available:', err.message)
 })
 
 // WebSocket connection handling
@@ -179,6 +239,12 @@ wss.on('connection', (ws, req) => {
       } else if (data.type === 'unsubscribe-gps') {
         gpsSubscribers.delete(ws)
         console.log(`🛰️ Client unsubscribed from GPS stream`)
+      } else if (data.type === 'subscribe-vessel') {
+        vesselSubscribers.add(ws)
+        console.log(`⚓ Client subscribed to vessel stream`)
+      } else if (data.type === 'unsubscribe-vessel') {
+        vesselSubscribers.delete(ws)
+        console.log(`⚓ Client unsubscribed from vessel stream`)
       } else if (data.type === 'subscribe' && data.jobId) {
         // Subscribe client to specific job updates
         if (!global.progressTrackers.has(data.jobId)) {
@@ -204,8 +270,9 @@ wss.on('connection', (ws, req) => {
   })
   
   ws.on('close', () => {
-    // Remove client from GPS subscription
+    // Remove client from GPS and vessel subscriptions
     gpsSubscribers.delete(ws)
+    vesselSubscribers.delete(ws)
     // Remove client from all job subscriptions
     for (const [jobId, tracker] of global.progressTrackers.entries()) {
       tracker.clients.delete(ws)

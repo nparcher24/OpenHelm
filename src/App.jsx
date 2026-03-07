@@ -35,6 +35,12 @@ function App() {
             <MainContent activeTab="gps" />
           </>
         } />
+        <Route path="/vessel" element={
+          <>
+            <Navbar />
+            <MainContent activeTab="vessel" />
+          </>
+        } />
         <Route path="/settings" element={
           <>
             <Navbar />
