@@ -130,12 +130,20 @@ function ChartView() {
     return () => clearTimeout(timeoutId)
   }, [touchState?.showingCrosshairs, touchState?.currentX, touchState?.currentY])
 
+  // Default position offshore Virginia Beach when GPS has no satellite fix
+  const DEFAULT_NO_FIX_POSITION = { latitude: 36.85, longitude: -75.97 }
+
   // Helper to validate coordinates for MapLibre
   const isValidCoordinate = (lat, lng) => {
     return typeof lat === 'number' && typeof lng === 'number' &&
            !isNaN(lat) && !isNaN(lng) &&
            lat >= -90 && lat <= 90 &&
            lng >= -180 && lng <= 180
+  }
+
+  // Detect GPS reporting 0,0 (no satellite fix)
+  const hasGpsFix = (lat, lng) => {
+    return !(lat === 0 && lng === 0)
   }
 
   // GPS via WebSocket - always active to show boat position
@@ -209,9 +217,13 @@ function ChartView() {
 
     initialGpsCenterDone.current = true
 
+    const fix = hasGpsFix(gpsData.latitude, gpsData.longitude)
+    const centerLat = fix ? gpsData.latitude : DEFAULT_NO_FIX_POSITION.latitude
+    const centerLng = fix ? gpsData.longitude : DEFAULT_NO_FIX_POSITION.longitude
+
     // Fly to GPS position at default zoom with heading-up bearing
     map.current.flyTo({
-      center: [gpsData.longitude, gpsData.latitude],
+      center: [centerLng, centerLat],
       zoom: defaultZoom,
       bearing: northUp ? 0 : (gpsData.heading || 0),
       duration: 1000
@@ -287,29 +299,47 @@ function ChartView() {
     if (!mapLoaded || !gpsData || !map.current) return
     if (!isValidCoordinate(gpsData.latitude, gpsData.longitude)) return
 
+    const fix = hasGpsFix(gpsData.latitude, gpsData.longitude)
+    const displayLat = fix ? gpsData.latitude : DEFAULT_NO_FIX_POSITION.latitude
+    const displayLng = fix ? gpsData.longitude : DEFAULT_NO_FIX_POSITION.longitude
+    const fillColor = fix ? '#22c55e' : '#ef4444'
+    const strokeDarkColor = fix ? '#0a3d1f' : '#7f1d1d'
+    const glowColor = fix ? 'rgba(34, 197, 94, 0.6)' : 'rgba(239, 68, 68, 0.6)'
+
     // Create or update marker
     if (!boatMarkerRef.current) {
       // Create custom marker element
       const el = document.createElement('div')
       el.className = 'boat-marker'
       el.innerHTML = `
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="#22c55e" stroke="#22c55e" stroke-width="1">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="${fillColor}" stroke="${fillColor}" stroke-width="1">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 3 L7 9 L7 17 L9 21 L15 21 L17 17 L17 9 Z" />
-          <path stroke="#0a3d1f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M9 11 L15 11" />
-          <path stroke="#0a3d1f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M10 6 L12 4 L14 6" />
+          <path stroke="${strokeDarkColor}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M9 11 L15 11" />
+          <path stroke="${strokeDarkColor}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M10 6 L12 4 L14 6" />
         </svg>
       `
-      el.style.cssText = 'filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.6));'
+      el.style.cssText = `filter: drop-shadow(0 0 4px ${glowColor});`
 
       boatMarkerRef.current = new maplibregl.Marker({
         element: el,
         rotationAlignment: 'map',
         pitchAlignment: 'map'
       })
-        .setLngLat([gpsData.longitude, gpsData.latitude])
+        .setLngLat([displayLng, displayLat])
         .addTo(map.current)
     } else {
-      boatMarkerRef.current.setLngLat([gpsData.longitude, gpsData.latitude])
+      boatMarkerRef.current.setLngLat([displayLng, displayLat])
+      // Update color when fix status changes
+      const el = boatMarkerRef.current.getElement()
+      const svg = el.querySelector('svg')
+      if (svg) {
+        svg.setAttribute('fill', fillColor)
+        svg.setAttribute('stroke', fillColor)
+        const paths = svg.querySelectorAll('path')
+        if (paths[1]) paths[1].setAttribute('stroke', strokeDarkColor)
+        if (paths[2]) paths[2].setAttribute('stroke', strokeDarkColor)
+      }
+      el.style.filter = `drop-shadow(0 0 4px ${glowColor})`
     }
 
     // Rotate marker to heading
@@ -343,13 +373,16 @@ function ChartView() {
     if (!trackingMode || !gpsData || !map.current) return
     if (!isValidCoordinate(gpsData.latitude, gpsData.longitude)) return
 
+    const fix = hasGpsFix(gpsData.latitude, gpsData.longitude)
+    const trackLat = fix ? gpsData.latitude : DEFAULT_NO_FIX_POSITION.latitude
+    const trackLng = fix ? gpsData.longitude : DEFAULT_NO_FIX_POSITION.longitude
     const mapHeight = map.current.getContainer().clientHeight
     const bearing = northUp ? 0 : (gpsData.heading || 0)
 
     if (trackingMode === 'center') {
       // Mode 1: Boat centered in middle of screen
       map.current.easeTo({
-        center: [gpsData.longitude, gpsData.latitude],
+        center: [trackLng, trackLat],
         bearing: bearing,
         padding: { bottom: 0, top: 0, left: 0, right: 0 },
         duration: 200  // Match 5 Hz update interval for smooth motion
@@ -358,7 +391,7 @@ function ChartView() {
       // Mode 2: Boat 1/3 from bottom, centered laterally
       // To place center at 2/3 from top, we need top padding of 1/3 height
       map.current.easeTo({
-        center: [gpsData.longitude, gpsData.latitude],
+        center: [trackLng, trackLat],
         bearing: bearing,
         padding: { top: mapHeight / 3, bottom: 0, left: 0, right: 0 },
         duration: 200  // Match 5 Hz update interval for smooth motion
