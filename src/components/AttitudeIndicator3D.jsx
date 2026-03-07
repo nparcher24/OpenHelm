@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react'
+import { useRef, useMemo, useEffect, memo } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
@@ -15,10 +15,26 @@ function accelToLength(accelG) {
   return BASE_LENGTH * Math.pow(2, clamped / 0.1)
 }
 
+// Lerp factor per frame (~60fps). Higher = snappier, lower = smoother.
+// 0.15 at 60fps gives ~90% convergence in ~15 frames (~250ms)
+const LERP_FACTOR = 0.15
+
+// Lerp for angles in degrees, handling wraparound (e.g. 359° → 1°)
+function lerpAngle(current, target, t) {
+  let diff = target - current
+  // Normalize to [-180, 180]
+  while (diff > 180) diff -= 360
+  while (diff < -180) diff += 360
+  return current + diff * t
+}
+
 // 3D Axis arrows that rotate with device orientation
 // Arrow lengths driven by earth-frame acceleration (gravity removed)
-function AxisArrows({ roll, pitch, yaw, ax, ay, az }) {
+// Reads target values from dataRef and lerps smoothly each frame
+function AxisArrows({ dataRef }) {
   const groupRef = useRef()
+  // Current smoothed values (updated each frame, never cause re-renders)
+  const smoothed = useRef({ roll: 0, pitch: 0, yaw: 0, ax: 0, ay: 0, az: 0 })
 
   // Create arrow helpers imperatively so we can call setLength() in useFrame
   const arrows = useMemo(() => {
@@ -34,34 +50,50 @@ function AxisArrows({ roll, pitch, yaw, ax, ay, az }) {
     }
   }, [])
 
-  // Update rotation and arrow lengths each frame
+  // Reusable Three.js objects to avoid GC pressure in useFrame
+  const _euler = useMemo(() => new THREE.Euler(), [])
+  const _mat4 = useMemo(() => new THREE.Matrix4(), [])
+  const _vec3 = useMemo(() => new THREE.Vector3(), [])
+
+  // Update rotation and arrow lengths each frame with lerp interpolation
   useFrame(() => {
     if (!groupRef.current) return
+    const data = dataRef.current
+    const s = smoothed.current
+    const t = LERP_FACTOR
+
+    // Lerp toward target values
+    s.roll = lerpAngle(s.roll, data.roll, t)
+    s.pitch = lerpAngle(s.pitch, data.pitch, t)
+    s.yaw = lerpAngle(s.yaw, data.yaw, t)
+    s.ax = s.ax + (data.ax - s.ax) * t
+    s.ay = s.ay + (data.ay - s.ay) * t
+    s.az = s.az + (data.az - s.az) * t
 
     // Convert degrees to radians
-    const rollRad = (roll || 0) * Math.PI / 180
-    const pitchRad = (pitch || 0) * Math.PI / 180
-    const yawRad = (yaw || 0) * Math.PI / 180
+    const rollRad = s.roll * Math.PI / 180
+    const pitchRad = s.pitch * Math.PI / 180
+    const yawRad = s.yaw * Math.PI / 180
 
     // Swap roll/pitch to match swapped X/Y axes
     groupRef.current.rotation.set(rollRad, pitchRad, -yawRad, 'ZXY')
 
     // Build rotation matrix from roll/pitch, then INVERT to get body→earth transform
     // The Euler angles describe earth→body rotation; we need the inverse
-    const euler = new THREE.Euler(rollRad, pitchRad, 0, 'ZXY')
-    const rotMatrix = new THREE.Matrix4().makeRotationFromEuler(euler)
-    rotMatrix.invert() // body→earth
-    const bodyAccel = new THREE.Vector3(ax || 0, ay || 0, az || 0)
-    const earthAccel = bodyAccel.applyMatrix4(rotMatrix)
+    _euler.set(rollRad, pitchRad, 0, 'ZXY')
+    _mat4.makeRotationFromEuler(_euler)
+    _mat4.invert() // body→earth
+    _vec3.set(s.ax, s.ay, s.az)
+    _vec3.applyMatrix4(_mat4)
 
     // Subtract gravity from Z (sensor reads ~1g on Z when stationary)
-    earthAccel.z -= 1.0
+    _vec3.z -= 1.0
 
     // Dead zone: sensor noise < 0.03g should not cause visible arrow differences
     const DEAD_ZONE = 0.03
-    const ex = Math.abs(earthAccel.x) < DEAD_ZONE ? 0 : earthAccel.x
-    const ey = Math.abs(earthAccel.y) < DEAD_ZONE ? 0 : earthAccel.y
-    const ez = Math.abs(earthAccel.z) < DEAD_ZONE ? 0 : earthAccel.z
+    const ex = Math.abs(_vec3.x) < DEAD_ZONE ? 0 : _vec3.x
+    const ey = Math.abs(_vec3.y) < DEAD_ZONE ? 0 : _vec3.y
+    const ez = Math.abs(_vec3.z) < DEAD_ZONE ? 0 : _vec3.z
 
     // Compute per-axis arrow lengths from earth-frame net acceleration
     // Device X maps to render Y, Device Y maps to render X
@@ -133,13 +165,30 @@ function ReferenceGrid() {
 }
 
 // Main 3D attitude indicator component
-export default function AttitudeIndicator3D({ roll, pitch, yaw, ax, ay, az }) {
+// Memoized so it only renders once — all updates flow through the dataRef
+export default memo(function AttitudeIndicator3D({ roll, pitch, yaw, ax, ay, az }) {
+  // Store latest sensor values in a ref — useFrame reads this, no re-renders
+  const dataRef = useRef({ roll: 0, pitch: 0, yaw: 0, ax: 0, ay: 0, az: 0 })
+
+  // Update ref on every prop change without triggering re-render of Canvas
+  useEffect(() => {
+    dataRef.current = {
+      roll: roll || 0,
+      pitch: pitch || 0,
+      yaw: yaw || 0,
+      ax: ax || 0,
+      ay: ay || 0,
+      az: az || 0,
+    }
+  })
+
   return (
     <div className="w-full h-full bg-black rounded-lg overflow-hidden">
       <Canvas
         camera={{ position: [5, 2, 3], fov: 50, up: [0, 0, 1] }}
         gl={{ antialias: true, alpha: false }}
         dpr={[1, 2]}
+        frameloop="always"
       >
         {/* Lighting */}
         <ambientLight intensity={0.4} />
@@ -152,8 +201,8 @@ export default function AttitudeIndicator3D({ roll, pitch, yaw, ax, ay, az }) {
         {/* Reference grid (stationary) */}
         <ReferenceGrid />
 
-        {/* Rotating axis arrows */}
-        <AxisArrows roll={roll} pitch={pitch} yaw={yaw} ax={ax} ay={ay} az={az} />
+        {/* Rotating axis arrows - reads from ref, no prop-driven re-renders */}
+        <AxisArrows dataRef={dataRef} />
 
         {/* Allow user to orbit/zoom */}
         <OrbitControls
@@ -167,4 +216,4 @@ export default function AttitudeIndicator3D({ roll, pitch, yaw, ax, ay, az }) {
       </Canvas>
     </div>
   )
-}
+})

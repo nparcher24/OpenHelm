@@ -365,6 +365,8 @@ function GpsView() {
                   className="absolute top-1/2 left-1/2 w-0.5 h-12 bg-terminal-green origin-bottom"
                   style={{
                     transform: `translate(-50%, -100%) rotate(${gpsData.heading}deg)`,
+                    transition: 'transform 0.2s ease-out',
+                    willChange: 'transform',
                     boxShadow: '0 0 8px rgba(0, 255, 0, 0.5)'
                   }}
                 />
