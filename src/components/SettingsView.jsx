@@ -4,6 +4,7 @@ import ChartManager from './ChartManager'
 import BlueTopoDownloader from './BlueTopoDownloader'
 import CuspDownloader from './CuspDownloader'
 import ENCDownloader from './ENCDownloader'
+import S57Downloader from './S57Downloader'
 import WaypointManager from './WaypointManager'
 import ErrorBoundary from './ErrorBoundary'
 
@@ -39,7 +40,8 @@ function SettingsView() {
     { id: 'general', name: 'General', icon: '[>]' },
     { id: 'charts', name: 'Chart Manager', icon: '[M]' },
     { id: 'waypoints', name: 'Waypoints', icon: '[W]' },
-    { id: 'enc', name: 'Nautical Charts', icon: '[N]' },
+    { id: 's57', name: 'Vector Charts', icon: '[V]' },
+    { id: 'enc', name: 'Raster Charts', icon: '[N]' },
     { id: 'bluetopo', name: 'BlueTopo', icon: '[~]' },
     { id: 'cusp', name: 'Coastline', icon: '[/]' },
     { id: 'gps', name: 'GPS/AHRS', icon: '[*]' },
@@ -83,6 +85,13 @@ function SettingsView() {
         return (
           <ErrorBoundary>
             <CuspDownloader />
+          </ErrorBoundary>
+        )
+
+      case 's57':
+        return (
+          <ErrorBoundary>
+            <S57Downloader />
           </ErrorBoundary>
         )
 

@@ -3,6 +3,8 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { getDownloadedTileMetadata, getTileUrl, getDepthAtLocation } from '../services/blueTopoTileService'
 import { getDownloadedRegions as getDownloadedENCRegions } from '../services/encDownloadService'
+import { getDownloadedRegions as getDownloadedS57Regions } from '../services/s57DownloadService'
+import { createNauticalStyle, S57_LAYER_PREFIX } from '../styles/nauticalChartStyle'
 import { getAllWaypoints, createWaypoint } from '../services/waypointService'
 import { SettingsIcon, BoatIcon } from './Icons'
 import DepthCrosshairs from './DepthCrosshairs'
@@ -11,6 +13,7 @@ import WaypointMenu from './WaypointMenu'
 import WaypointEditModal from './WaypointEditModal'
 import WaypointDropdown from './WaypointDropdown'
 import LayersMenu from './LayersMenu'
+import S57SubLayerMenu, { S57_SUBLAYER_GROUPS } from './S57SubLayerMenu'
 import { createMarkerSVG } from '../utils/waypointIcons'
 import { MapPinIcon } from '@heroicons/react/24/outline'
 
@@ -66,6 +69,18 @@ function ChartView() {
     return saved !== null ? JSON.parse(saved) : true
   })
   const [encRegionCount, setEncRegionCount] = useState(0)
+  const [s57LayersVisible, setS57LayersVisible] = useState(() => {
+    const saved = localStorage.getItem('chartview_s57_visible')
+    return saved !== null ? JSON.parse(saved) : true
+  })
+  const [s57RegionCount, setS57RegionCount] = useState(0)
+  const [s57SubLayerMenuOpen, setS57SubLayerMenuOpen] = useState(false)
+  const [s57SubLayerVisibility, setS57SubLayerVisibility] = useState(() => {
+    try {
+      const saved = localStorage.getItem('chartview_s57_sublayers')
+      return saved ? JSON.parse(saved) : {}
+    } catch { return {} }
+  })
   const [layersMenuOpen, setLayersMenuOpen] = useState(false)
 
   // Save layer visibility to localStorage when it changes
@@ -76,6 +91,14 @@ function ChartView() {
   useEffect(() => {
     localStorage.setItem('chartview_enc_visible', JSON.stringify(encLayersVisible))
   }, [encLayersVisible])
+
+  useEffect(() => {
+    localStorage.setItem('chartview_s57_visible', JSON.stringify(s57LayersVisible))
+  }, [s57LayersVisible])
+
+  useEffect(() => {
+    localStorage.setItem('chartview_s57_sublayers', JSON.stringify(s57SubLayerVisibility))
+  }, [s57SubLayerVisibility])
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -512,7 +535,10 @@ function ChartView() {
         }
       })
 
-      // Load ENC layers first (they go below BlueTopo)
+      // Load S-57 vector layers first (bottom)
+      await loadS57Layers()
+
+      // Load ENC raster layers (middle, above S-57)
       await loadENCLayers()
 
       // Load BlueTopo tiles after ENC (they go on top)
@@ -526,6 +552,83 @@ function ChartView() {
       }
     }
   }, [])
+
+  // Load S-57 vector chart layers (GeoJSON direct)
+  const loadS57Layers = async () => {
+    try {
+      const result = await getDownloadedS57Regions()
+      if (!map.current) return
+
+      if (!result.success || !result.regions || result.regions.length === 0) {
+        console.log('[ChartView] No S-57 vector regions downloaded')
+        setS57RegionCount(0)
+        return
+      }
+
+      const regions = result.regions
+      setS57RegionCount(regions.length)
+      console.log(`[ChartView] Loading ${regions.length} S-57 vector regions`)
+
+      const apiBaseUrl = `http://${window.location.hostname}:3002`
+
+      for (const region of regions) {
+        if (!map.current) return
+
+        // Skip if already loaded
+        const testSourceId = `${S57_LAYER_PREFIX}${region.regionId}-DEPARE`
+        if (map.current.getSource(testSourceId)) {
+          console.log(`[ChartView] S-57 region ${region.regionId} already loaded, skipping`)
+          continue
+        }
+
+        // Get available layers for this region
+        const availableLayers = region.layers || []
+        if (availableLayers.length === 0) {
+          console.log(`[ChartView] No layers for S-57 region ${region.regionId}`)
+          continue
+        }
+
+        // Create sources and layers from the nautical style
+        const { sources, layers } = createNauticalStyle(region.regionId, availableLayers, apiBaseUrl)
+
+        // Add all sources
+        for (const [sourceId, sourceConfig] of Object.entries(sources)) {
+          if (!map.current.getSource(sourceId)) {
+            map.current.addSource(sourceId, sourceConfig)
+          }
+        }
+
+        // Add all layers (respecting both master and sublayer visibility)
+        for (const layer of layers) {
+          let vis = s57LayersVisible ? 'visible' : 'none'
+          if (vis === 'visible') {
+            // Check sublayer visibility
+            for (const group of S57_SUBLAYER_GROUPS) {
+              for (const sl of group.sublayers) {
+                if (s57SubLayerVisibility[sl.id] === false) {
+                  for (const pat of sl.patterns) {
+                    if (layer.id.endsWith(pat)) { vis = 'none'; break }
+                  }
+                }
+                if (vis === 'none') break
+              }
+              if (vis === 'none') break
+            }
+          }
+          map.current.addLayer({
+            ...layer,
+            layout: { ...layer.layout, visibility: vis }
+          })
+        }
+
+        console.log(`[ChartView] Added ${layers.length} S-57 layers for ${region.regionId} (${availableLayers.length} GeoJSON sources)`)
+      }
+
+      console.log(`[ChartView] Loaded S-57 vector regions successfully`)
+    } catch (err) {
+      console.error('Error loading S-57 layers:', err)
+    }
+  }
 
   // Load BlueTopo tile sources
   const loadBlueTopoTiles = async () => {
@@ -917,8 +1020,14 @@ function ChartView() {
   // Layer configuration
   const layers = [
     {
+      id: 's57',
+      name: 'Vector Charts (S-57)',
+      description: `Depth shading, soundings, nav aids${s57RegionCount > 0 ? ` (${s57RegionCount} regions)` : ''}`,
+      visible: s57LayersVisible
+    },
+    {
       id: 'enc',
-      name: 'Nautical Charts (ENC)',
+      name: 'Raster Charts (NCDS)',
       description: `NOAA NCDS raster charts${encRegionCount > 0 ? ` (${encRegionCount} regions)` : ''}`,
       visible: encLayersVisible
     },
@@ -936,7 +1045,28 @@ function ChartView() {
       setTopoLayersVisible(v => !v)
     } else if (layerId === 'enc') {
       setEncLayersVisible(v => !v)
+    } else if (layerId === 's57') {
+      setS57LayersVisible(v => !v)
     }
+  }, [])
+
+  // Toggle individual S-57 sublayer visibility
+  const handleToggleSublayer = useCallback((sublayerId) => {
+    setS57SubLayerVisibility(prev => ({
+      ...prev,
+      [sublayerId]: prev[sublayerId] === false ? true : false
+    }))
+  }, [])
+
+  // Toggle all sublayers in a group
+  const handleToggleGroup = useCallback((groupId, visible) => {
+    const group = S57_SUBLAYER_GROUPS.find(g => g.id === groupId)
+    if (!group) return
+    setS57SubLayerVisibility(prev => {
+      const next = { ...prev }
+      group.sublayers.forEach(sl => { next[sl.id] = visible })
+      return next
+    })
   }, [])
 
   // Memoized button handlers to prevent unnecessary re-renders
@@ -956,7 +1086,7 @@ function ChartView() {
 
   // Update layer visibility when state changes
   useEffect(() => {
-    if (!map.current || !mapLoaded || !tilesLoaded) return
+    if (!map.current || !mapLoaded) return
 
     const opacity = topoLayersVisible ? 0.85 : 0
 
@@ -967,7 +1097,7 @@ function ChartView() {
         map.current.setPaintProperty(layer.id, 'raster-opacity', opacity)
       }
     })
-  }, [topoLayersVisible, mapLoaded, tilesLoaded])
+  }, [topoLayersVisible, mapLoaded])
 
   // Update ENC layer visibility when state changes
   useEffect(() => {
@@ -983,6 +1113,40 @@ function ChartView() {
       }
     })
   }, [encLayersVisible, mapLoaded])
+
+  // Update S-57 vector layer visibility when state changes (master + sublayer)
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return
+
+    const styleLayers = map.current.getStyle()?.layers || []
+    styleLayers.forEach(layer => {
+      if (!layer.id.startsWith(S57_LAYER_PREFIX)) return
+
+      // If master S-57 toggle is off, hide everything
+      if (!s57LayersVisible) {
+        map.current.setLayoutProperty(layer.id, 'visibility', 'none')
+        return
+      }
+
+      // Check sublayer visibility by matching layer id suffix against patterns
+      let vis = 'visible'
+      for (const group of S57_SUBLAYER_GROUPS) {
+        for (const sl of group.sublayers) {
+          if (s57SubLayerVisibility[sl.id] === false) {
+            for (const pat of sl.patterns) {
+              if (layer.id.endsWith(pat)) {
+                vis = 'none'
+                break
+              }
+            }
+          }
+          if (vis === 'none') break
+        }
+        if (vis === 'none') break
+      }
+      map.current.setLayoutProperty(layer.id, 'visibility', vis)
+    })
+  }, [s57LayersVisible, s57SubLayerVisibility, mapLoaded])
 
   // Clear browser cache and reload
   const clearCacheAndReload = async () => {
@@ -1102,11 +1266,42 @@ function ChartView() {
         </div>
       </div>
 
-      {/* Layers Button (bottom left) */}
-      <div className="absolute bottom-4 left-4 z-20">
+      {/* Bottom-left control stack: sublayer filter (conditional) + layers button */}
+      <div className="absolute bottom-4 left-4 z-20 flex flex-col space-y-2">
+        {/* S-57 Sublayer Filter Button - only shows when vector charts are visible */}
+        {s57LayersVisible && s57RegionCount > 0 && (
+          <div className="relative">
+            <button
+              onClick={() => { setS57SubLayerMenuOpen(v => !v); setLayersMenuOpen(false) }}
+              className={`bg-terminal-surface hover:bg-terminal-green/10 border rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all ${
+                s57SubLayerMenuOpen
+                  ? 'border-terminal-green bg-terminal-green/20'
+                  : 'border-terminal-border hover:border-terminal-green'
+              }`}
+              aria-label="Vector chart filter"
+              title="Filter vector chart layers"
+            >
+              <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
+              </svg>
+            </button>
+
+            {s57SubLayerMenuOpen && (
+              <S57SubLayerMenu
+                sublayerVisibility={s57SubLayerVisibility}
+                onToggleSublayer={handleToggleSublayer}
+                onToggleGroup={handleToggleGroup}
+                onClose={() => setS57SubLayerMenuOpen(false)}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Layers Button */}
         <div className="relative">
           <button
-            onClick={() => setLayersMenuOpen(!layersMenuOpen)}
+            onClick={() => { setLayersMenuOpen(v => !v); setS57SubLayerMenuOpen(false) }}
             className={`bg-terminal-surface hover:bg-terminal-green/10 border rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all ${
               layersMenuOpen
                 ? 'border-terminal-green bg-terminal-green/20'
@@ -1116,25 +1311,12 @@ function ChartView() {
             title="Map layers"
           >
             <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {/* Layers icon - stack of 3 layers */}
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 7 L12 3 L21 7 L12 11 L3 7 Z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 12 L12 16 L21 12"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 17 L12 21 L21 17"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M3 7 L12 3 L21 7 L12 11 L3 7 Z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M3 12 L12 16 L21 12" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M3 17 L12 21 L21 17" />
             </svg>
           </button>
 

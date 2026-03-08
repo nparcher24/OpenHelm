@@ -13,6 +13,7 @@ mbtiles:
     - "./tiles"
     - "./tiles/cusp"
     - "./tiles/enc"
+    - "./tiles/s57"
   sources:
     # GSHHS coastline with overzooming enabled
     gshhs_base:

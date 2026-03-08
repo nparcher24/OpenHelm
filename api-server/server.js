@@ -21,6 +21,7 @@ import vesselRoutes from './routes/vessel.js'
 import { setVesselUpdateCallback, startNmea2000Service } from './services/nmea2000Service.js'
 import waypointRoutes from './routes/waypoints.js'
 import ncdsRoutes from './routes/ncds.js'
+import s57Routes from './routes/s57.js'
 
 const app = express()
 const PORT = 3002
@@ -29,6 +30,12 @@ const PORT = 3002
 app.use(cors())
 app.use(express.json())
 app.use(express.text())
+
+// Static file serving for PBF font glyphs (MapLibre text rendering)
+app.use('/fonts', express.static(path.join(process.cwd(), 'tiles', 'fonts'), {
+  maxAge: '30d',
+  etag: true
+}))
 
 // Static file serving for tiles (BlueTopo, etc.)
 // Serves /tiles/bluetopo/{tile_id}/{z}/{x}/{y}.png
@@ -68,6 +75,7 @@ app.use('/api/gps', gpsRoutes)
 app.use('/api/vessel', vesselRoutes)
 app.use('/api/waypoints', waypointRoutes)
 app.use('/api/ncds', ncdsRoutes)
+app.use('/api/s57', s57Routes)
 
 // Exit kiosk mode - kills Chromium, restores desktop, keeps backend running
 app.post('/api/system/exit-kiosk', (req, res) => {
