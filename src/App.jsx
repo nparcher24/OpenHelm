@@ -1,10 +1,14 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import MainContent from './components/MainContent'
 import BlueTopoTilesView from './components/BlueTopoTilesView'
 import BlueTopoDownloader from './components/BlueTopoDownloader'
 
+const MAIN_TABS = new Set(['chart', 'gps', 'vessel', 'settings'])
+
 function App() {
+  const location = useLocation()
+
   // Prevent context menu globally
   const handleContextMenu = (e) => {
     e.preventDefault()
@@ -12,45 +16,35 @@ function App() {
     return false
   }
 
+  // Check if current route is a special (non-tabbed) page
+  const path = location.pathname
+  const isSpecialRoute = path === '/bluetopo-tiles' || path === '/bluetopo-downloader'
+
+  // Derive active tab from URL
+  const activeTab = path.replace('/', '') || 'chart'
+  const resolvedTab = MAIN_TABS.has(activeTab) ? activeTab : 'chart'
+
   return (
     <div
       className="h-screen w-screen bg-terminal-bg text-terminal-green font-mono flex flex-col"
       onContextMenu={handleContextMenu}
     >
-      <Routes>
-        {/* Special routes without navbar */}
-        <Route path="/bluetopo-tiles" element={<BlueTopoTilesView />} />
-        <Route path="/bluetopo-downloader" element={<BlueTopoDownloader />} />
-
-        {/* Main app routes with navbar */}
-        <Route path="/chart" element={
-          <>
-            <Navbar />
-            <MainContent activeTab="chart" />
-          </>
-        } />
-        <Route path="/gps" element={
-          <>
-            <Navbar />
-            <MainContent activeTab="gps" />
-          </>
-        } />
-        <Route path="/vessel" element={
-          <>
-            <Navbar />
-            <MainContent activeTab="vessel" />
-          </>
-        } />
-        <Route path="/settings" element={
-          <>
-            <Navbar />
-            <MainContent activeTab="settings" />
-          </>
-        } />
-
-        {/* Default redirect to chart */}
-        <Route path="/" element={<Navigate to="/chart" replace />} />
-      </Routes>
+      {isSpecialRoute ? (
+        <Routes>
+          <Route path="/bluetopo-tiles" element={<BlueTopoTilesView />} />
+          <Route path="/bluetopo-downloader" element={<BlueTopoDownloader />} />
+        </Routes>
+      ) : (
+        <>
+          <Navbar />
+          <MainContent activeTab={resolvedTab} />
+          {/* Handle redirect for bare / path */}
+          <Routes>
+            <Route path="/" element={<Navigate to="/chart" replace />} />
+            <Route path="*" element={null} />
+          </Routes>
+        </>
+      )}
     </div>
   )
 }
