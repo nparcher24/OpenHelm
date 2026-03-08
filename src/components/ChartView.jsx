@@ -74,6 +74,7 @@ function ChartView() {
     return saved !== null ? JSON.parse(saved) : true
   })
   const [s57RegionCount, setS57RegionCount] = useState(0)
+  const [s57LayersLoaded, setS57LayersLoaded] = useState(0)
   const [s57SubLayerMenuOpen, setS57SubLayerMenuOpen] = useState(false)
   const [s57SubLayerVisibility, setS57SubLayerVisibility] = useState(() => {
     try {
@@ -598,33 +599,16 @@ function ChartView() {
           }
         }
 
-        // Add all layers (respecting both master and sublayer visibility)
+        // Add all layers (visibility effect will apply correct state after load)
         for (const layer of layers) {
-          let vis = s57LayersVisible ? 'visible' : 'none'
-          if (vis === 'visible') {
-            // Check sublayer visibility
-            for (const group of S57_SUBLAYER_GROUPS) {
-              for (const sl of group.sublayers) {
-                if (s57SubLayerVisibility[sl.id] === false) {
-                  for (const pat of sl.patterns) {
-                    if (layer.id.endsWith(pat)) { vis = 'none'; break }
-                  }
-                }
-                if (vis === 'none') break
-              }
-              if (vis === 'none') break
-            }
-          }
-          map.current.addLayer({
-            ...layer,
-            layout: { ...layer.layout, visibility: vis }
-          })
+          map.current.addLayer(layer)
         }
 
         console.log(`[ChartView] Added ${layers.length} S-57 layers for ${region.regionId} (${availableLayers.length} GeoJSON sources)`)
       }
 
       console.log(`[ChartView] Loaded S-57 vector regions successfully`)
+      setS57LayersLoaded(n => n + 1)
     } catch (err) {
       console.error('Error loading S-57 layers:', err)
     }
@@ -675,13 +659,13 @@ function ChartView() {
           scheme: 'tms' // TMS has inverted Y coordinates
         })
 
-        // Add raster layer
+        // Add raster layer (respect saved visibility)
         map.current.addLayer({
           id: layerId,
           type: 'raster',
           source: sourceId,
           paint: {
-            'raster-opacity': 0.85,
+            'raster-opacity': topoLayersVisible ? 0.85 : 0,
             'raster-fade-duration': 0
           }
         })
@@ -1146,7 +1130,7 @@ function ChartView() {
       }
       map.current.setLayoutProperty(layer.id, 'visibility', vis)
     })
-  }, [s57LayersVisible, s57SubLayerVisibility, mapLoaded])
+  }, [s57LayersVisible, s57SubLayerVisibility, s57LayersLoaded, mapLoaded])
 
   // Clear browser cache and reload
   const clearCacheAndReload = async () => {
