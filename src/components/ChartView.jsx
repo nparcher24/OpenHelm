@@ -14,6 +14,7 @@ import WaypointEditModal from './WaypointEditModal'
 import WaypointDropdown from './WaypointDropdown'
 import LayersMenu from './LayersMenu'
 import S57SubLayerMenu, { S57_SUBLAYER_GROUPS } from './S57SubLayerMenu'
+import S57FeatureCard from './S57FeatureCard'
 import { createMarkerSVG } from '../utils/waypointIcons'
 import { MapPinIcon } from '@heroicons/react/24/outline'
 
@@ -58,6 +59,8 @@ function ChartView() {
   const [waypointEditModalOpen, setWaypointEditModalOpen] = useState(false)
   const [waypointEditPosition, setWaypointEditPosition] = useState(null)
   const waypointMarkersRef = useRef(new Map())
+  const [selectedS57Feature, setSelectedS57Feature] = useState(null)
+  const s57LayerIdsRef = useRef([])
 
   // Layer visibility state - load from localStorage or default to true
   const [topoLayersVisible, setTopoLayersVisible] = useState(() => {
@@ -607,6 +610,12 @@ function ChartView() {
         console.log(`[ChartView] Added ${layers.length} S-57 layers for ${region.regionId} (${availableLayers.length} GeoJSON sources)`)
       }
 
+      // Collect all S-57 layer IDs for queryRenderedFeatures
+      const allS57Layers = (map.current.getStyle()?.layers || [])
+        .filter(l => l.id.startsWith(S57_LAYER_PREFIX))
+        .map(l => l.id)
+      s57LayerIdsRef.current = allS57Layers
+
       console.log(`[ChartView] Loaded S-57 vector regions successfully`)
       setS57LayersLoaded(n => n + 1)
     } catch (err) {
@@ -853,11 +862,49 @@ function ChartView() {
         const adjustedY = Math.max(currentTouchState.currentY - 100, 50)
         const point = map.current.unproject([currentTouchState.currentX, adjustedY])
 
+        // Query S-57 features at crosshairs with touch-friendly bounding box
+        let nearbyFeatures = []
+        if (s57LayerIdsRef.current.length > 0 && s57LayersVisible) {
+          const bbox = [
+            [currentTouchState.currentX - 20, adjustedY - 20],
+            [currentTouchState.currentX + 20, adjustedY + 20]
+          ]
+          // Only query visible layers
+          const visibleLayers = s57LayerIdsRef.current.filter(id => {
+            try {
+              return map.current.getLayoutProperty(id, 'visibility') !== 'none'
+            } catch { return false }
+          })
+          if (visibleLayers.length > 0) {
+            const raw = map.current.queryRenderedFeatures(bbox, { layers: visibleLayers })
+            // Deduplicate by FIDN (feature ID number) and extract object class from layer id
+            const seen = new Set()
+            nearbyFeatures = raw.reduce((acc, f) => {
+              const fidn = f.properties?.FIDN
+              const key = fidn ? `${fidn}` : `${f.layer.id}-${f.id}`
+              if (seen.has(key)) return acc
+              seen.add(key)
+              // Extract object class from layer id: s57-{regionId}-{layername}-{suffix}
+              const layerId = f.layer.id
+              const withoutPrefix = layerId.replace(S57_LAYER_PREFIX, '')
+              // Remove regionId prefix (everything before first dash after prefix removal)
+              const afterRegion = withoutPrefix.replace(/^[^-]+-/, '')
+              // Object class is the part before the last dash (fill/outline suffix)
+              const objectClass = afterRegion.replace(/-(fill|outline)$/, '').toUpperCase()
+              acc.push({ objectClass, properties: f.properties, geometry: f.geometry })
+              return acc
+            }, [])
+            // Filter out DEPARE and DEPCNT as they are area features that would always match
+            nearbyFeatures = nearbyFeatures.filter(f => f.objectClass !== 'DEPARE' && f.objectClass !== 'DEPCNT')
+          }
+        }
+
         setWaypointMenuPosition({
           screenX: currentTouchState.currentX,
           screenY: adjustedY,
           lat: point.lat,
-          lng: point.lng
+          lng: point.lng,
+          nearbyFeatures
         })
         setWaypointMenuOpen(true)
 
@@ -978,6 +1025,12 @@ function ChartView() {
     setWaypointMenuOpen(false)
     setWaypointMenuPosition(null)
     performDepthMeasurement(screenX, screenY + 100) // Re-add the offset since performDepthMeasurement subtracts it
+  }
+
+  const handleViewFeature = (feature) => {
+    setWaypointMenuOpen(false)
+    setWaypointMenuPosition(null)
+    setSelectedS57Feature(feature)
   }
 
   const handleSaveWaypoint = async (data) => {
@@ -1197,9 +1250,19 @@ function ChartView() {
       {waypointMenuOpen && waypointMenuPosition && (
         <WaypointMenu
           position={waypointMenuPosition}
+          nearbyFeatures={waypointMenuPosition.nearbyFeatures}
           onAddWaypoint={handleAddWaypointFromMenu}
           onMeasureDepth={handleMeasureDepthFromMenu}
+          onViewFeature={handleViewFeature}
           onClose={handleWaypointMenuClose}
+        />
+      )}
+
+      {/* S-57 Feature Detail Card */}
+      {selectedS57Feature && (
+        <S57FeatureCard
+          feature={selectedS57Feature}
+          onClose={() => setSelectedS57Feature(null)}
         />
       )}
 

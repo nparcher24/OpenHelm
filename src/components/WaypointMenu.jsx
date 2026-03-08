@@ -6,21 +6,34 @@ import React from 'react'
  * Offers options: Add Waypoint, Measure Depth
  */
 
-import { MapPinIcon } from '@heroicons/react/24/outline'
+import { MapPinIcon, InformationCircleIcon } from '@heroicons/react/24/outline'
+import { S57_SUBLAYER_GROUPS } from './S57SubLayerMenu'
+
+// Build lookup from S-57 object class to human-readable name
+const S57_NAMES = {}
+for (const group of S57_SUBLAYER_GROUPS) {
+  for (const sl of group.sublayers) {
+    S57_NAMES[sl.id] = sl.name
+  }
+}
 
 const WaypointMenu = React.memo(function WaypointMenu({
   position, // { screenX, screenY, lat, lng }
+  nearbyFeatures, // array of { objectClass, properties, geometry, ... }
   onAddWaypoint,
   onMeasureDepth,
+  onViewFeature,
   onClose
 }) {
   if (!position) return null
 
   const { screenX, screenY, lat, lng } = position
+  const features = nearbyFeatures || []
 
   // Smart positioning logic
-  const menuWidth = 200
-  const menuHeight = 120
+  const menuWidth = 220
+  // Base height + extra per feature item
+  const menuHeight = 120 + (features.length > 0 ? 28 + features.length * 44 : 0)
   const padding = 16
 
   const windowWidth = window.innerWidth
@@ -101,6 +114,32 @@ const WaypointMenu = React.memo(function WaypointMenu({
             <span className="text-terminal-cyan font-medium">Measure Depth</span>
           </button>
         </div>
+
+        {/* Nearby S-57 features */}
+        {features.length > 0 && (
+          <div className="border-t border-terminal-border">
+            <div className="px-3 py-1.5 bg-terminal-bg">
+              <span className="text-xs font-semibold text-terminal-amber uppercase tracking-wide">Nearby Features</span>
+            </div>
+            {features.map((feat, i) => {
+              const name = feat.properties?.OBJNAM
+              const typeName = S57_NAMES[feat.objectClass?.toUpperCase()] || feat.objectClass
+              return (
+                <button
+                  key={`${feat.objectClass}-${feat.properties?.FIDN || i}`}
+                  onClick={() => onViewFeature && onViewFeature(feat)}
+                  className="w-full px-4 py-2.5 flex items-center space-x-3 hover:bg-terminal-amber/10 active:bg-terminal-amber/20 transition-colors touch-manipulation"
+                >
+                  <InformationCircleIcon className="w-5 h-5 text-terminal-amber flex-shrink-0" />
+                  <div className="flex-1 min-w-0 text-left">
+                    <div className="text-sm text-terminal-amber font-medium truncate">{typeName}</div>
+                    {name && <div className="text-xs text-terminal-green-dim truncate">{name}</div>}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
     </>
   )
