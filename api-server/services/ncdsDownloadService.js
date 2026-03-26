@@ -653,13 +653,30 @@ export async function restartMartin() {
     // Wait a moment for process to die
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Start martin in background from project directory
-    // Use spawn with detached to properly background the process
+    // Find martin binary dynamically (supports /usr/local/bin, /opt/homebrew/bin, etc.)
+    let martinBin = 'martin';
     try {
-      const martinProcess = spawn('/usr/local/bin/martin', ['--config', martinConfig], {
+      const { stdout: whichOut } = await execAsync('which martin');
+      martinBin = whichOut.trim();
+    } catch {
+      // Fall back to common paths
+      for (const p of ['/opt/homebrew/bin/martin', '/usr/local/bin/martin']) {
+        try { await execAsync(`test -x "${p}"`); martinBin = p; break; } catch {}
+      }
+    }
+    console.log(`[NCDS] Using martin binary: ${martinBin}`);
+
+    // Start martin in background from project directory
+    try {
+      const martinProcess = spawn(martinBin, ['--config', martinConfig], {
         cwd: PROJECT_ROOT,
         detached: true,
         stdio: ['ignore', 'pipe', 'pipe']
+      });
+
+      // Handle spawn errors to prevent crashing the API server
+      martinProcess.on('error', (err) => {
+        console.error('[NCDS] Martin spawn error:', err.message);
       });
 
       // Write output to log file
@@ -688,9 +705,9 @@ export async function restartMartin() {
     } catch (spawnError) {
       console.error('[NCDS] Failed to spawn Martin:', spawnError.message);
 
-      // Try alternative: use shell command with full path
+      // Try alternative: use shell command
       try {
-        await execAsync(`cd "${PROJECT_ROOT}" && /usr/local/bin/martin --config "${martinConfig}" >> "${martinLog}" 2>&1 &`);
+        await execAsync(`cd "${PROJECT_ROOT}" && "${martinBin}" --config "${martinConfig}" >> "${martinLog}" 2>&1 &`);
         console.log('[NCDS] Martin restarted via shell command');
         return { success: true, method: 'shell' };
       } catch (shellError) {
