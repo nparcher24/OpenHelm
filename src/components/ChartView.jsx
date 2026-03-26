@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { getDownloadedTileMetadata, getTileUrl, getDepthAtLocation } from '../services/blueTopoTileService'
+import { getSatelliteRegions, getSatelliteTileUrl } from '../services/satelliteTileService'
 import { getDownloadedRegions as getDownloadedENCRegions } from '../services/encDownloadService'
 import { getDownloadedRegions as getDownloadedS57Regions } from '../services/s57DownloadService'
 import { createNauticalStyle, S57_LAYER_PREFIX } from '../styles/nauticalChartStyle'
@@ -85,9 +86,17 @@ function ChartView() {
       return saved ? JSON.parse(saved) : {}
     } catch { return {} }
   })
+  const [satelliteLayersVisible, setSatelliteLayersVisible] = useState(() => {
+    const saved = localStorage.getItem('chartview_satellite_visible')
+    return saved !== null ? JSON.parse(saved) : false
+  })
   const [layersMenuOpen, setLayersMenuOpen] = useState(false)
 
   // Save layer visibility to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('chartview_satellite_visible', JSON.stringify(satelliteLayersVisible))
+  }, [satelliteLayersVisible])
+
   useEffect(() => {
     localStorage.setItem('chartview_bluetopo_visible', JSON.stringify(topoLayersVisible))
   }, [topoLayersVisible])
@@ -539,7 +548,10 @@ function ChartView() {
         }
       })
 
-      // Load S-57 vector layers first (bottom)
+      // Load satellite imagery first (base layer, below everything)
+      await loadSatelliteLayer()
+
+      // Load S-57 vector layers (above satellite)
       await loadS57Layers()
 
       // Load ENC raster layers (middle, above S-57)
@@ -556,6 +568,45 @@ function ChartView() {
       }
     }
   }, [])
+
+  // Load satellite imagery as base layer
+  const loadSatelliteLayer = async () => {
+    try {
+      const result = await getSatelliteRegions()
+      if (!map.current) return
+      if (!result.success || !result.regions || result.regions.length === 0) {
+        console.log('[ChartView] No satellite regions downloaded')
+        return
+      }
+
+      const sourceId = 'satellite-source'
+      const layerId = 'satellite-layer'
+
+      if (map.current.getSource(sourceId)) return
+
+      map.current.addSource(sourceId, {
+        type: 'raster',
+        tiles: [getSatelliteTileUrl()],
+        tileSize: 256,
+        minzoom: 0,
+        maxzoom: 16
+      })
+
+      map.current.addLayer({
+        id: layerId,
+        type: 'raster',
+        source: sourceId,
+        paint: {
+          'raster-opacity': satelliteLayersVisible ? 1.0 : 0,
+          'raster-fade-duration': 0
+        }
+      })
+
+      console.log(`[ChartView] Satellite layer added (${result.regions.length} regions)`)
+    } catch (error) {
+      console.error('[ChartView] Failed to load satellite layer:', error)
+    }
+  }
 
   // Load S-57 vector chart layers (GeoJSON direct)
   const loadS57Layers = async () => {
@@ -1073,6 +1124,12 @@ function ChartView() {
       name: 'BlueTopo Bathymetry',
       description: 'NOAA bathymetric tiles (2m-16m resolution)',
       visible: topoLayersVisible
+    },
+    {
+      id: 'satellite',
+      name: 'Satellite Imagery',
+      description: 'USGS aerial imagery (1-2m)',
+      visible: satelliteLayersVisible
     }
   ]
 
@@ -1084,6 +1141,8 @@ function ChartView() {
       setEncLayersVisible(v => !v)
     } else if (layerId === 's57') {
       setS57LayersVisible(v => !v)
+    } else if (layerId === 'satellite') {
+      setSatelliteLayersVisible(v => !v)
     }
   }, [])
 
@@ -1184,6 +1243,14 @@ function ChartView() {
       map.current.setLayoutProperty(layer.id, 'visibility', vis)
     })
   }, [s57LayersVisible, s57SubLayerVisibility, s57LayersLoaded, mapLoaded])
+
+  // Update satellite layer visibility when state changes
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return
+    if (map.current.getLayer('satellite-layer')) {
+      map.current.setPaintProperty('satellite-layer', 'raster-opacity', satelliteLayersVisible ? 1.0 : 0)
+    }
+  }, [satelliteLayersVisible, mapLoaded])
 
   // Clear browser cache and reload
   const clearCacheAndReload = async () => {

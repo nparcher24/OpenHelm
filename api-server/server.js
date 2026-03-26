@@ -22,6 +22,7 @@ import { setVesselUpdateCallback, startNmea2000Service } from './services/nmea20
 import waypointRoutes from './routes/waypoints.js'
 import ncdsRoutes from './routes/ncds.js'
 import s57Routes from './routes/s57.js'
+import satelliteRoutes from './routes/satellite.js'
 
 const app = express()
 const PORT = 3002
@@ -41,6 +42,14 @@ app.use('/fonts', express.static(path.join(process.cwd(), 'tiles', 'fonts'), {
 // Serves /tiles/bluetopo/{tile_id}/{z}/{x}/{y}.png
 app.use('/tiles', express.static(path.join(process.cwd(), 'tiles'), {
   maxAge: '1d', // Cache tiles for 1 day
+  etag: true,
+  lastModified: true
+}))
+
+// Satellite tiles stored separately to avoid interfering with Martin tileserver
+// Serves /satellite-tiles/{z}/{x}/{y}.png
+app.use('/satellite-tiles', express.static(path.join(process.cwd(), 'satellite-tiles'), {
+  maxAge: '1d',
   etag: true,
   lastModified: true
 }))
@@ -76,6 +85,7 @@ app.use('/api/vessel', vesselRoutes)
 app.use('/api/waypoints', waypointRoutes)
 app.use('/api/ncds', ncdsRoutes)
 app.use('/api/s57', s57Routes)
+app.use('/api/satellite', satelliteRoutes)
 
 // Exit kiosk mode - kills Chromium, restores desktop, keeps backend running
 app.post('/api/system/exit-kiosk', (req, res) => {

@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import MainContent from './components/MainContent'
 import BlueTopoTilesView from './components/BlueTopoTilesView'
+import SatelliteRegionSelector from './components/SatelliteRegionSelector'
 
 const MAIN_TABS = new Set(['chart', 'gps', 'vessel', 'settings'])
 
@@ -17,7 +18,7 @@ function App() {
 
   // Check if current route is a special (non-tabbed) page
   const path = location.pathname
-  const isSpecialRoute = path === '/bluetopo-tiles'
+  const isSpecialRoute = path === '/bluetopo-tiles' || path === '/satellite-region'
 
   // Derive active tab from URL
   const activeTab = path.replace('/', '') || 'chart'
@@ -31,6 +32,7 @@ function App() {
       {isSpecialRoute ? (
         <Routes>
           <Route path="/bluetopo-tiles" element={<BlueTopoTilesView />} />
+          <Route path="/satellite-region" element={<SatelliteRegionSelector />} />
         </Routes>
       ) : (
         <>

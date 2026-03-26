@@ -14,10 +14,10 @@ mbtiles:
     - "./tiles/cusp"
     - "./tiles/enc"
     - "./tiles/s57"
-  sources:
-    # GSHHS coastline with overzooming enabled
-    gshhs_base:
-      path: "./tiles/cusp/gshhs_base.mbtiles"
+  # sources:
+    # GSHHS coastline - removed, file no longer exists
+    # gshhs_base:
+    #   path: "./tiles/cusp/gshhs_base.mbtiles"
 
 # PMTiles for modern vector tiles (will auto-discover .pmtiles files)
 pmtiles:
