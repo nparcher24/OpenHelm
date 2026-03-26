@@ -18,6 +18,10 @@ function GpsView() {
   const [dataAge, setDataAge] = useState(null)
   const [pressureHistory, setPressureHistory] = useState([])
   const [showDebug, setShowDebug] = useState(false)
+  const [showCalibration, setShowCalibration] = useState(false)
+  const [offsetInput, setOffsetInput] = useState('')
+  const [calibrationStatus, setCalibrationStatus] = useState(null) // 'saving' | 'saved' | 'error'
+  const [autoCalPreview, setAutoCalPreview] = useState(null) // number or null
   const [updateHz, setUpdateHz] = useState(null)
   const wsRef = useRef(null)
   const ageIntervalRef = useRef(null)
@@ -186,6 +190,29 @@ function GpsView() {
     while (drift < -180) drift += 360
     return drift
   }
+
+  // Save heading offset to backend
+  const saveOffset = useCallback(async (offset) => {
+    setCalibrationStatus('saving')
+    try {
+      const res = await fetch(`${API_BASE}/api/gps/heading-offset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ offset })
+      })
+      if (!res.ok) throw new Error('Failed to save')
+      setCalibrationStatus('saved')
+      setAutoCalPreview(null)
+      setTimeout(() => setCalibrationStatus(null), 1500)
+    } catch {
+      setCalibrationStatus('error')
+      setTimeout(() => setCalibrationStatus(null), 2000)
+    }
+  }, [])
+
+  // Speed threshold: 5 mph = 2.2352 m/s
+  const speedAboveThreshold = gpsData?.groundSpeed != null && gpsData.groundSpeed > 2.2352
+  const canAutoCal = speedAboveThreshold && gpsData?.cog != null && gpsData?.heading != null
 
   // Format data age display
   const formatAge = (ageMs) => {
@@ -376,6 +403,115 @@ function GpsView() {
             <div className="text-lg font-mono text-terminal-green mt-1">
               {gpsData?.heading !== null ? `${gpsData.heading.toFixed(0)}° ${getCompassDirection(gpsData.heading)}` : '--'}
             </div>
+          </div>
+
+          {/* Heading Calibration (Collapsible) */}
+          <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border">
+            <button
+              onClick={() => setShowCalibration(!showCalibration)}
+              className="w-full flex items-center justify-between text-xs text-terminal-green-dim uppercase"
+            >
+              <span>Heading Cal {gpsData?.headingOffset ? `(${gpsData.headingOffset > 0 ? '+' : ''}${gpsData.headingOffset.toFixed(1)}°)` : ''}</span>
+              <span>{showCalibration ? '▼' : '▶'}</span>
+            </button>
+            {showCalibration && (
+              <div className="mt-2 space-y-2">
+                {/* Current offset */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-terminal-green-dim">Current Offset</span>
+                  <span className="text-sm font-mono text-terminal-green">
+                    {gpsData?.headingOffset != null
+                      ? `${gpsData.headingOffset > 0 ? '+' : ''}${gpsData.headingOffset.toFixed(1)}°`
+                      : '0.0°'}
+                  </span>
+                </div>
+
+                {/* Manual input */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={offsetInput}
+                    onChange={(e) => setOffsetInput(e.target.value)}
+                    placeholder="0.0"
+                    className="flex-1 bg-black border border-terminal-border rounded px-2 py-2 text-sm font-mono text-terminal-green outline-none focus:border-terminal-green min-h-[44px]"
+                  />
+                  <button
+                    onClick={() => {
+                      const val = parseFloat(offsetInput)
+                      if (isFinite(val)) saveOffset(val)
+                    }}
+                    disabled={!isFinite(parseFloat(offsetInput))}
+                    className="px-3 min-h-[44px] bg-terminal-surface border border-terminal-green rounded text-xs text-terminal-green uppercase disabled:opacity-30 disabled:border-terminal-border active:bg-terminal-green active:text-black"
+                  >
+                    Set
+                  </button>
+                  <button
+                    onClick={() => { setOffsetInput('0'); saveOffset(0) }}
+                    className="px-2 min-h-[44px] bg-terminal-surface border border-terminal-border rounded text-xs text-terminal-green-dim active:bg-terminal-green active:text-black"
+                  >
+                    Reset
+                  </button>
+                </div>
+
+                {/* Auto-calibrate */}
+                <div className="space-y-1">
+                  {autoCalPreview != null ? (
+                    <div className="space-y-2">
+                      <div className="text-xs text-terminal-green font-mono text-center">
+                        Apply {autoCalPreview > 0 ? '+' : ''}{autoCalPreview.toFixed(1)}° correction?
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => saveOffset(autoCalPreview)}
+                          className="flex-1 min-h-[44px] bg-terminal-green text-black rounded text-xs font-bold uppercase active:opacity-80"
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          onClick={() => setAutoCalPreview(null)}
+                          className="flex-1 min-h-[44px] bg-terminal-surface border border-terminal-border rounded text-xs text-terminal-green-dim active:bg-terminal-green active:text-black"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        if (!canAutoCal) return
+                        const currentOffset = gpsData.headingOffset || 0
+                        let correction = gpsData.cog - gpsData.heading + currentOffset
+                        // Normalize to -180..+180
+                        while (correction > 180) correction -= 360
+                        while (correction < -180) correction += 360
+                        setAutoCalPreview(parseFloat(correction.toFixed(1)))
+                      }}
+                      disabled={!canAutoCal}
+                      className="w-full min-h-[44px] bg-terminal-surface border border-terminal-green rounded text-xs text-terminal-green uppercase disabled:opacity-30 disabled:border-terminal-border active:bg-terminal-green active:text-black"
+                    >
+                      Auto Calibrate
+                    </button>
+                  )}
+                  {!speedAboveThreshold && (
+                    <div className="text-xs text-terminal-green-dim text-center">
+                      Need &gt;5 mph for auto-cal
+                    </div>
+                  )}
+                </div>
+
+                {/* Status */}
+                {calibrationStatus === 'saved' && (
+                  <div className="text-xs text-terminal-green text-center font-bold">Saved</div>
+                )}
+                {calibrationStatus === 'saving' && (
+                  <div className="text-xs text-terminal-green-dim text-center animate-pulse">Saving...</div>
+                )}
+                {calibrationStatus === 'error' && (
+                  <div className="text-xs text-terminal-red text-center">Save failed</div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* GPS Quality */}

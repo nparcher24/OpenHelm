@@ -35,6 +35,9 @@ tiles/*_raw/
 # NOAA GeoPackage tile scheme files
 BlueTopo_Tile_Scheme_*.gpkg
 
+# Device-specific calibration
+heading-calibration.json
+
 # Build outputs
 dist/
 build/

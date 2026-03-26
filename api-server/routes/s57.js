@@ -14,8 +14,10 @@ import {
   cancelJob,
   checkForUpdates,
   deleteRegion,
-  deleteRawData
+  deleteRawData,
+  getMartinStatus
 } from '../services/s57DownloadService.js';
+import { restartMartin } from '../services/ncdsDownloadService.js';
 
 const router = express.Router();
 
@@ -107,6 +109,22 @@ router.delete('/regions/:id/raw', async (req, res) => {
     res.json(await deleteRawData(req.params.id));
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to delete raw data' });
+  }
+});
+
+router.get('/martin-status', async (req, res) => {
+  try {
+    res.json(await getMartinStatus());
+  } catch (error) {
+    res.status(500).json({ running: false, status: 'error', error: error.message });
+  }
+});
+
+router.post('/restart-martin', async (req, res) => {
+  try {
+    res.json(await restartMartin());
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

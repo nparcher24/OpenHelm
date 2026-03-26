@@ -6,10 +6,54 @@
 
 import { SerialPort } from 'serialport'
 import fs from 'fs'
+import path from 'path'
 import { promisify } from 'util'
 import { exec } from 'child_process'
 
 const execAsync = promisify(exec)
+
+// Heading calibration offset (persisted to file)
+const CALIBRATION_FILE = path.join(process.cwd(), 'heading-calibration.json')
+let headingOffset = 0
+
+function loadHeadingOffset() {
+  try {
+    if (fs.existsSync(CALIBRATION_FILE)) {
+      const data = JSON.parse(fs.readFileSync(CALIBRATION_FILE, 'utf8'))
+      if (typeof data.headingOffset === 'number' && isFinite(data.headingOffset)) {
+        headingOffset = data.headingOffset
+        console.log(`[GPS] Loaded heading offset: ${headingOffset}°`)
+      }
+    }
+  } catch (err) {
+    console.error('[GPS] Failed to load heading calibration:', err.message)
+  }
+}
+
+function saveHeadingOffset() {
+  try {
+    fs.writeFileSync(CALIBRATION_FILE, JSON.stringify({ headingOffset }, null, 2))
+  } catch (err) {
+    console.error('[GPS] Failed to save heading calibration:', err.message)
+  }
+}
+
+// Load calibration on module init
+loadHeadingOffset()
+
+export function getHeadingOffset() {
+  return headingOffset
+}
+
+export function setHeadingOffset(offset) {
+  if (typeof offset !== 'number' || !isFinite(offset)) {
+    throw new Error('Offset must be a finite number')
+  }
+  headingOffset = offset
+  gpsData.headingOffset = offset
+  saveHeadingOffset()
+  return offset
+}
 
 // GPS data cache
 let gpsData = {
@@ -46,7 +90,8 @@ let gpsData = {
   waveHeight: null,    // Significant wave height (meters)
   wavePeriod: null,    // Estimated dominant wave period (seconds)
   seaState: null,      // Douglas Sea Scale (0-9)
-  seaStateDesc: null   // Text descriptor
+  seaStateDesc: null,  // Text descriptor
+  headingOffset: headingOffset  // Calibration offset (degrees)
 }
 
 // Heading smoothing state (EMA with circular handling)
@@ -375,7 +420,12 @@ function parseWitMotionMessage(msg) {
       let rawHeading = (-yaw / 32768.0) * 180.0
       if (rawHeading < 0) rawHeading += 360
       gpsData.headingRaw = rawHeading
-      gpsData.heading = smoothHeading(rawHeading)
+      let smoothed = smoothHeading(rawHeading)
+      // Apply calibration offset
+      let calibrated = smoothed + headingOffset
+      if (calibrated < 0) calibrated += 360
+      if (calibrated >= 360) calibrated -= 360
+      gpsData.heading = calibrated
       break
 
     case 'T': // 0x54 - Magnetometer

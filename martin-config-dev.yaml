@@ -1,0 +1,15 @@
+# Martin dev config (Mac) - skips Pi-only tile sources
+listen_addresses: "0.0.0.0:3001"
+worker_processes: 4
+
+mbtiles:
+  paths:
+    - "./tiles"
+    - "./tiles/enc"
+    - "./tiles/s57"
+
+pmtiles:
+  paths:
+    - "./tiles"
+
+cache_size_mb: 128

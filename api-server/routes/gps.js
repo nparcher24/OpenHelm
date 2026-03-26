@@ -3,7 +3,7 @@
  */
 
 import { Router } from 'express'
-import { startGpsService, stopGpsService, getGpsData, isGpsRunning } from '../services/gpsService.js'
+import { startGpsService, stopGpsService, getGpsData, isGpsRunning, getHeadingOffset, setHeadingOffset } from '../services/gpsService.js'
 
 const router = Router()
 
@@ -72,6 +72,32 @@ router.get('/status', (req, res) => {
     isRunning: isGpsRunning(),
     data: getGpsData()
   })
+})
+
+/**
+ * GET /api/gps/heading-offset - Get current heading calibration offset
+ */
+router.get('/heading-offset', (req, res) => {
+  res.json({ offset: getHeadingOffset() })
+})
+
+/**
+ * POST /api/gps/heading-offset - Set heading calibration offset
+ */
+router.post('/heading-offset', (req, res) => {
+  try {
+    const { offset } = req.body
+    if (typeof offset !== 'number' || !isFinite(offset)) {
+      return res.status(400).json({ error: 'offset must be a finite number' })
+    }
+    const saved = setHeadingOffset(offset)
+    res.json({ success: true, offset: saved })
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to set heading offset',
+      message: error.message
+    })
+  }
 })
 
 export default router
