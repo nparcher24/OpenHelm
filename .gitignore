@@ -22,6 +22,8 @@ api-server/*.db-journal
 # Tile data
 tiles/bluetopo/
 tiles/cusp/
+tiles/s57/*/
+tiles/enc/*/
 tiles/**/*.mbtiles
 tiles/**/*.mbtiles-journal
 tiles/**/*.pmtiles

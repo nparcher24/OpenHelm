@@ -3,6 +3,8 @@ import { XMLParser } from 'fast-xml-parser';
 import fs from 'fs/promises';
 import fsSync from 'fs';
 import path from 'path';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
 import { fileURLToPath } from 'url';
 
 const router = express.Router();
@@ -213,11 +215,8 @@ router.get('/tile-scheme/tiles', async (req, res) => {
                     console.error('[BlueTopo] GeoPackage has content-length 0, skipping download');
                   } else {
                     const fileStream = fsSync.createWriteStream(localPath);
-                    await new Promise((resolve, reject) => {
-                      dlResponse.body.pipe(fileStream);
-                      dlResponse.body.on('error', reject);
-                      fileStream.on('finish', resolve);
-                    });
+                    const nodeStream = Readable.fromWeb(dlResponse.body);
+                    await pipeline(nodeStream, fileStream);
                     const dlStats = await fs.stat(localPath);
                     if (dlStats.size === 0) {
                       await fs.unlink(localPath);
@@ -255,11 +254,15 @@ router.get('/tile-scheme/tiles', async (req, res) => {
     }
 
     // Query GeoPackage via ogr2ogr to produce GeoJSON
+    // Write to temp file instead of /dev/stdout to avoid pipe buffer deadlock
     const layerName = latestGpkg.filename.replace('.gpkg', '');
-    const cmd = `ogr2ogr -f GeoJSON /dev/stdout "${latestGpkg.path}" "${layerName}" -select "tile,GeoTIFF_Link,Resolution,UTM,Delivered_Date" 2>/dev/null`;
-    const { stdout } = await execAsync(cmd, { maxBuffer: 20 * 1024 * 1024 });
+    const tmpFile = `/tmp/bluetopo_tiles_${Date.now()}.json`;
+    const cmd = `ogr2ogr -f GeoJSON "${tmpFile}" "${latestGpkg.path}" "${layerName}" -select "tile,GeoTIFF_Link,Resolution,UTM,Delivered_Date" 2>/dev/null`;
+    await execAsync(cmd);
+    const geojsonStr = await fs.readFile(tmpFile, 'utf8');
+    await fs.unlink(tmpFile).catch(() => {});
 
-    const geojson = JSON.parse(stdout);
+    const geojson = JSON.parse(geojsonStr);
 
     // Transform GeoJSON features into flat tile objects matching CSV schema
     const tiles = geojson.features

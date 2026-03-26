@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import ChartManager from './ChartManager'
 import BlueTopoDownloader from './BlueTopoDownloader'
 import CuspDownloader from './CuspDownloader'
 import ENCDownloader from './ENCDownloader'
@@ -38,7 +37,6 @@ function SettingsView() {
 
   const sections = [
     { id: 'general', name: 'General', icon: '[>]' },
-    { id: 'charts', name: 'Chart Manager', icon: '[M]' },
     { id: 'waypoints', name: 'Waypoints', icon: '[W]' },
     { id: 's57', name: 'Vector Charts', icon: '[V]' },
     { id: 'enc', name: 'Raster Charts', icon: '[N]' },
@@ -67,13 +65,6 @@ function SettingsView() {
 
   const renderContent = () => {
     switch (activeSection) {
-      case 'charts':
-        return (
-          <ErrorBoundary>
-            <ChartManager />
-          </ErrorBoundary>
-        )
-
       case 'bluetopo':
         return (
           <ErrorBoundary>

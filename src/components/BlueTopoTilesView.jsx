@@ -594,7 +594,7 @@ function BlueTopoTilesView() {
             (tileId) => !selectedTiles.has(tileId)
         );
 
-        const returnTo = location.state?.returnTo || "/bluetopo-downloader";
+        const returnTo = location.state?.returnTo || "/settings?section=bluetopo";
         navigate(returnTo, {
             state: {
                 tiles: newTilesToDownload,
@@ -638,7 +638,7 @@ function BlueTopoTilesView() {
 
             {/* Back Button */}
             <button
-                onClick={() => navigate(location.state?.returnTo || "/bluetopo-downloader")}
+                onClick={() => navigate(location.state?.returnTo || "/settings?section=bluetopo")}
                 className="absolute top-4 left-4 z-30 bg-terminal-surface hover:bg-terminal-green/10 rounded-lg shadow-glow-green-sm p-3 border border-terminal-border hover:border-terminal-green transition-colors touch-manipulation"
                 title="Back"
             >
