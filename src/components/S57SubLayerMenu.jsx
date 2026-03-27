@@ -92,7 +92,7 @@ const S57SubLayerMenu = React.memo(function S57SubLayerMenu({ sublayerVisibility
       />
 
       {/* Menu Content */}
-      <div className="absolute bottom-14 left-0 bg-terminal-surface rounded-lg shadow-glow-green border border-terminal-border overflow-hidden z-40 min-w-[280px] max-h-[70vh] overflow-y-auto"
+      <div className="absolute top-14 left-0 bg-terminal-surface rounded-lg shadow-glow-green border border-terminal-border overflow-hidden z-40 min-w-[280px] max-h-[70vh] overflow-y-auto"
         style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
       >
         <div className="px-4 py-3 border-b border-terminal-border">

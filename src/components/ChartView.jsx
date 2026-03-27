@@ -780,18 +780,23 @@ function ChartView() {
               image.onload = resolve
               image.onerror = reject
             })
-            // Ensure SVG is fully rasterized before drawing to canvas
+            // Rasterize at 192x192 for crisp rendering at larger display sizes
             if (image.decode) await image.decode()
             const canvas = document.createElement('canvas')
-            canvas.width = 64
-            canvas.height = 64
+            canvas.width = 192
+            canvas.height = 192
             const ctx = canvas.getContext('2d')
-            ctx.drawImage(image, 0, 0, 64, 64)
-            const imageData = ctx.getImageData(0, 0, 64, 64)
+            // Black drop shadow
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.6)'
+            ctx.shadowBlur = 4
+            ctx.shadowOffsetX = 1
+            ctx.shadowOffsetY = 1
+            ctx.drawImage(image, 0, 0, 192, 192)
+            const imageData = ctx.getImageData(0, 0, 192, 192)
             // Use Uint8Array for reliable MapLibre compatibility
             map.current.addImage(`wind-barb-${speed}`, {
-              width: 64,
-              height: 64,
+              width: 192,
+              height: 192,
               data: new Uint8Array(imageData.data.buffer)
             })
             barbsLoaded++
@@ -857,7 +862,7 @@ function ChartView() {
                   98, 'wind-barb-100'
                 ],
                 'icon-rotate': ['get', 'direction'],
-                'icon-size': 0.5,
+                'icon-size': 0.25,
                 'icon-allow-overlap': true,
                 'icon-rotation-alignment': 'map'
               },
@@ -1788,60 +1793,8 @@ function ChartView() {
         </div>
       )}
 
-      {/* Map Info Overlay */}
-      <div className="absolute top-4 left-4 bg-terminal-surface rounded-lg shadow-glow-green-sm p-3 max-w-xs z-20 border border-terminal-border">
-        <h3 className="font-semibold text-terminal-green mb-2 uppercase tracking-wide text-sm">BlueTopo Bathymetry</h3>
-        <div className="text-sm space-y-1 text-terminal-green-dim font-mono">
-          <div><span className="text-terminal-green">Source:</span> NOAA BlueTopo</div>
-          <div><span className="text-terminal-green">Coverage:</span> {tileCount} tiles loaded</div>
-          <div><span className="text-terminal-green">Resolution:</span> 2m - 16m</div>
-          {error && (
-            <div className="text-terminal-red text-xs mt-2">{error}</div>
-          )}
-          <div className={`inline-flex items-center px-2 py-1 rounded text-xs mt-2 ${
-            tilesLoaded && tileCount > 0
-              ? 'bg-terminal-green/10 text-terminal-green border border-terminal-green/30'
-              : tilesLoaded && tileCount === 0
-              ? 'bg-terminal-amber/10 text-terminal-amber border border-terminal-amber/30'
-              : 'bg-terminal-cyan/10 text-terminal-cyan border border-terminal-cyan/30'
-          }`}>
-            {!tilesLoaded ? '[..] Loading...' : tileCount > 0 ? '[OK] Data Loaded' : '[!] No Tiles'}
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom-left control stack: sublayer filter (conditional) + layers button */}
-      <div className={`absolute left-4 z-20 flex flex-col space-y-2 transition-all ${weatherLayersVisible && weatherTimestamps.length > 0 ? 'bottom-16' : 'bottom-4'}`}>
-        {/* S-57 Sublayer Filter Button - only shows when vector charts are visible */}
-        {s57LayersVisible && s57RegionCount > 0 && (
-          <div className="relative">
-            <button
-              onClick={() => { setS57SubLayerMenuOpen(v => !v); setLayersMenuOpen(false) }}
-              className={`bg-terminal-surface hover:bg-terminal-green/10 border rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all ${
-                s57SubLayerMenuOpen
-                  ? 'border-terminal-green bg-terminal-green/20'
-                  : 'border-terminal-border hover:border-terminal-green'
-              }`}
-              aria-label="Vector chart filter"
-              title="Filter vector chart layers"
-            >
-              <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
-              </svg>
-            </button>
-
-            {s57SubLayerMenuOpen && (
-              <S57SubLayerMenu
-                sublayerVisibility={s57SubLayerVisibility}
-                onToggleSublayer={handleToggleSublayer}
-                onToggleGroup={handleToggleGroup}
-                onClose={() => setS57SubLayerMenuOpen(false)}
-              />
-            )}
-          </div>
-        )}
-
+      {/* Top-left control stack: layers button (top) + sublayer filter (below) */}
+      <div className="absolute left-4 top-4 z-20 flex flex-col space-y-2">
         {/* Layers Button */}
         <div className="relative">
           <button
@@ -1872,6 +1825,36 @@ function ChartView() {
             />
           )}
         </div>
+
+        {/* S-57 Sublayer Filter Button - only shows when vector charts are visible */}
+        {s57LayersVisible && s57RegionCount > 0 && (
+          <div className="relative">
+            <button
+              onClick={() => { setS57SubLayerMenuOpen(v => !v); setLayersMenuOpen(false) }}
+              className={`bg-terminal-surface hover:bg-terminal-green/10 border rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all ${
+                s57SubLayerMenuOpen
+                  ? 'border-terminal-green bg-terminal-green/20'
+                  : 'border-terminal-border hover:border-terminal-green'
+              }`}
+              aria-label="Vector chart filter"
+              title="Filter vector chart layers"
+            >
+              <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
+              </svg>
+            </button>
+
+            {s57SubLayerMenuOpen && (
+              <S57SubLayerMenu
+                sublayerVisibility={s57SubLayerVisibility}
+                onToggleSublayer={handleToggleSublayer}
+                onToggleGroup={handleToggleGroup}
+                onClose={() => setS57SubLayerMenuOpen(false)}
+              />
+            )}
+          </div>
+        )}
       </div>
 
 

@@ -11,7 +11,7 @@ const LayersMenu = React.memo(function LayersMenu({ layers, onToggleLayer, onClo
       />
 
       {/* Menu Content */}
-      <div className="absolute bottom-14 left-0 bg-terminal-surface rounded-lg shadow-glow-green border border-terminal-border overflow-hidden z-40 min-w-[240px]">
+      <div className="absolute top-14 left-0 bg-terminal-surface rounded-lg shadow-glow-green border border-terminal-border overflow-hidden z-40 min-w-[240px]">
         <div className="px-4 py-3 border-b border-terminal-border">
           <h3 className="text-sm font-semibold text-terminal-green uppercase tracking-wide">Map Layers</h3>
         </div>
