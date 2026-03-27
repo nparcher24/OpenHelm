@@ -11,6 +11,7 @@ import { getWeatherRegions, getRegionData, getTimestamps, getGridAtTime, buildSt
 import ForecastTimeSlider from './ForecastTimeSlider'
 import WeatherStationPopup from './WeatherStationPopup'
 import { SettingsIcon, BoatIcon } from './Icons'
+import { createHeadingLineSVGString } from '../utils/headingLine'
 import DepthCrosshairs from './DepthCrosshairs'
 import DepthInfoCard from './DepthInfoCard'
 import WaypointMenu from './WaypointMenu'
@@ -51,6 +52,7 @@ function ChartView() {
   const initialGpsCenterDone = useRef(false)  // Track if we've done initial GPS center
   const [gpsData, setGpsData] = useState(null)
   const boatMarkerRef = useRef(null)
+  const headingLineRef = useRef(null)
   const trackingModeRef = useRef(null)
   const northUpRef = useRef(false)
   const bearingFrozenRef = useRef(false)  // True when bearing is frozen after pan decouple
@@ -186,8 +188,8 @@ function ChartView() {
     return () => clearTimeout(timeoutId)
   }, [touchState?.showingCrosshairs, touchState?.currentX, touchState?.currentY])
 
-  // Default position offshore Virginia Beach when GPS has no satellite fix
-  const DEFAULT_NO_FIX_POSITION = { latitude: 36.85, longitude: -75.97 }
+  // Default position just offshore Virginia Beach oceanfront (no GPS / no satellite fix)
+  const DEFAULT_NO_FIX_POSITION = { latitude: 36.853, longitude: -75.960 }
 
   // Helper to validate coordinates for MapLibre
   const isValidCoordinate = (lat, lng) => {
@@ -349,32 +351,74 @@ function ChartView() {
     })
   }, [mapLoaded, waypoints])
 
-  // Boat marker - always visible at GPS position
-  // Only depends on position + heading fields, not entire gpsData object
-  useEffect(() => {
-    if (!mapLoaded || !gpsData || !map.current) return
-    if (!isValidCoordinate(gpsData.latitude, gpsData.longitude)) return
+  // Boat marker - always visible, even without GPS
+  // Shows at GPS position when available, map center when not
+  // Includes heading line with distance tick marks
+  const updateHeadingLine = useCallback(() => {
+    if (!headingLineRef.current || !map.current) return
+    const hasGps = gpsData && isValidCoordinate(gpsData.latitude, gpsData.longitude)
+    const fix = hasGps && hasGpsFix(gpsData.latitude, gpsData.longitude)
+    const displayLat = fix ? gpsData.latitude : DEFAULT_NO_FIX_POSITION.latitude
+    headingLineRef.current.innerHTML = createHeadingLineSVGString(map.current, displayLat, '#22c55e')
+  }, [gpsData])
 
-    const fix = hasGpsFix(gpsData.latitude, gpsData.longitude)
+  useEffect(() => {
+    if (!mapLoaded || !map.current) return
+
+    const hasGps = gpsData && isValidCoordinate(gpsData.latitude, gpsData.longitude)
+    const fix = hasGps && hasGpsFix(gpsData.latitude, gpsData.longitude)
     const displayLat = fix ? gpsData.latitude : DEFAULT_NO_FIX_POSITION.latitude
     const displayLng = fix ? gpsData.longitude : DEFAULT_NO_FIX_POSITION.longitude
     const fillColor = fix ? '#22c55e' : '#ef4444'
-    const strokeDarkColor = fix ? '#0a3d1f' : '#7f1d1d'
-    const glowColor = fix ? 'rgba(34, 197, 94, 0.6)' : 'rgba(239, 68, 68, 0.6)'
+    const glowColor = 'rgba(0, 0, 0, 0.6)'
 
     // Create or update marker
     if (!boatMarkerRef.current) {
-      // Create custom marker element
+      // Wrapper — 38x38 centered on the map point, overflow visible for heading line
       const el = document.createElement('div')
       el.className = 'boat-marker'
-      el.innerHTML = `
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="${fillColor}" stroke="${fillColor}" stroke-width="1">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3 L7 9 L7 17 L9 21 L15 21 L17 17 L17 9 Z" />
-          <path stroke="${strokeDarkColor}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M9 11 L15 11" />
-          <path stroke="${strokeDarkColor}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M10 6 L12 4 L14 6" />
+      el.style.cssText = 'width:38px; height:38px; position:relative; overflow:visible;'
+
+      // Heading line container — anchored to the center-top of the boat icon
+      const lineContainer = document.createElement('div')
+      lineContainer.className = 'heading-line-container'
+      lineContainer.style.cssText = 'position:absolute; bottom:100%; left:50%; transform:translateX(-50%); pointer-events:none; overflow:visible;'
+      headingLineRef.current = lineContainer
+      el.appendChild(lineContainer)
+
+      // Boat icon — 38px (20% larger than 32), detailed boat shape
+      const boatSvg = document.createElement('div')
+      boatSvg.className = 'boat-icon'
+      boatSvg.style.cssText = `position:relative; z-index:1; filter: drop-shadow(0 0 5px ${glowColor});`
+      boatSvg.innerHTML = `
+        <svg width="38" height="38" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Hull -->
+          <path d="M16 2 L10 10 L9 22 L11 27 L16 29 L21 27 L23 22 L22 10 Z"
+                fill="${fillColor}" stroke="${fillColor}" stroke-width="0.5" stroke-linejoin="round"/>
+          <!-- Hull highlight (port side) -->
+          <path d="M16 3 L11 10 L10 21 L12 26 L16 28"
+                fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1" stroke-linecap="round"/>
+          <!-- Gunwale line -->
+          <path d="M11.5 11 L20.5 11" stroke="rgba(0,0,0,0.25)" stroke-width="0.8" stroke-linecap="round"/>
+          <!-- Cabin / wheelhouse -->
+          <rect x="12.5" y="12" width="7" height="5" rx="1.2"
+                fill="rgba(0,0,0,0.2)" stroke="rgba(0,0,0,0.15)" stroke-width="0.5"/>
+          <!-- Windshield -->
+          <rect x="13.2" y="12.6" width="5.6" height="2" rx="0.6"
+                fill="rgba(180,230,255,0.45)" stroke="rgba(255,255,255,0.3)" stroke-width="0.3"/>
+          <!-- Bow detail -->
+          <path d="M13 7 L16 3.5 L19 7" fill="none"
+                stroke="rgba(255,255,255,0.35)" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Stern transom -->
+          <path d="M12 25 L20 25" stroke="rgba(0,0,0,0.2)" stroke-width="0.8" stroke-linecap="round"/>
+          <!-- Center keel line -->
+          <path d="M16 4 L16 28" stroke="rgba(0,0,0,0.1)" stroke-width="0.4"/>
         </svg>
       `
-      el.style.cssText = `filter: drop-shadow(0 0 4px ${glowColor});`
+      el.appendChild(boatSvg)
+
+      // Initial heading line render
+      lineContainer.innerHTML = createHeadingLineSVGString(map.current, displayLat, '#22c55e')
 
       boatMarkerRef.current = new maplibregl.Marker({
         element: el,
@@ -385,24 +429,43 @@ function ChartView() {
         .addTo(map.current)
     } else {
       boatMarkerRef.current.setLngLat([displayLng, displayLat])
-      // Update color when fix status changes
-      const el = boatMarkerRef.current.getElement()
-      const svg = el.querySelector('svg')
-      if (svg) {
-        svg.setAttribute('fill', fillColor)
-        svg.setAttribute('stroke', fillColor)
-        const paths = svg.querySelectorAll('path')
-        if (paths[1]) paths[1].setAttribute('stroke', strokeDarkColor)
-        if (paths[2]) paths[2].setAttribute('stroke', strokeDarkColor)
+      // Update boat icon color when fix status changes
+      const boatIcon = boatMarkerRef.current.getElement().querySelector('.boat-icon')
+      if (boatIcon) {
+        boatIcon.style.filter = `drop-shadow(0 0 5px ${glowColor})`
+        const hull = boatIcon.querySelector('svg path')
+        if (hull) {
+          hull.setAttribute('fill', fillColor)
+          hull.setAttribute('stroke', fillColor)
+        }
       }
-      el.style.filter = `drop-shadow(0 0 4px ${glowColor})`
+      // Update heading line
+      updateHeadingLine()
     }
 
     // Rotate marker to heading
-    if (gpsData.heading !== undefined) {
+    if (gpsData?.heading !== undefined) {
       boatMarkerRef.current.setRotation(gpsData.heading)
     }
-  }, [mapLoaded, gpsData?.latitude, gpsData?.longitude, gpsData?.heading])
+  }, [mapLoaded, gpsData?.latitude, gpsData?.longitude, gpsData?.heading, updateHeadingLine])
+
+  // Recalculate heading line on zoom/resize
+  useEffect(() => {
+    if (!mapLoaded || !map.current) return
+
+    const onZoom = () => updateHeadingLine()
+    const onResize = () => updateHeadingLine()
+
+    map.current.on('zoom', onZoom)
+    map.current.on('resize', onResize)
+
+    return () => {
+      if (map.current) {
+        map.current.off('zoom', onZoom)
+        map.current.off('resize', onResize)
+      }
+    }
+  }, [mapLoaded, updateHeadingLine])
 
   // Update map bearing when north-up toggle changes (only when NOT tracking - tracking handles its own bearing)
   useEffect(() => {
