@@ -23,6 +23,7 @@ import waypointRoutes from './routes/waypoints.js'
 import ncdsRoutes from './routes/ncds.js'
 import s57Routes from './routes/s57.js'
 import satelliteRoutes from './routes/satellite.js'
+import weatherRoutes from './routes/weather.js'
 
 const app = express()
 const PORT = 3002
@@ -86,6 +87,14 @@ app.use('/api/waypoints', waypointRoutes)
 app.use('/api/ncds', ncdsRoutes)
 app.use('/api/s57', s57Routes)
 app.use('/api/satellite', satelliteRoutes)
+app.use('/api/weather', weatherRoutes)
+
+// Static file serving for weather data
+app.use('/weather-data', express.static(path.join(process.cwd(), 'weather-data'), {
+  maxAge: '1h',
+  etag: true,
+  lastModified: true
+}))
 
 // Exit kiosk mode - kills Chromium, restores desktop, keeps backend running
 app.post('/api/system/exit-kiosk', (req, res) => {

@@ -6,6 +6,7 @@ import ENCDownloader from './ENCDownloader'
 import S57Downloader from './S57Downloader'
 import WaypointManager from './WaypointManager'
 import SatelliteDownloader from './SatelliteDownloader'
+import WeatherDownloader from './WeatherDownloader'
 import ErrorBoundary from './ErrorBoundary'
 
 function SettingsView() {
@@ -43,6 +44,7 @@ function SettingsView() {
     { id: 'enc', name: 'Raster Charts', icon: '[N]' },
     { id: 'bluetopo', name: 'BlueTopo', icon: '[~]' },
     { id: 'satellite', name: 'Satellite', icon: '[S]' },
+    { id: 'weather', name: 'Weather', icon: '[^]' },
     { id: 'cusp', name: 'Coastline', icon: '[/]' },
     { id: 'gps', name: 'GPS/AHRS', icon: '[*]' },
     { id: 'display', name: 'Display', icon: '[#]' },
@@ -78,6 +80,13 @@ function SettingsView() {
         return (
           <ErrorBoundary>
             <SatelliteDownloader />
+          </ErrorBoundary>
+        )
+
+      case 'weather':
+        return (
+          <ErrorBoundary>
+            <WeatherDownloader />
           </ErrorBoundary>
         )
 

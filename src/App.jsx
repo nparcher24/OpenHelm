@@ -3,6 +3,7 @@ import Navbar from './components/Navbar'
 import MainContent from './components/MainContent'
 import BlueTopoTilesView from './components/BlueTopoTilesView'
 import SatelliteRegionSelector from './components/SatelliteRegionSelector'
+import WeatherRegionSelector from './components/WeatherRegionSelector'
 
 const MAIN_TABS = new Set(['chart', 'gps', 'vessel', 'settings'])
 
@@ -18,7 +19,7 @@ function App() {
 
   // Check if current route is a special (non-tabbed) page
   const path = location.pathname
-  const isSpecialRoute = path === '/bluetopo-tiles' || path === '/satellite-region'
+  const isSpecialRoute = path === '/bluetopo-tiles' || path === '/satellite-region' || path === '/weather-region'
 
   // Derive active tab from URL
   const activeTab = path.replace('/', '') || 'chart'
@@ -33,6 +34,7 @@ function App() {
         <Routes>
           <Route path="/bluetopo-tiles" element={<BlueTopoTilesView />} />
           <Route path="/satellite-region" element={<SatelliteRegionSelector />} />
+          <Route path="/weather-region" element={<WeatherRegionSelector />} />
         </Routes>
       ) : (
         <>

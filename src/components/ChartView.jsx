@@ -7,6 +7,9 @@ import { getDownloadedRegions as getDownloadedENCRegions } from '../services/enc
 import { getDownloadedRegions as getDownloadedS57Regions } from '../services/s57DownloadService'
 import { createNauticalStyle, S57_LAYER_PREFIX } from '../styles/nauticalChartStyle'
 import { getAllWaypoints, createWaypoint } from '../services/waypointService'
+import { getWeatherRegions, getRegionData, getTimestamps, getGridAtTime, buildStationGeoJSON } from '../services/weatherDataService'
+import ForecastTimeSlider from './ForecastTimeSlider'
+import WeatherStationPopup from './WeatherStationPopup'
 import { SettingsIcon, BoatIcon } from './Icons'
 import DepthCrosshairs from './DepthCrosshairs'
 import DepthInfoCard from './DepthInfoCard'
@@ -90,6 +93,19 @@ function ChartView() {
     const saved = localStorage.getItem('chartview_satellite_visible')
     return saved !== null ? JSON.parse(saved) : false
   })
+  // Weather layer state
+  const [weatherLayersVisible, setWeatherLayersVisible] = useState(() => {
+    const saved = localStorage.getItem('chartview_weather_visible')
+    return saved !== null ? JSON.parse(saved) : false
+  })
+  const [weatherRegions, setWeatherRegions] = useState([])
+  const [weatherTimestamps, setWeatherTimestamps] = useState([])
+  const [forecastTimeIndex, setForecastTimeIndex] = useState(0)
+  const [selectedWeatherStation, setSelectedWeatherStation] = useState(null)
+  const [activeWeatherRegionId, setActiveWeatherRegionId] = useState(null)
+  const [weatherDownloadedAt, setWeatherDownloadedAt] = useState(null)
+  const weatherLayersLoadedRef = useRef(false)
+
   const [layersMenuOpen, setLayersMenuOpen] = useState(false)
 
   // Save layer visibility to localStorage when it changes
@@ -112,6 +128,10 @@ function ChartView() {
   useEffect(() => {
     localStorage.setItem('chartview_s57_sublayers', JSON.stringify(s57SubLayerVisibility))
   }, [s57SubLayerVisibility])
+
+  useEffect(() => {
+    localStorage.setItem('chartview_weather_visible', JSON.stringify(weatherLayersVisible))
+  }, [weatherLayersVisible])
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -519,6 +539,7 @@ function ChartView() {
       ]
     }
 
+    weatherLayersLoadedRef.current = false // Reset on map recreate
     map.current = new maplibregl.Map({
       container: mapContainer.current,
       style: inlineStyle,
@@ -559,6 +580,9 @@ function ChartView() {
 
       // Load BlueTopo tiles after ENC (they go on top)
       await loadBlueTopoTiles()
+
+      // Load weather layers (on top of everything)
+      await loadWeatherLayers()
     })
 
     return () => {
@@ -605,6 +629,257 @@ function ChartView() {
       console.log(`[ChartView] Satellite layer added (${result.regions.length} regions)`)
     } catch (error) {
       console.error('[ChartView] Failed to load satellite layer:', error)
+    }
+  }
+
+  // Load weather station markers and wind barb grid layers
+  const loadWeatherLayers = async () => {
+    try {
+      const regions = await getWeatherRegions()
+      setWeatherRegions(regions)
+      if (!map.current || regions.length === 0) return
+
+      // Use first region (most recent) - could be expanded to merge
+      const region = regions[regions.length - 1]
+      setActiveWeatherRegionId(region.id)
+      setWeatherDownloadedAt(region.downloadedAt)
+
+      // Load region metadata for station positions
+      const metadata = await getRegionData(region.id)
+      if (!metadata || !map.current) return
+
+      // Build station GeoJSON and add source/layers
+      const stationGeoJSON = buildStationGeoJSON(metadata)
+
+      if (!map.current.getSource('weather-stations')) {
+        map.current.addSource('weather-stations', {
+          type: 'geojson',
+          data: stationGeoJSON
+        })
+
+        // Station circle layer
+        map.current.addLayer({
+          id: 'weather-stations-circles',
+          type: 'circle',
+          source: 'weather-stations',
+          paint: {
+            'circle-radius': 6,
+            'circle-color': [
+              'match', ['get', 'stationType'],
+              'tide', '#60a5fa',
+              'current', '#34d399',
+              'met', '#fb923c',
+              'ndbc', '#a78bfa',
+              '#888888'
+            ],
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#000000',
+            'circle-opacity': weatherLayersVisible ? 0.9 : 0
+          }
+        })
+
+        // Station label layer (visible at higher zoom)
+        map.current.addLayer({
+          id: 'weather-stations-labels',
+          type: 'symbol',
+          source: 'weather-stations',
+          minzoom: 9,
+          layout: {
+            'text-field': ['get', 'name'],
+            'text-size': 10,
+            'text-offset': [0, 1.5],
+            'text-anchor': 'top',
+            'text-max-width': 10
+          },
+          paint: {
+            'text-color': '#00ff88',
+            'text-halo-color': '#000000',
+            'text-halo-width': 1,
+            'text-opacity': weatherLayersVisible ? 0.8 : 0
+          }
+        })
+      }
+
+      // Load wind barb images (SVGs rendered to canvas for MapLibre)
+      const barbSpeeds = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100]
+      for (const speed of barbSpeeds) {
+        if (!map.current.hasImage(`wind-barb-${speed}`)) {
+          try {
+            const img = await new Promise((resolve, reject) => {
+              const image = new Image(64, 64)
+              image.onload = () => {
+                // Render SVG to canvas for MapLibre compatibility
+                const canvas = document.createElement('canvas')
+                canvas.width = 64
+                canvas.height = 64
+                const ctx = canvas.getContext('2d')
+                ctx.drawImage(image, 0, 0, 64, 64)
+                resolve({ width: 64, height: 64, data: ctx.getImageData(0, 0, 64, 64).data })
+              }
+              image.onerror = reject
+              image.src = `/wind-barbs/barb-${speed}.svg`
+            })
+            map.current.addImage(`wind-barb-${speed}`, img)
+          } catch {
+            // Wind barb images may not be generated yet
+          }
+        }
+      }
+
+      // Load wind grid timestamps
+      const timestamps = await getTimestamps(region.id, 'wind')
+      setWeatherTimestamps(timestamps)
+
+      if (timestamps.length > 0) {
+        // Find closest timestamp to now
+        const now = Date.now()
+        let closestIdx = 0
+        let closestDiff = Infinity
+        for (let i = 0; i < timestamps.length; i++) {
+          const diff = Math.abs(new Date(timestamps[i]).getTime() - now)
+          if (diff < closestDiff) {
+            closestDiff = diff
+            closestIdx = i
+          }
+        }
+        setForecastTimeIndex(closestIdx)
+
+        // Load initial wind grid GeoJSON
+        const gridData = await getGridAtTime(region.id, 'wind', timestamps[closestIdx])
+        if (gridData && map.current) {
+          if (!map.current.getSource('weather-wind-grid')) {
+            map.current.addSource('weather-wind-grid', {
+              type: 'geojson',
+              data: gridData
+            })
+
+            map.current.addLayer({
+              id: 'weather-wind-barbs',
+              type: 'symbol',
+              source: 'weather-wind-grid',
+              layout: {
+                'icon-image': [
+                  'step', ['get', 'speed'],
+                  'wind-barb-0',
+                  3, 'wind-barb-5',
+                  8, 'wind-barb-10',
+                  13, 'wind-barb-15',
+                  18, 'wind-barb-20',
+                  23, 'wind-barb-25',
+                  28, 'wind-barb-30',
+                  33, 'wind-barb-35',
+                  38, 'wind-barb-40',
+                  43, 'wind-barb-45',
+                  48, 'wind-barb-50',
+                  58, 'wind-barb-60',
+                  68, 'wind-barb-70',
+                  78, 'wind-barb-80',
+                  88, 'wind-barb-90',
+                  98, 'wind-barb-100'
+                ],
+                'icon-rotate': ['get', 'direction'],
+                'icon-size': 0.5,
+                'icon-allow-overlap': true,
+                'icon-rotation-alignment': 'map'
+              },
+              paint: {
+                'icon-opacity': weatherLayersVisible ? 1 : 0
+              }
+            })
+          }
+        }
+      }
+
+      // Load current arrow images and layer
+      const arrowSpeeds = [0, 25, 50, 75, 100, 150, 200, 300, 400, 500]
+      for (const tag of arrowSpeeds) {
+        const imgId = `current-arrow-${String(tag).padStart(3, '0')}`
+        if (!map.current.hasImage(imgId)) {
+          try {
+            const img = await new Promise((resolve, reject) => {
+              const image = new Image(64, 64)
+              image.onload = () => {
+                const canvas = document.createElement('canvas')
+                canvas.width = 64
+                canvas.height = 64
+                const ctx = canvas.getContext('2d')
+                ctx.drawImage(image, 0, 0, 64, 64)
+                resolve({ width: 64, height: 64, data: ctx.getImageData(0, 0, 64, 64).data })
+              }
+              image.onerror = reject
+              image.src = `/current-arrows/arrow-${String(tag).padStart(3, '0')}.svg`
+            })
+            map.current.addImage(imgId, img)
+          } catch { /* arrows may not be generated yet */ }
+        }
+      }
+
+      // Load current grid data (from marine download)
+      if (timestamps.length > 0) {
+        const currentData = await getGridAtTime(region.id, 'current', timestamps[closestIdx])
+        if (currentData && map.current && !map.current.getSource('weather-current-grid')) {
+          map.current.addSource('weather-current-grid', {
+            type: 'geojson',
+            data: currentData
+          })
+
+          map.current.addLayer({
+            id: 'weather-current-arrows',
+            type: 'symbol',
+            source: 'weather-current-grid',
+            layout: {
+              'icon-image': [
+                'step', ['*', ['get', 'speed'], 100],
+                'current-arrow-000',
+                13, 'current-arrow-025',
+                38, 'current-arrow-050',
+                63, 'current-arrow-075',
+                88, 'current-arrow-100',
+                125, 'current-arrow-150',
+                175, 'current-arrow-200',
+                250, 'current-arrow-300',
+                350, 'current-arrow-400',
+                450, 'current-arrow-500'
+              ],
+              'icon-rotate': ['get', 'direction'],
+              'icon-size': 0.8,
+              'icon-allow-overlap': true,
+              'icon-rotation-alignment': 'map'
+            },
+            paint: {
+              'icon-opacity': weatherLayersVisible ? 0.9 : 0
+            }
+          })
+        }
+      }
+
+      // Click handler for station markers (guard prevents duplicate listeners on reload)
+      if (!weatherLayersLoadedRef.current) {
+      map.current.on('click', 'weather-stations-circles', (e) => {
+        if (e.features && e.features.length > 0) {
+          const props = e.features[0].properties
+          setSelectedWeatherStation({
+            id: props.id,
+            name: props.name,
+            stationType: props.stationType,
+            state: props.state
+          })
+        }
+      })
+
+      // Change cursor on hover
+      map.current.on('mouseenter', 'weather-stations-circles', () => {
+        if (map.current) map.current.getCanvas().style.cursor = 'pointer'
+      })
+      map.current.on('mouseleave', 'weather-stations-circles', () => {
+        if (map.current) map.current.getCanvas().style.cursor = ''
+      })
+      } // end guard for duplicate listeners
+
+      weatherLayersLoadedRef.current = true
+      console.log(`[ChartView] Weather layers loaded: ${stationGeoJSON.features.length} stations, ${timestamps.length} timestamps`)
+    } catch (error) {
+      console.error('[ChartView] Failed to load weather layers:', error)
     }
   }
 
@@ -1130,6 +1405,12 @@ function ChartView() {
       name: 'Satellite Imagery',
       description: 'USGS aerial imagery (1-2m)',
       visible: satelliteLayersVisible
+    },
+    {
+      id: 'weather',
+      name: 'Weather',
+      description: `Wind, tides, currents${weatherRegions.length > 0 ? ` (${weatherRegions.length} regions)` : ''}`,
+      visible: weatherLayersVisible
     }
   ]
 
@@ -1143,6 +1424,8 @@ function ChartView() {
       setS57LayersVisible(v => !v)
     } else if (layerId === 'satellite') {
       setSatelliteLayersVisible(v => !v)
+    } else if (layerId === 'weather') {
+      setWeatherLayersVisible(v => !v)
     }
   }, [])
 
@@ -1252,6 +1535,50 @@ function ChartView() {
     }
   }, [satelliteLayersVisible, mapLoaded])
 
+  // Update weather layer visibility
+  useEffect(() => {
+    if (!map.current || !mapLoaded || !weatherLayersLoadedRef.current) return
+    const opacity = weatherLayersVisible ? 1 : 0
+    if (map.current.getLayer('weather-stations-circles')) {
+      map.current.setPaintProperty('weather-stations-circles', 'circle-opacity', weatherLayersVisible ? 0.9 : 0)
+    }
+    if (map.current.getLayer('weather-stations-labels')) {
+      map.current.setPaintProperty('weather-stations-labels', 'text-opacity', weatherLayersVisible ? 0.8 : 0)
+    }
+    if (map.current.getLayer('weather-wind-barbs')) {
+      map.current.setPaintProperty('weather-wind-barbs', 'icon-opacity', opacity)
+    }
+    if (map.current.getLayer('weather-current-arrows')) {
+      map.current.setPaintProperty('weather-current-arrows', 'icon-opacity', weatherLayersVisible ? 0.9 : 0)
+    }
+  }, [weatherLayersVisible, mapLoaded])
+
+  // Update wind grid when forecast time changes
+  useEffect(() => {
+    if (!map.current || !activeWeatherRegionId || !weatherTimestamps.length) return
+    if (!map.current.getSource('weather-wind-grid')) return
+
+    const timestamp = weatherTimestamps[forecastTimeIndex]
+    if (!timestamp) return
+
+    let cancelled = false
+    async function updateGrid() {
+      const [windData, currentData] = await Promise.all([
+        getGridAtTime(activeWeatherRegionId, 'wind', timestamp),
+        getGridAtTime(activeWeatherRegionId, 'current', timestamp)
+      ])
+      if (cancelled) return
+      if (windData && map.current?.getSource('weather-wind-grid')) {
+        map.current.getSource('weather-wind-grid').setData(windData)
+      }
+      if (currentData && map.current?.getSource('weather-current-grid')) {
+        map.current.getSource('weather-current-grid').setData(currentData)
+      }
+    }
+    updateGrid()
+    return () => { cancelled = true }
+  }, [forecastTimeIndex, activeWeatherRegionId, weatherTimestamps])
+
   // Clear browser cache and reload
   const clearCacheAndReload = async () => {
     try {
@@ -1345,6 +1672,25 @@ function ChartView() {
           }}
         />
       )}
+
+      {/* Weather Station Popup */}
+      {selectedWeatherStation && activeWeatherRegionId && (
+        <WeatherStationPopup
+          station={selectedWeatherStation}
+          regionId={activeWeatherRegionId}
+          forecastTime={weatherTimestamps[forecastTimeIndex]}
+          onClose={() => setSelectedWeatherStation(null)}
+        />
+      )}
+
+      {/* Forecast Time Slider */}
+      <ForecastTimeSlider
+        timestamps={weatherTimestamps}
+        currentIndex={forecastTimeIndex}
+        onIndexChange={setForecastTimeIndex}
+        visible={weatherLayersVisible && weatherTimestamps.length > 0}
+        downloadedAt={weatherDownloadedAt}
+      />
 
       {/* Loading Indicator */}
       {(!mapLoaded || !tilesLoaded) && (
