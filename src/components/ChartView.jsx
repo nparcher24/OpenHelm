@@ -662,6 +662,9 @@ function ChartView() {
           id: 'weather-stations-circles',
           type: 'circle',
           source: 'weather-stations',
+          layout: {
+            'visibility': weatherLayersVisible ? 'visible' : 'none'
+          },
           paint: {
             'circle-radius': 6,
             'circle-color': [
@@ -674,7 +677,7 @@ function ChartView() {
             ],
             'circle-stroke-width': 2,
             'circle-stroke-color': '#000000',
-            'circle-opacity': weatherLayersVisible ? 0.9 : 0
+            'circle-opacity': 0.9
           }
         })
 
@@ -685,6 +688,7 @@ function ChartView() {
           source: 'weather-stations',
           minzoom: 9,
           layout: {
+            'visibility': weatherLayersVisible ? 'visible' : 'none',
             'text-field': ['get', 'name'],
             'text-size': 10,
             'text-offset': [0, 1.5],
@@ -695,36 +699,47 @@ function ChartView() {
             'text-color': '#00ff88',
             'text-halo-color': '#000000',
             'text-halo-width': 1,
-            'text-opacity': weatherLayersVisible ? 0.8 : 0
+            'text-opacity': 0.8
           }
         })
       }
 
       // Load wind barb images (SVGs rendered to canvas for MapLibre)
       const barbSpeeds = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100]
+      let barbsLoaded = 0
       for (const speed of barbSpeeds) {
         if (!map.current.hasImage(`wind-barb-${speed}`)) {
           try {
-            const img = await new Promise((resolve, reject) => {
-              const image = new Image(64, 64)
-              image.onload = () => {
-                // Render SVG to canvas for MapLibre compatibility
-                const canvas = document.createElement('canvas')
-                canvas.width = 64
-                canvas.height = 64
-                const ctx = canvas.getContext('2d')
-                ctx.drawImage(image, 0, 0, 64, 64)
-                resolve({ width: 64, height: 64, data: ctx.getImageData(0, 0, 64, 64).data })
-              }
+            const image = new Image()
+            image.crossOrigin = 'anonymous'
+            image.src = `/wind-barbs/barb-${speed}.svg`
+            await new Promise((resolve, reject) => {
+              image.onload = resolve
               image.onerror = reject
-              image.src = `/wind-barbs/barb-${speed}.svg`
             })
-            map.current.addImage(`wind-barb-${speed}`, img)
-          } catch {
-            // Wind barb images may not be generated yet
+            // Ensure SVG is fully rasterized before drawing to canvas
+            if (image.decode) await image.decode()
+            const canvas = document.createElement('canvas')
+            canvas.width = 64
+            canvas.height = 64
+            const ctx = canvas.getContext('2d')
+            ctx.drawImage(image, 0, 0, 64, 64)
+            const imageData = ctx.getImageData(0, 0, 64, 64)
+            // Use Uint8Array for reliable MapLibre compatibility
+            map.current.addImage(`wind-barb-${speed}`, {
+              width: 64,
+              height: 64,
+              data: new Uint8Array(imageData.data.buffer)
+            })
+            barbsLoaded++
+          } catch (err) {
+            console.warn(`[ChartView] Failed to load wind barb ${speed}:`, err)
           }
+        } else {
+          barbsLoaded++
         }
       }
+      console.log(`[ChartView] Wind barb images loaded: ${barbsLoaded}/${barbSpeeds.length}`)
 
       // Load wind grid timestamps
       const timestamps = await getTimestamps(region.id, 'wind')
@@ -758,6 +773,7 @@ function ChartView() {
               type: 'symbol',
               source: 'weather-wind-grid',
               layout: {
+                'visibility': weatherLayersVisible ? 'visible' : 'none',
                 'icon-image': [
                   'step', ['get', 'speed'],
                   'wind-barb-0',
@@ -783,7 +799,7 @@ function ChartView() {
                 'icon-rotation-alignment': 'map'
               },
               paint: {
-                'icon-opacity': weatherLayersVisible ? 1 : 0
+                'icon-opacity': 1
               }
             })
           }
@@ -792,27 +808,39 @@ function ChartView() {
 
       // Load current arrow images and layer
       const arrowSpeeds = [0, 25, 50, 75, 100, 150, 200, 300, 400, 500]
+      let arrowsLoaded = 0
       for (const tag of arrowSpeeds) {
         const imgId = `current-arrow-${String(tag).padStart(3, '0')}`
         if (!map.current.hasImage(imgId)) {
           try {
-            const img = await new Promise((resolve, reject) => {
-              const image = new Image(64, 64)
-              image.onload = () => {
-                const canvas = document.createElement('canvas')
-                canvas.width = 64
-                canvas.height = 64
-                const ctx = canvas.getContext('2d')
-                ctx.drawImage(image, 0, 0, 64, 64)
-                resolve({ width: 64, height: 64, data: ctx.getImageData(0, 0, 64, 64).data })
-              }
+            const image = new Image()
+            image.crossOrigin = 'anonymous'
+            image.src = `/current-arrows/arrow-${String(tag).padStart(3, '0')}.svg`
+            await new Promise((resolve, reject) => {
+              image.onload = resolve
               image.onerror = reject
-              image.src = `/current-arrows/arrow-${String(tag).padStart(3, '0')}.svg`
             })
-            map.current.addImage(imgId, img)
-          } catch { /* arrows may not be generated yet */ }
+            if (image.decode) await image.decode()
+            const canvas = document.createElement('canvas')
+            canvas.width = 64
+            canvas.height = 64
+            const ctx = canvas.getContext('2d')
+            ctx.drawImage(image, 0, 0, 64, 64)
+            const imageData = ctx.getImageData(0, 0, 64, 64)
+            map.current.addImage(imgId, {
+              width: 64,
+              height: 64,
+              data: new Uint8Array(imageData.data.buffer)
+            })
+            arrowsLoaded++
+          } catch (err) {
+            console.warn(`[ChartView] Failed to load current arrow ${tag}:`, err)
+          }
+        } else {
+          arrowsLoaded++
         }
       }
+      console.log(`[ChartView] Current arrow images loaded: ${arrowsLoaded}/${arrowSpeeds.length}`)
 
       // Load current grid data (from marine download)
       if (timestamps.length > 0) {
@@ -828,6 +856,7 @@ function ChartView() {
             type: 'symbol',
             source: 'weather-current-grid',
             layout: {
+              'visibility': weatherLayersVisible ? 'visible' : 'none',
               'icon-image': [
                 'step', ['*', ['get', 'speed'], 100],
                 'current-arrow-000',
@@ -847,7 +876,7 @@ function ChartView() {
               'icon-rotation-alignment': 'map'
             },
             paint: {
-              'icon-opacity': weatherLayersVisible ? 0.9 : 0
+              'icon-opacity': 0.9
             }
           })
         }
@@ -1449,8 +1478,6 @@ function ChartView() {
   }, [])
 
   // Memoized button handlers to prevent unnecessary re-renders
-  const handleZoomIn = useCallback(() => map.current?.zoomIn(), [])
-  const handleZoomOut = useCallback(() => map.current?.zoomOut(), [])
   const handleToggleNorthUp = useCallback(() => {
     bearingFrozenRef.current = false  // Manual toggle always resets frozen state
     setNorthUp(n => !n)
@@ -1537,19 +1564,13 @@ function ChartView() {
 
   // Update weather layer visibility
   useEffect(() => {
-    if (!map.current || !mapLoaded || !weatherLayersLoadedRef.current) return
-    const opacity = weatherLayersVisible ? 1 : 0
-    if (map.current.getLayer('weather-stations-circles')) {
-      map.current.setPaintProperty('weather-stations-circles', 'circle-opacity', weatherLayersVisible ? 0.9 : 0)
-    }
-    if (map.current.getLayer('weather-stations-labels')) {
-      map.current.setPaintProperty('weather-stations-labels', 'text-opacity', weatherLayersVisible ? 0.8 : 0)
-    }
-    if (map.current.getLayer('weather-wind-barbs')) {
-      map.current.setPaintProperty('weather-wind-barbs', 'icon-opacity', opacity)
-    }
-    if (map.current.getLayer('weather-current-arrows')) {
-      map.current.setPaintProperty('weather-current-arrows', 'icon-opacity', weatherLayersVisible ? 0.9 : 0)
+    if (!map.current || !mapLoaded) return
+    const vis = weatherLayersVisible ? 'visible' : 'none'
+    const weatherLayers = ['weather-stations-circles', 'weather-stations-labels', 'weather-wind-barbs', 'weather-current-arrows']
+    for (const layerId of weatherLayers) {
+      if (map.current.getLayer(layerId)) {
+        map.current.setLayoutProperty(layerId, 'visibility', vis)
+      }
     }
   }, [weatherLayersVisible, mapLoaded])
 
@@ -1727,7 +1748,7 @@ function ChartView() {
       </div>
 
       {/* Bottom-left control stack: sublayer filter (conditional) + layers button */}
-      <div className="absolute bottom-4 left-4 z-20 flex flex-col space-y-2">
+      <div className={`absolute left-4 z-20 flex flex-col space-y-2 transition-all ${weatherLayersVisible && weatherTimestamps.length > 0 ? 'bottom-16' : 'bottom-4'}`}>
         {/* S-57 Sublayer Filter Button - only shows when vector charts are visible */}
         {s57LayersVisible && s57RegionCount > 0 && (
           <div className="relative">
@@ -1790,27 +1811,6 @@ function ChartView() {
         </div>
       </div>
 
-      {/* Touch-friendly zoom controls for marine use */}
-      <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-20">
-        <button
-          onClick={handleZoomIn}
-          className="bg-terminal-surface hover:bg-terminal-green/10 border border-terminal-border hover:border-terminal-green rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all"
-          aria-label="Zoom in"
-        >
-          <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-        </button>
-        <button
-          onClick={handleZoomOut}
-          className="bg-terminal-surface hover:bg-terminal-green/10 border border-terminal-border hover:border-terminal-green rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all"
-          aria-label="Zoom out"
-        >
-          <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 12H6" />
-          </svg>
-        </button>
-      </div>
 
       {/* Top Right Controls */}
       <div className="absolute top-4 right-4 z-20 flex items-center space-x-2">
