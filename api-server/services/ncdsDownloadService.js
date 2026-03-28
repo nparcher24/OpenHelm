@@ -448,8 +448,12 @@ export async function startDownloadJob(regionIds) {
 
       // All downloads complete
       const finalStatus = job.summary.failedRegions > 0 ? 'completed_with_errors' : 'completed';
+      const failedDetails = job.regions
+        .filter(r => r.status === 'failed')
+        .map(r => `${r.name}: ${r.error}`)
+        .join('; ');
       const message = job.summary.failedRegions > 0
-        ? `Completed with ${job.summary.failedRegions} failed region(s)`
+        ? `Failed: ${failedDetails}`
         : `Successfully downloaded ${job.summary.completedRegions} region(s)`;
 
       job.status = finalStatus;

@@ -1,6 +1,6 @@
 /**
- * GPS Service - Reads GPS data from USB serial device
- * Supports WitMotion JY-GPSIMU binary protocol
+ * GPS Service - Reads GPS/IMU data from USB serial device
+ * Supports WitMotion binary protocol (JY-GPSIMU, WTGAHRS2-TTL, etc.)
  * Protocol docs: https://wit-motion.gitbook.io/witmotion-sdk
  */
 
@@ -502,10 +502,16 @@ function parseWitMotionMessage(msg) {
 
     case 'Z': // 0x5A - GPS Accuracy
       // Satellites: bytes 0-1, PDOP: bytes 2-3, HDOP: bytes 4-5, VDOP: bytes 6-7
+      // DOP scale varies by device: JY-GPSIMU sends /10, WTGAHRS2 sends /100
+      // Auto-detect: raw values >500 indicate /100 scale (max valid DOP ~50)
       const satellites = data.readUInt16LE(0)
-      const pdop = data.readUInt16LE(2) / 10
-      const hdop = data.readUInt16LE(4) / 10
-      const vdop = data.readUInt16LE(6) / 10
+      const pdopRaw = data.readUInt16LE(2)
+      const hdopRaw = data.readUInt16LE(4)
+      const vdopRaw = data.readUInt16LE(6)
+      const dopScale = (pdopRaw > 500 || hdopRaw > 500 || vdopRaw > 500) ? 100 : 10
+      const pdop = pdopRaw / dopScale
+      const hdop = hdopRaw / dopScale
+      const vdop = vdopRaw / dopScale
 
       gpsData.satellites = satellites
       gpsData.pdop = pdop

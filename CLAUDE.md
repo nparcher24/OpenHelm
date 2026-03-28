@@ -173,7 +173,7 @@ OpenHelm runs on two machines. Both are headless Linux servers running Chromium 
 **SSH Access:**
 ```
 ssh hic@air-segment.local        # mDNS (preferred)
-ssh hic@192.168.4.91             # Static IP (configured via netplan)
+ssh hic@192.168.4.92             # Static IP (configured via netplan)
 Password (sudo): archer3
 ```
 

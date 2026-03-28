@@ -327,6 +327,18 @@ async function processS57Job(jobId, regionId, signal) {
   const regionMeta = S57_REGIONS.find(r => r.id === regionId);
   if (!regionMeta) throw new Error(`Unknown region: ${regionId}`);
 
+  // Pre-flight: check required tools are installed
+  try {
+    await execAsync('which ogr2ogr');
+  } catch {
+    throw new Error('ogr2ogr not found. Install GDAL: sudo apt install gdal-bin');
+  }
+  try {
+    await execAsync('which unzip');
+  } catch {
+    throw new Error('unzip not found. Install it: sudo apt install unzip');
+  }
+
   const tempDir = path.join(TEMP_DIR, regionId);
   const rawDir = path.join(S57_RAW_DIR, regionId);
   const tempGeojsonDir = path.join(tempDir, 'geojson');
@@ -429,8 +441,7 @@ async function processS57Job(jobId, regionId, signal) {
 
   } catch (error) {
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
-    console.error(`[S57] Job failed for ${regionId}:`, error);
-    global.broadcastProgress(jobId, 0, 'failed', error.message, null);
+    console.error(`[S57] Job failed for ${regionId}:`, error.message);
     throw error;
   }
 }
@@ -492,8 +503,12 @@ export async function startDownloadJob(regionIds) {
       }
 
       const finalStatus = job.summary.failedRegions > 0 ? 'completed_with_errors' : 'completed';
+      const failedDetails = job.regions
+        .filter(r => r.status === 'failed')
+        .map(r => `${r.name}: ${r.error}`)
+        .join('; ');
       const message = job.summary.failedRegions > 0
-        ? `Completed with ${job.summary.failedRegions} failed region(s)`
+        ? `Failed: ${failedDetails}`
         : `Successfully processed ${job.summary.completedRegions} region(s)`;
       job.status = finalStatus;
       global.broadcastProgress(jobId, 100, finalStatus, message);
