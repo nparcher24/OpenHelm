@@ -9,6 +9,7 @@ import SatelliteDownloader from './SatelliteDownloader'
 import WeatherDownloader from './WeatherDownloader'
 import ErrorBoundary from './ErrorBoundary'
 import UpdateManager from './UpdateManager'
+import { version as appVersion } from '../../package.json'
 
 function SettingsView() {
   const [searchParams] = useSearchParams()
@@ -279,7 +280,7 @@ function SettingsView() {
               <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
                 <h3 className="font-semibold text-terminal-green mb-2 uppercase tracking-wide">Software</h3>
                 <div className="space-y-1 text-sm text-terminal-green-dim font-mono">
-                  <div>OpenHelm: v1.0.0</div>
+                  <div>OpenHelm: v{appVersion}</div>
                   <div>Martin Tiles: v0.18.1</div>
                   <div>OS: Raspberry Pi OS</div>
                 </div>
