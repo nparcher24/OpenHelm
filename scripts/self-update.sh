@@ -58,21 +58,22 @@ rollback() {
 
 # --- Platform-aware restart ---
 restart_services() {
-    echo "[Update] Restarting services..."
+    echo "[Update] Restarting backend services (keeping browser alive)..."
 
-    if systemctl is-active --quiet openhelm-kiosk 2>/dev/null; then
-        # GMKtec: passwordless sudo configured via /etc/sudoers.d/openhelm-kiosk
-        echo "[Update] Restarting via systemd..."
-        sudo systemctl restart openhelm-kiosk
-    else
-        # Pi or manual mode: kill and relaunch directly
-        pkill -f "vite preview" 2>/dev/null || true
-        pkill -f "node api-server/server.js" 2>/dev/null || true
-        pkill -f "martin" 2>/dev/null || true
-        sleep 2
-        nohup bash "$PROJECT_DIR/start-openhelm-prod.sh" >> "$PROJECT_DIR/openhelm.log" 2>&1 &
-        disown
-    fi
+    # Kill backend services only — leave Chromium running so the frontend
+    # can detect the restart and reload itself with the new code
+    pkill -f "node api-server/server.js" 2>/dev/null || true
+    pkill -f "vite preview" 2>/dev/null || true
+    pkill -f "martin" 2>/dev/null || true
+    sleep 2
+
+    # Restart backend services
+    cd "$PROJECT_DIR"
+    source "$HOME/.cargo/env" 2>/dev/null || true
+    martin --config martin-config.yaml > martin.log 2>&1 &
+    node api-server/server.js > api.log 2>&1 &
+    npx vite preview --host 0.0.0.0 --port 3000 > vite.log 2>&1 &
+    disown -a
 }
 
 # --- Step 3: Fetch latest code ---
@@ -111,16 +112,15 @@ restart_services
 
 # --- Step 9: Verify services ---
 echo "PROGRESS 90 Waiting for services to start"
-MAX_WAIT=90
+MAX_WAIT=30
 WAITED=0
 while [ $WAITED -lt $MAX_WAIT ]; do
-    # Check if API server is responding
     if curl -s -o /dev/null -w "%{http_code}" http://localhost:3002/health 2>/dev/null | grep -q "200"; then
         echo "PROGRESS 95 API server is up"
         break
     fi
-    sleep 2
-    WAITED=$((WAITED + 2))
+    sleep 1
+    WAITED=$((WAITED + 1))
 done
 
 if [ $WAITED -ge $MAX_WAIT ]; then
@@ -128,8 +128,7 @@ if [ $WAITED -ge $MAX_WAIT ]; then
     exit 4
 fi
 
-# Wait a bit more for frontend
-sleep 3
+# Quick check for frontend
 if curl -s -o /dev/null http://localhost:3000 2>/dev/null; then
     echo "PROGRESS 98 Frontend is up"
 fi
