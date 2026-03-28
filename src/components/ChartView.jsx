@@ -20,6 +20,7 @@ import WaypointDropdown from './WaypointDropdown'
 import LayersMenu from './LayersMenu'
 import S57SubLayerMenu, { S57_SUBLAYER_GROUPS } from './S57SubLayerMenu'
 import S57FeatureCard from './S57FeatureCard'
+import HudOverlay from './HudOverlay'
 import { createMarkerSVG } from '../utils/waypointIcons'
 import { MapPinIcon } from '@heroicons/react/24/outline'
 
@@ -108,6 +109,16 @@ function ChartView() {
   const [weatherDownloadedAt, setWeatherDownloadedAt] = useState(null)
   const weatherLayersLoadedRef = useRef(false)
 
+  // HUD overlay state
+  const [hudVisible, setHudVisible] = useState(() => {
+    const saved = localStorage.getItem('chartview_hud_visible')
+    return saved !== null ? JSON.parse(saved) : true
+  })
+  const [hudDepth, setHudDepth] = useState(null)
+  const [hudColor, setHudColor] = useState(() => {
+    return localStorage.getItem('chartview_hud_color') || '#22c55e'
+  })
+
   const [layersMenuOpen, setLayersMenuOpen] = useState(false)
 
   // Save layer visibility to localStorage when it changes
@@ -134,6 +145,14 @@ function ChartView() {
   useEffect(() => {
     localStorage.setItem('chartview_weather_visible', JSON.stringify(weatherLayersVisible))
   }, [weatherLayersVisible])
+
+  useEffect(() => {
+    localStorage.setItem('chartview_hud_visible', JSON.stringify(hudVisible))
+  }, [hudVisible])
+
+  useEffect(() => {
+    localStorage.setItem('chartview_hud_color', hudColor)
+  }, [hudColor])
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -187,6 +206,25 @@ function ChartView() {
 
     return () => clearTimeout(timeoutId)
   }, [touchState?.showingCrosshairs, touchState?.currentX, touchState?.currentY])
+
+  // HUD depth query — poll BlueTopo depth at boat position
+  useEffect(() => {
+    if (!hudVisible || !gpsData) return
+    const lat = gpsData.latitude
+    const lon = gpsData.longitude
+    if (lat == null || lon == null) return
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const result = await getDepthAtLocation(lon, lat)
+        setHudDepth(result.success ? result.depth : null)
+      } catch {
+        setHudDepth(null)
+      }
+    }, 300)
+
+    return () => clearTimeout(timeoutId)
+  }, [hudVisible, gpsData?.latitude, gpsData?.longitude])
 
   // Default position just offshore Virginia Beach oceanfront (no GPS / no satellite fix)
   const DEFAULT_NO_FIX_POSITION = { latitude: 36.853, longitude: -75.960 }
@@ -359,8 +397,8 @@ function ChartView() {
     const hasGps = gpsData && isValidCoordinate(gpsData.latitude, gpsData.longitude)
     const fix = hasGps && hasGpsFix(gpsData.latitude, gpsData.longitude)
     const displayLat = fix ? gpsData.latitude : DEFAULT_NO_FIX_POSITION.latitude
-    headingLineRef.current.innerHTML = createHeadingLineSVGString(map.current, displayLat, '#22c55e')
-  }, [gpsData])
+    headingLineRef.current.innerHTML = createHeadingLineSVGString(map.current, displayLat, hudColor, gpsData?.heading, gpsData?.cog)
+  }, [gpsData, hudColor])
 
   useEffect(() => {
     if (!mapLoaded || !map.current) return
@@ -369,7 +407,7 @@ function ChartView() {
     const fix = hasGps && hasGpsFix(gpsData.latitude, gpsData.longitude)
     const displayLat = fix ? gpsData.latitude : DEFAULT_NO_FIX_POSITION.latitude
     const displayLng = fix ? gpsData.longitude : DEFAULT_NO_FIX_POSITION.longitude
-    const fillColor = fix ? '#22c55e' : '#ef4444'
+    const fillColor = fix ? hudColor : '#ef4444'
     const glowColor = 'rgba(0, 0, 0, 0.6)'
 
     // Create or update marker
@@ -379,10 +417,10 @@ function ChartView() {
       el.className = 'boat-marker'
       el.style.cssText = 'width:38px; height:38px; position:relative; overflow:visible;'
 
-      // Heading line container — anchored to the center-top of the boat icon
+      // Heading line container — anchored to the center of the boat icon (GPS position)
       const lineContainer = document.createElement('div')
       lineContainer.className = 'heading-line-container'
-      lineContainer.style.cssText = 'position:absolute; bottom:100%; left:50%; transform:translateX(-50%); pointer-events:none; overflow:visible;'
+      lineContainer.style.cssText = 'position:absolute; bottom:50%; left:50%; transform:translateX(-50%); pointer-events:none; overflow:visible;'
       headingLineRef.current = lineContainer
       el.appendChild(lineContainer)
 
@@ -418,7 +456,7 @@ function ChartView() {
       el.appendChild(boatSvg)
 
       // Initial heading line render
-      lineContainer.innerHTML = createHeadingLineSVGString(map.current, displayLat, '#22c55e')
+      lineContainer.innerHTML = createHeadingLineSVGString(map.current, displayLat, hudColor, gpsData?.heading, gpsData?.cog)
 
       boatMarkerRef.current = new maplibregl.Marker({
         element: el,
@@ -1699,6 +1737,16 @@ function ChartView() {
         }}
       />
 
+      {/* HUD Overlay */}
+      {hudVisible && (
+        <HudOverlay
+          heading={gpsData?.heading}
+          speedMs={gpsData?.groundSpeed}
+          depthMeters={hudDepth}
+          color={hudColor}
+        />
+      )}
+
       {/* Crosshairs during hold */}
       {touchState?.showingCrosshairs && (
         <DepthCrosshairs
@@ -1971,8 +2019,47 @@ function ChartView() {
               {/* Menu Content */}
               <div className="absolute top-14 right-0 bg-terminal-surface rounded-lg shadow-glow-green border border-terminal-border overflow-hidden z-40 min-w-[200px]">
                 <button
-                  onClick={clearCacheAndReload}
+                  onClick={() => { setHudVisible(v => !v); setMenuOpen(false) }}
                   className="w-full px-4 py-3 text-left hover:bg-terminal-green/10 transition-colors flex items-center space-x-3 text-terminal-green"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" />
+                  </svg>
+                  <span className="text-sm font-medium">{hudVisible ? 'Hide' : 'Show'} HUD</span>
+                </button>
+                {/* HUD Color Picker */}
+                <div className="px-4 py-3 border-t border-terminal-border">
+                  <span className="text-xs text-terminal-green-dim uppercase tracking-wide">HUD Color</span>
+                  <div className="flex space-x-2 mt-2">
+                    {[
+                      { color: '#22c55e', label: 'Green' },
+                      { color: '#3b82f6', label: 'Blue' },
+                      { color: '#f59e0b', label: 'Amber' },
+                      { color: '#ef4444', label: 'Red' },
+                      { color: '#ffffff', label: 'White' },
+                      { color: '#06b6d4', label: 'Cyan' },
+                    ].map(({ color, label }) => (
+                      <button
+                        key={color}
+                        onClick={() => setHudColor(color)}
+                        title={label}
+                        className="touch-manipulation"
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '6px',
+                          backgroundColor: color,
+                          border: hudColor === color ? '3px solid white' : '2px solid rgba(255,255,255,0.2)',
+                          boxShadow: hudColor === color ? `0 0 8px ${color}` : 'none',
+                          cursor: 'pointer'
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <button
+                  onClick={clearCacheAndReload}
+                  className="w-full px-4 py-3 text-left hover:bg-terminal-green/10 transition-colors flex items-center space-x-3 text-terminal-green border-t border-terminal-border"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />

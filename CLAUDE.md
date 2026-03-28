@@ -148,6 +148,63 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 chromium-browser \
 - SSH sessions do NOT have `WAYLAND_DISPLAY` or `XDG_RUNTIME_DIR` — must export both manually
 - Verify: `ls /run/user/1000/wayland-*` to find the actual socket name
 
+## Deployment Targets
+
+OpenHelm runs on two machines. Both are headless Linux servers running Chromium in kiosk mode.
+
+### Raspberry Pi 5 (Primary — on boat)
+
+- **OS**: Raspberry Pi OS (Debian-based)
+- **Display**: Wayland/labwc compositor
+- **Kiosk**: `~/.config/labwc/autostart` → `start-openhelm-prod.sh`
+- **SSH**: `ssh hic@<pi-ip>` (key auth)
+- See "Kiosk Mode" section above for details
+
+### GMKtec M6 Ultra (Secondary — air-segment)
+
+- **Hardware**: AMD Ryzen AI 9 HX 370, 25GB RAM
+- **OS**: Ubuntu 22.04 LTS Server, HWE kernel 6.8
+- **Display**: X11 (startx + matchbox-window-manager, no desktop environment)
+- **Kiosk**: systemd service `openhelm-kiosk.service`
+- **Boot splash**: Plymouth theme with OpenHelm logo
+- **Martin**: Built from source via cargo (`~/.cargo/bin/martin`)
+- **Chromium**: Snap package (`/snap/bin/chromium`)
+
+**SSH Access:**
+```
+ssh hic@air-segment.local        # mDNS (preferred)
+ssh hic@192.168.4.87             # Static-ish IP (DHCP, may change)
+Password (sudo): archer3
+```
+
+**Key auth**: Not configured yet — use `sshpass -p 'archer3'` or password login.
+
+**Managing the kiosk service:**
+```bash
+sudo systemctl status openhelm-kiosk   # Check status
+sudo systemctl stop openhelm-kiosk     # Stop kiosk
+sudo systemctl start openhelm-kiosk    # Start kiosk
+sudo systemctl restart openhelm-kiosk  # Restart
+sudo systemctl disable openhelm-kiosk  # Disable on boot
+sudo systemctl enable openhelm-kiosk   # Re-enable on boot
+```
+
+**Fallback access**: If the kiosk is misbehaving, SSH always works. The service has restart limits (3 failures in 60s → stops). Ctrl+Alt+F2 on the physical keyboard gives a login prompt on tty2.
+
+**Logs:**
+```bash
+tail -f ~/OpenHelm/openhelm.log    # Startup + chromium logs
+tail -f ~/OpenHelm/api.log         # API server
+tail -f ~/OpenHelm/martin.log      # Tile server
+sudo journalctl -u openhelm-kiosk  # systemd service logs
+```
+
+**Important differences from Pi setup:**
+- Uses X11 (startx), not Wayland (labwc/cage)
+- Kiosk via systemd service, NOT `.profile` or autostart file
+- Chromium is a snap — use `/snap/bin/chromium` explicitly
+- Martin built from source (Rust/cargo), not a prebuilt binary
+
 ## Post-Implementation Verification (REQUIRED)
 
 After completing any feature or code change, you MUST verify the app still works before considering the task done:

@@ -17,6 +17,7 @@ import blueTopoRoutes from './routes/bluetopo.js'
 import cuspRoutes from './routes/cusp.js'
 import gpsRoutes from './routes/gps.js'
 import { setGpsUpdateCallback, startGpsService } from './services/gpsService.js'
+import { startSimulator, stopSimulator, isSimulatorRunning } from './services/gpsSimulator.js'
 import vesselRoutes from './routes/vessel.js'
 import { setVesselUpdateCallback, startNmea2000Service } from './services/nmea2000Service.js'
 import waypointRoutes from './routes/waypoints.js'
@@ -24,6 +25,7 @@ import ncdsRoutes from './routes/ncds.js'
 import s57Routes from './routes/s57.js'
 import satelliteRoutes from './routes/satellite.js'
 import weatherRoutes from './routes/weather.js'
+import updateRoutes from './routes/update.js'
 
 const app = express()
 const PORT = 3002
@@ -88,6 +90,7 @@ app.use('/api/ncds', ncdsRoutes)
 app.use('/api/s57', s57Routes)
 app.use('/api/satellite', satelliteRoutes)
 app.use('/api/weather', weatherRoutes)
+app.use('/api/update', updateRoutes)
 
 // Static file serving for weather data
 app.use('/weather-data', express.static(path.join(process.cwd(), 'weather-data'), {
@@ -152,6 +155,25 @@ if (existsSync(distPath)) {
   console.log(`📦 Serving SPA from ${distPath}`)
 }
 
+// Simulator API routes (must be before the API 404 catch-all)
+app.post('/api/gps/simulator/start', (req, res) => {
+  if (isSimulatorRunning()) {
+    return res.json({ status: 'already running' })
+  }
+  // broadcastSimGps is defined later after WebSocket setup — use a wrapper
+  startSimulator((gpsData) => broadcastSimGps(gpsData))
+  res.json({ status: 'started' })
+})
+
+app.post('/api/gps/simulator/stop', (req, res) => {
+  stopSimulator()
+  res.json({ status: 'stopped' })
+})
+
+app.get('/api/gps/simulator/status', (req, res) => {
+  res.json({ running: isSimulatorRunning() })
+})
+
 // API 404 for unmatched /api/ routes
 app.use('/api/*', (req, res) => {
   res.status(404).json({ error: 'API endpoint not found' })
@@ -208,6 +230,23 @@ setGpsUpdateCallback((gpsData) => {
     }
   })
 })
+
+// GPS Simulator broadcast — uses the same gpsSubscribers channel
+function broadcastSimGps(gpsData) {
+  if (gpsSubscribers.size === 0) return
+  const message = JSON.stringify({
+    type: 'gps',
+    data: gpsData,
+    timestamp: Date.now()
+  })
+  gpsSubscribers.forEach(ws => {
+    if (ws.readyState === ws.OPEN) {
+      try { ws.send(message) } catch { gpsSubscribers.delete(ws) }
+    } else {
+      gpsSubscribers.delete(ws)
+    }
+  })
+}
 
 // Set up vessel real-time streaming (throttled to 5 Hz)
 let lastVesselBroadcast = 0

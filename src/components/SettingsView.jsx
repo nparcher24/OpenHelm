@@ -8,12 +8,15 @@ import WaypointManager from './WaypointManager'
 import SatelliteDownloader from './SatelliteDownloader'
 import WeatherDownloader from './WeatherDownloader'
 import ErrorBoundary from './ErrorBoundary'
+import UpdateManager from './UpdateManager'
 
 function SettingsView() {
   const [searchParams] = useSearchParams()
 
   const [showQuitConfirm, setShowQuitConfirm] = useState(false)
   const [showExitKioskConfirm, setShowExitKioskConfirm] = useState(false)
+  const [simRunning, setSimRunning] = useState(false)
+  const [simLoading, setSimLoading] = useState(false)
 
   // Load last active section from localStorage or URL params, default to 'general'
   const [activeSection, setActiveSection] = useState(() => {
@@ -37,6 +40,26 @@ function SettingsView() {
     setShowExitKioskConfirm(false)
   }, [activeSection])
 
+  // Check GPS simulator status on mount
+  useEffect(() => {
+    fetch('http://localhost:3002/api/gps/simulator/status')
+      .then(r => r.json())
+      .then(d => setSimRunning(d.running))
+      .catch(() => {})
+  }, [])
+
+  const toggleSimulator = async () => {
+    setSimLoading(true)
+    try {
+      const endpoint = simRunning ? 'stop' : 'start'
+      const res = await fetch(`http://localhost:3002/api/gps/simulator/${endpoint}`, { method: 'POST' })
+      if (res.ok) setSimRunning(!simRunning)
+    } catch (err) {
+      console.error('Simulator toggle failed:', err)
+    }
+    setSimLoading(false)
+  }
+
   const sections = [
     { id: 'general', name: 'General', icon: '[>]' },
     { id: 'waypoints', name: 'Waypoints', icon: '[W]' },
@@ -48,6 +71,7 @@ function SettingsView() {
     { id: 'cusp', name: 'Coastline', icon: '[/]' },
     { id: 'gps', name: 'GPS/AHRS', icon: '[*]' },
     { id: 'display', name: 'Display', icon: '[#]' },
+    { id: 'update', name: 'Updates', icon: '[U]' },
     { id: 'system', name: 'System', icon: '[S]' }
   ]
 
@@ -231,6 +255,13 @@ function SettingsView() {
           </div>
         )
 
+      case 'update':
+        return (
+          <ErrorBoundary>
+            <UpdateManager />
+          </ErrorBoundary>
+        )
+
       case 'system':
         return (
           <div className="p-6">
@@ -251,6 +282,32 @@ function SettingsView() {
                   <div>OpenHelm: v1.0.0</div>
                   <div>Martin Tiles: v0.18.1</div>
                   <div>OS: Raspberry Pi OS</div>
+                </div>
+              </div>
+
+              <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
+                <h3 className="font-semibold text-terminal-green mb-3 uppercase tracking-wide">GPS Signal Source</h3>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm text-terminal-green-dim font-mono">
+                      {simRunning ? (
+                        <span className="text-amber-400">Simulator Active — looping N→E→S→W offshore VA Beach</span>
+                      ) : (
+                        <span className="text-terminal-green">Hardware GPS (USB Serial)</span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={toggleSimulator}
+                    disabled={simLoading}
+                    className={`px-6 py-3 font-bold rounded-lg uppercase tracking-wide border transition-colors touch-manipulation min-h-[44px] ${
+                      simRunning
+                        ? 'bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 hover:text-amber-300 border-amber-500/30 hover:border-amber-500/60'
+                        : 'bg-terminal-green/20 hover:bg-terminal-green/40 text-terminal-green border-terminal-border hover:border-terminal-green'
+                    } ${simLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {simLoading ? '...' : simRunning ? 'Stop Simulator' : 'Start Simulator'}
+                  </button>
                 </div>
               </div>
 

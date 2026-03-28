@@ -55,7 +55,8 @@ function metersPerPixel(latitude, zoom) {
 
 // Build the heading line SVG content (everything above the boat icon)
 // color = boat fill color (green for fix, red for no fix)
-export function buildHeadingLineSVG(map, boatLat, color = '#22c55e') {
+// heading/cog in degrees; ground track line shown when difference > 20°
+export function buildHeadingLineSVG(map, boatLat, color = '#22c55e', heading = null, cog = null) {
   if (!map) return null
 
   const viewportHeight = map.getCanvas().clientHeight
@@ -108,12 +109,47 @@ export function buildHeadingLineSVG(map, boatLat, color = '#22c55e') {
     dist += tickInterval
   }
 
+  // Ground track line — shown when heading and COG differ by more than 20°
+  if (heading != null && cog != null) {
+    let drift = cog - heading
+    while (drift > 180) drift -= 360
+    while (drift < -180) drift += 360
+
+    if (Math.abs(drift) > 20) {
+    const gtLength = Math.floor(linePixelLength / 3)
+    const gtEndX = centerX + Math.sin(drift * Math.PI / 180) * gtLength
+    const gtEndY = bottomY - Math.cos(drift * Math.PI / 180) * gtLength
+    const gtColor = '#facc15' // yellow
+
+    // Arrow at tip — rotated to match the line direction
+    const driftRad = drift * Math.PI / 180
+    const arrowSz = 6
+    // Tip is slightly past the line end
+    const gtTipX = gtEndX + Math.sin(driftRad) * 4
+    const gtTipY = gtEndY - Math.cos(driftRad) * 4
+    // Two base points perpendicular to the line direction
+    const perpX = Math.cos(driftRad)
+    const perpY = Math.sin(driftRad)
+    const gtBaseX1 = gtTipX - Math.sin(driftRad) * arrowSz * 1.5 + perpX * arrowSz
+    const gtBaseY1 = gtTipY + Math.cos(driftRad) * arrowSz * 1.5 + perpY * arrowSz
+    const gtBaseX2 = gtTipX - Math.sin(driftRad) * arrowSz * 1.5 - perpX * arrowSz
+    const gtBaseY2 = gtTipY + Math.cos(driftRad) * arrowSz * 1.5 - perpY * arrowSz
+
+    // Black shadow line
+    paths += `<line x1="${centerX}" y1="${bottomY}" x2="${gtEndX}" y2="${gtEndY}" stroke="rgba(0,0,0,0.5)" stroke-width="3" stroke-linecap="round"/>`
+    // Yellow foreground line
+    paths += `<line x1="${centerX}" y1="${bottomY}" x2="${gtEndX}" y2="${gtEndY}" stroke="${gtColor}" stroke-width="1.75" stroke-linecap="round"/>`
+    // Arrow
+    paths += `<path d="M${gtTipX} ${gtTipY} L${gtBaseX1} ${gtBaseY1} L${gtBaseX2} ${gtBaseY2} Z" fill="${gtColor}" stroke="rgba(0,0,0,0.5)" stroke-width="0.5"/>`
+    }
+  }
+
   return { svgWidth, svgHeight, paths, labels }
 }
 
 // Create the full heading line SVG element string
-export function createHeadingLineSVGString(map, boatLat, color) {
-  const result = buildHeadingLineSVG(map, boatLat, color)
+export function createHeadingLineSVGString(map, boatLat, color, heading, cog) {
+  const result = buildHeadingLineSVG(map, boatLat, color, heading, cog)
   if (!result) return ''
 
   const { svgWidth, svgHeight, paths, labels } = result
