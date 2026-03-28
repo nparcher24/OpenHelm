@@ -36,7 +36,8 @@ rollback() {
     echo "PROGRESS -1 Rollback: ${reason}"
     echo "[Update] Rolling back to ${ROLLBACK_REF}..."
 
-    git checkout "$ROLLBACK_REF" --force 2>/dev/null || true
+    git checkout main --force 2>/dev/null || true
+    git reset --hard "$ROLLBACK_REF" 2>/dev/null || true
 
     # Restore backed-up build
     if [ -d "dist-backup" ]; then
@@ -46,7 +47,7 @@ rollback() {
     fi
 
     # Restore old dependencies
-    npm ci --omit=dev 2>/dev/null || true
+    npm install 2>/dev/null || true
 
     # Restart services with old code
     restart_services
@@ -57,22 +58,17 @@ rollback() {
 
 # --- Platform-aware restart ---
 restart_services() {
-    echo "[Update] Detecting platform for restart..."
+    echo "[Update] Restarting services..."
 
-    if systemctl is-active --quiet openhelm-kiosk 2>/dev/null; then
-        echo "[Update] GMKtec detected — restarting via systemd"
-        sudo systemctl restart openhelm-kiosk
-    else
-        echo "[Update] Pi detected — restarting via start-openhelm-prod.sh"
-        # Kill existing services (except this script)
-        pkill -f "vite preview|vite build" 2>/dev/null || true
-        pkill -f "node api-server/server.js" 2>/dev/null || true
-        # Small delay to let processes die
-        sleep 2
-        # Launch prod script in background (nohup so it survives)
-        nohup bash "$PROJECT_DIR/start-openhelm-prod.sh" >> "$PROJECT_DIR/openhelm.log" 2>&1 &
-        disown
-    fi
+    # Kill existing services (except this script's PID)
+    pkill -f "vite preview" 2>/dev/null || true
+    pkill -f "node api-server/server.js" 2>/dev/null || true
+    pkill -f "martin" 2>/dev/null || true
+    sleep 2
+
+    # Launch prod script in background
+    nohup bash "$PROJECT_DIR/start-openhelm-prod.sh" >> "$PROJECT_DIR/openhelm.log" 2>&1 &
+    disown
 }
 
 # --- Step 3: Fetch latest code ---
@@ -81,21 +77,22 @@ if ! git fetch origin --tags 2>&1; then
     rollback "git fetch failed" 1
 fi
 
-# --- Step 4: Checkout release tag ---
+# --- Step 4: Update main branch to release tag ---
 echo "PROGRESS 20 Checking out ${TARGET_TAG}"
-if ! git checkout "${TARGET_TAG}" --force 2>&1; then
-    rollback "git checkout ${TARGET_TAG} failed" 1
+git checkout main --force 2>&1 || true
+if ! git reset --hard "${TARGET_TAG}" 2>&1; then
+    rollback "git reset to ${TARGET_TAG} failed" 1
 fi
 
 # --- Step 5: Install dependencies ---
 echo "PROGRESS 30 Installing dependencies"
-if ! npm ci --omit=dev 2>&1; then
-    rollback "npm ci failed" 2
+if ! npm install 2>&1; then
+    rollback "npm install failed" 2
 fi
 
 # --- Step 6: Build application ---
 echo "PROGRESS 60 Building application"
-if ! npm run build 2>&1; then
+if ! npx vite build 2>&1; then
     rollback "npm run build failed" 3
 fi
 
