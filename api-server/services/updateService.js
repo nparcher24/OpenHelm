@@ -45,9 +45,9 @@ function compareSemver(a, b) {
  * Check GitHub for the latest release and compare to current version.
  * Caches result for 5 minutes to avoid hitting rate limits.
  */
-export async function checkForUpdate() {
+export async function checkForUpdate(force = false) {
   const now = Date.now()
-  if (cachedCheck && (now - lastCheckTime) < CHECK_COOLDOWN_MS) {
+  if (!force && cachedCheck && (now - lastCheckTime) < CHECK_COOLDOWN_MS) {
     return cachedCheck
   }
 

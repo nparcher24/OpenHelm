@@ -7,8 +7,8 @@ const API_BASE = 'http://localhost:3002/api/update'
 /**
  * Check GitHub for the latest release.
  */
-export async function checkForUpdate() {
-  const res = await fetch(`${API_BASE}/check`)
+export async function checkForUpdate(force = true) {
+  const res = await fetch(`${API_BASE}/check?force=${force}`)
   if (!res.ok) throw new Error(`Check failed: ${res.status}`)
   return res.json()
 }

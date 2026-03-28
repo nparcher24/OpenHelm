@@ -19,7 +19,8 @@ const router = express.Router()
  */
 router.get('/check', async (req, res) => {
   try {
-    const result = await checkForUpdate()
+    const force = req.query.force === 'true'
+    const result = await checkForUpdate(force)
     res.json(result)
   } catch (error) {
     console.error('[Update] Check error:', error)
