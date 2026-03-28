@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, lazy, Suspense, useCallback } from 'react'
 
-const WS_URL = 'ws://localhost:3002'
-const API_BASE = 'http://localhost:3002'
+import { API_BASE, WS_BASE as WS_URL } from '../utils/apiConfig.js'
 
 // Lazy load the 3D component for better initial load
 const AttitudeIndicator3D = lazy(() => import('./AttitudeIndicator3D'))

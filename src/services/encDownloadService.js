@@ -3,10 +3,8 @@
  * API wrapper for NCDS (NOAA Chart Display Service) ENC download operations
  */
 
-// Use relative URL that works from any client
-const API_BASE_URL = window.location.hostname === 'localhost'
-  ? 'http://localhost:3002/api/ncds'
-  : `http://${window.location.hostname}:3002/api/ncds`;
+import { API_BASE } from '../utils/apiConfig.js'
+const API_BASE_URL = `${API_BASE}/api/ncds`
 
 /**
  * Get list of available NCDS regions for download

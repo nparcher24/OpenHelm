@@ -3,9 +3,8 @@
  * API wrapper for S-57 download and conversion operations
  */
 
-const API_BASE_URL = window.location.hostname === 'localhost'
-  ? 'http://localhost:3002/api/s57'
-  : `http://${window.location.hostname}:3002/api/s57`;
+import { API_BASE } from '../utils/apiConfig.js'
+const API_BASE_URL = `${API_BASE}/api/s57`
 
 export async function getAvailableRegions() {
   const response = await fetch(`${API_BASE_URL}/regions`);

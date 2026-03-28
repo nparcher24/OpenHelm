@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { API_BASE } from '../utils/apiConfig.js'
 import { useSearchParams } from 'react-router-dom'
 import BlueTopoDownloader from './BlueTopoDownloader'
 import CuspDownloader from './CuspDownloader'
@@ -43,7 +44,7 @@ function SettingsView() {
 
   // Check GPS simulator status on mount
   useEffect(() => {
-    fetch('http://localhost:3002/api/gps/simulator/status')
+    fetch(`${API_BASE}/api/gps/simulator/status`)
       .then(r => r.json())
       .then(d => setSimRunning(d.running))
       .catch(() => {})
@@ -53,7 +54,7 @@ function SettingsView() {
     setSimLoading(true)
     try {
       const endpoint = simRunning ? 'stop' : 'start'
-      const res = await fetch(`http://localhost:3002/api/gps/simulator/${endpoint}`, { method: 'POST' })
+      const res = await fetch(`${API_BASE}/api/gps/simulator/${endpoint}`, { method: 'POST' })
       if (res.ok) setSimRunning(!simRunning)
     } catch (err) {
       console.error('Simulator toggle failed:', err)
@@ -78,7 +79,7 @@ function SettingsView() {
 
   const handleExitKiosk = async () => {
     try {
-      await fetch('http://localhost:3002/api/system/exit-kiosk', { method: 'POST' })
+      await fetch(`${API_BASE}/api/system/exit-kiosk`, { method: 'POST' })
     } catch {
       // Expected - Chromium closes before response completes
     }
@@ -86,7 +87,7 @@ function SettingsView() {
 
   const handleQuit = async () => {
     try {
-      await fetch('http://localhost:3002/api/system/shutdown', { method: 'POST' })
+      await fetch(`${API_BASE}/api/system/shutdown`, { method: 'POST' })
     } catch {
       // Expected - server shuts down before response completes
     }

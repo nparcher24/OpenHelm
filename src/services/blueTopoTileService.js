@@ -3,7 +3,7 @@
  * Frontend service for fetching BlueTopo tile metadata for map display
  */
 
-const API_BASE = 'http://localhost:3002'
+import { API_BASE } from '../utils/apiConfig.js'
 
 /**
  * Get metadata for all downloaded BlueTopo tiles

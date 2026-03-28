@@ -3,9 +3,7 @@
  * Frontend service for satellite imagery tile URLs and region metadata
  */
 
-const API_BASE = window.location.hostname === 'localhost'
-  ? 'http://localhost:3002'
-  : `http://${window.location.hostname}:3002`
+import { API_BASE } from '../utils/apiConfig.js'
 
 /**
  * Get all downloaded satellite regions

@@ -2,7 +2,8 @@
  * Frontend API client for the software update service.
  */
 
-const API_BASE = 'http://localhost:3002/api/update'
+import { API_BASE as _API_BASE } from '../utils/apiConfig.js'
+const API_BASE = `${_API_BASE}/api/update`
 
 /**
  * Check GitHub for the latest release.

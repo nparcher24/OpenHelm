@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 
-const WS_URL = 'ws://localhost:3002'
-const API_BASE = 'http://localhost:3002'
+import { API_BASE, WS_BASE as WS_URL } from '../utils/apiConfig.js'
 
 export default function useVesselData() {
   const [vesselData, setVesselData] = useState(null)

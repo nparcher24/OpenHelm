@@ -3,9 +3,8 @@
  * Reads cached weather data for map display (stations, grid, timestamps)
  */
 
-const API_BASE_URL = window.location.hostname === 'localhost'
-  ? 'http://localhost:3002/api/weather'
-  : `http://${window.location.hostname}:3002/api/weather`
+import { API_BASE } from '../utils/apiConfig.js'
+const API_BASE_URL = `${API_BASE}/api/weather`
 
 /**
  * Get all weather regions

@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { logInfo, logError, logWarn } from '../utils/logger.js'
+import { WS_BASE } from '../utils/apiConfig.js'
 import { getJobStatus as getENCJobStatus } from '../services/encCatalogueService.js'
 
 export function useJobProgress(jobId, enabled = true, customStatusFetcher = null) {
@@ -29,7 +30,7 @@ export function useJobProgress(jobId, enabled = true, customStatusFetcher = null
     try {
       logInfo(`[JobProgress] [${componentId.current}] Connecting to WebSocket for job: ${jobId}`)
       
-      const wsUrl = 'ws://localhost:3002'
+      const wsUrl = WS_BASE
       const ws = new WebSocket(wsUrl)
       
       ws.onopen = () => {

@@ -3,9 +3,8 @@
  * API wrapper for satellite tile download operations
  */
 
-const API_BASE_URL = window.location.hostname === 'localhost'
-  ? 'http://localhost:3002/api/satellite'
-  : `http://${window.location.hostname}:3002/api/satellite`
+import { API_BASE } from '../utils/apiConfig.js'
+const API_BASE_URL = `${API_BASE}/api/satellite`
 
 /**
  * Get storage information (disk space and satellite tile info)

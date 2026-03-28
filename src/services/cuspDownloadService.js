@@ -3,9 +3,8 @@
  * Communicates with backend CUSP API endpoints
  */
 
-const API_BASE = window.location.hostname === 'localhost'
-  ? 'http://localhost:3002/api/cusp'
-  : `http://${window.location.hostname}:3002/api/cusp`;
+import { API_BASE as _API_BASE } from '../utils/apiConfig.js'
+const API_BASE = `${_API_BASE}/api/cusp`
 
 /**
  * Get CUSP status (whether it exists, size, last modified)

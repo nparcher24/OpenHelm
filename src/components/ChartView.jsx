@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { API_BASE, WS_BASE, TILE_BASE } from '../utils/apiConfig.js'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { getDownloadedTileMetadata, getTileUrl, getDepthAtLocation } from '../services/blueTopoTileService'
@@ -250,7 +251,7 @@ function ChartView() {
 
     const connect = () => {
       if (!mounted) return
-      const ws = new WebSocket('ws://localhost:3002')
+      const ws = new WebSocket(WS_BASE)
       wsRef.current = ws
 
       ws.onopen = () => {
@@ -288,7 +289,7 @@ function ChartView() {
     }
 
     // Fetch initial data via HTTP, then switch to WebSocket
-    fetch('http://localhost:3002/api/gps')
+    fetch(`${API_BASE}/api/gps`)
       .then(res => res.json())
       .then(data => {
         if (mounted && isValidCoordinate(data.latitude, data.longitude)) {
@@ -596,7 +597,7 @@ function ChartView() {
       sources: {
         gshhs: {
           type: "vector",
-          tiles: ["http://localhost:3001/gshhs_base/{z}/{x}/{y}"],
+          tiles: [`${TILE_BASE}/gshhs_base/{z}/{x}/{y}`],
           maxzoom: 13  // Tiles exist up to zoom 13, overzoom beyond
         }
       },
@@ -664,7 +665,7 @@ function ChartView() {
 
       // Handle base layer errors gracefully
       map.current.on('error', (e) => {
-        if (e.error?.message?.includes('gshhs_base') || e.error?.message?.includes('localhost:3001')) {
+        if (e.error?.message?.includes('gshhs_base') || e.error?.message?.includes(':3001')) {
           console.warn('GSHHS base layer not available:', e.error.message)
           // Map will show blue background only, user can download via Settings → Coastline
         }
@@ -1034,7 +1035,7 @@ function ChartView() {
       setS57RegionCount(regions.length)
       console.log(`[ChartView] Loading ${regions.length} S-57 vector regions`)
 
-      const apiBaseUrl = `http://${window.location.hostname}:3002`
+      const apiBaseUrl = API_BASE
 
       for (const region of regions) {
         if (!map.current) return
@@ -1196,7 +1197,7 @@ function ChartView() {
 
         // ENC MBTiles are served by Martin at /regionId/{z}/{x}/{y}
         // Martin auto-discovers .mbtiles files and serves them (no file extension needed)
-        const tileUrl = `http://localhost:3001/${region.regionId}/{z}/{x}/{y}`
+        const tileUrl = `${TILE_BASE}/${region.regionId}/{z}/{x}/{y}`
 
         console.log(`[ChartView] Adding ENC source: ${sourceId} with URL pattern: ${tileUrl}`)
 

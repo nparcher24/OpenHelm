@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { API_BASE } from '../utils/apiConfig.js'
 import { useLocation, useNavigate } from "react-router-dom";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -61,9 +62,7 @@ function BlueTopoTilesView() {
 
     // Load tiles from GeoPackage API (with NOAA refresh)
     useEffect(() => {
-        const API_BASE = window.location.hostname === 'localhost'
-            ? 'http://localhost:3002'
-            : `http://${window.location.hostname}:3002`;
+        // API_BASE imported from apiConfig.js
 
         async function loadTiles() {
             try {

@@ -5,7 +5,8 @@
 
 import { logInfo, logError } from '../utils/logger.js'
 
-const API_BASE_URL = 'http://localhost:3002/api'
+import { API_BASE } from '../utils/apiConfig.js'
+const API_BASE_URL = `${API_BASE}/api`
 
 /**
  * Fetch complete ENC catalogue from NOAA and update database

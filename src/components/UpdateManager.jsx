@@ -2,6 +2,7 @@
  * UpdateManager — Settings panel for checking and applying software updates.
  * Uses GitHub Releases API via backend, with WebSocket progress tracking.
  */
+import { API_BASE } from '../utils/apiConfig.js'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useJobProgress } from '../hooks/useJobProgress.js'
@@ -52,7 +53,7 @@ function UpdateManager() {
 
     const pollHealth = async () => {
       try {
-        const res = await fetch('http://localhost:3002/health', { signal: AbortSignal.timeout(3000) })
+        const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(3000) })
         if (res.ok) {
           // Server is back — reload to pick up new frontend build
           clearInterval(reconnectRef.current)

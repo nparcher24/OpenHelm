@@ -3,10 +3,8 @@
  * Handles interactions with NOAA BlueTopo tile scheme data
  */
 
-// Use relative URL that works from any client
-const API_BASE_URL = window.location.hostname === 'localhost'
-  ? 'http://localhost:3002/api/bluetopo'
-  : `http://${window.location.hostname}:3002/api/bluetopo`;
+import { API_BASE } from '../utils/apiConfig.js'
+const API_BASE_URL = `${API_BASE}/api/bluetopo`
 
 /**
  * Fetch information about the latest tile scheme available on NOAA S3

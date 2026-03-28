@@ -3,10 +3,8 @@
  * API wrapper for waypoint CRUD operations
  */
 
-// Use relative URL that works from any client
-const API_BASE_URL = window.location.hostname === 'localhost'
-  ? 'http://localhost:3002/api/waypoints'
-  : `http://${window.location.hostname}:3002/api/waypoints`;
+import { API_BASE } from '../utils/apiConfig.js'
+const API_BASE_URL = `${API_BASE}/api/waypoints`
 
 /**
  * Get all waypoints
