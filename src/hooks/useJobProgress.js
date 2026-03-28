@@ -68,7 +68,7 @@ export function useJobProgress(jobId, enabled = true, customStatusFetcher = null
             }
 
             // If job is completed, try to get final result
-            if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
+            if (data.status === 'completed' || data.status === 'completed_with_errors' || data.status === 'failed' || data.status === 'cancelled') {
               logInfo(`[JobProgress] [${componentId.current}] Job ${data.status}, fetching final result...`)
               getJobStatus(jobId).then(statusResult => {
                 if (statusResult.result) {
@@ -136,7 +136,7 @@ export function useJobProgress(jobId, enabled = true, customStatusFetcher = null
         }
         
         // Stop polling if job is done
-        if (['completed', 'failed', 'cancelled'].includes(statusResult.status)) {
+        if (['completed', 'completed_with_errors', 'failed', 'cancelled'].includes(statusResult.status)) {
           logInfo(`[JobProgress] [${componentId.current}] Job ${statusResult.status}, stopping polling`)
           if (pollingRef.current) {
             clearInterval(pollingRef.current)
@@ -203,9 +203,9 @@ export function useJobProgress(jobId, enabled = true, customStatusFetcher = null
     error,
     connected,
     tiles,
-    isComplete: ['completed', 'failed', 'cancelled'].includes(status),
+    isComplete: ['completed', 'completed_with_errors', 'failed', 'cancelled'].includes(status),
     isActive: ['running', 'processing', 'downloading', 'parsing', 'cleaning', 'finalizing'].includes(status),
-    isError: status === 'failed',
+    isError: status === 'failed' || status === 'completed_with_errors',
     isCancelled: status === 'cancelled'
   }
 }

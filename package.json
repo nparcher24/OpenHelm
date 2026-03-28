@@ -12,6 +12,8 @@
     "tiles": "martin --config martin-config.yaml",
     "stop": "sudo systemctl stop openhelm-backend 2>/dev/null; pkill -f 'martin|vite|chromium-browser' || true",
     "dev:restart": "./start-dev.sh",
+    "postinstall": "bash scripts/check-dependencies.sh",
+    "setup": "bash scripts/install-dependencies.sh",
     "test": "vitest run",
     "test:watch": "vitest"
   },

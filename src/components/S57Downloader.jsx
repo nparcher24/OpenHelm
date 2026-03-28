@@ -41,13 +41,16 @@ function S57Downloader() {
   }, [])
 
   useEffect(() => {
-    if (jobProgress.isComplete && !jobProgress.isError) {
+    if (jobProgress.isComplete) {
       loadDownloadedRegions()
       loadStorageInfo()
       loadMartinStatus()
       setIsDownloading(false)
+      if (jobProgress.isError) {
+        setError(jobProgress.message || 'Download failed')
+      }
     }
-  }, [jobProgress.isComplete, jobProgress.isError])
+  }, [jobProgress.isComplete])
 
   async function loadAvailableRegions() {
     try {
@@ -187,6 +190,7 @@ function S57Downloader() {
       case 'converting': return 'Converting to vector tiles...'
       case 'finalizing': return 'Restarting tile server...'
       case 'completed': return 'Complete!'
+      case 'completed_with_errors': return 'Completed with errors'
       case 'failed': return 'Failed'
       default: return 'Processing...'
     }
