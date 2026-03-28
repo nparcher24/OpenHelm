@@ -57,11 +57,17 @@ export async function checkForUpdate() {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 10000)
 
+    const headers = {
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'OpenHelm-Updater'
+    }
+    // Private repos need a token — set GITHUB_TOKEN env var on target machines
+    if (process.env.GITHUB_TOKEN) {
+      headers['Authorization'] = `Bearer ${process.env.GITHUB_TOKEN}`
+    }
+
     const response = await fetch(GITHUB_API_URL, {
-      headers: {
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'OpenHelm-Updater'
-      },
+      headers,
       signal: controller.signal
     })
     clearTimeout(timeout)
