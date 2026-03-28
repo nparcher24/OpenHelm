@@ -60,15 +60,19 @@ rollback() {
 restart_services() {
     echo "[Update] Restarting services..."
 
-    # Kill existing services (except this script's PID)
-    pkill -f "vite preview" 2>/dev/null || true
-    pkill -f "node api-server/server.js" 2>/dev/null || true
-    pkill -f "martin" 2>/dev/null || true
-    sleep 2
-
-    # Launch prod script in background
-    nohup bash "$PROJECT_DIR/start-openhelm-prod.sh" >> "$PROJECT_DIR/openhelm.log" 2>&1 &
-    disown
+    if systemctl is-active --quiet openhelm-kiosk 2>/dev/null; then
+        # GMKtec: passwordless sudo configured via /etc/sudoers.d/openhelm-kiosk
+        echo "[Update] Restarting via systemd..."
+        sudo systemctl restart openhelm-kiosk
+    else
+        # Pi or manual mode: kill and relaunch directly
+        pkill -f "vite preview" 2>/dev/null || true
+        pkill -f "node api-server/server.js" 2>/dev/null || true
+        pkill -f "martin" 2>/dev/null || true
+        sleep 2
+        nohup bash "$PROJECT_DIR/start-openhelm-prod.sh" >> "$PROJECT_DIR/openhelm.log" 2>&1 &
+        disown
+    fi
 }
 
 # --- Step 3: Fetch latest code ---
