@@ -1,128 +1,11 @@
 import useVesselData from '../hooks/useVesselData'
-
-// Warning thresholds
-const WARNINGS = {
-  engineTemp: { warn: 200, alarm: 220 },
-  oilPressure: { warnLow: 25, alarmLow: 15 },
-  batteryVoltage: { warnLow: 12.0, warnHigh: 15.0 },
-  rpmRedline: 5500,
-  rpmAmber: 4000
-}
-
-function getValueColor(value, field) {
-  if (value == null) return 'text-terminal-green-dim'
-  switch (field) {
-    case 'engineTemp':
-      if (value >= WARNINGS.engineTemp.alarm) return 'text-terminal-red'
-      if (value >= WARNINGS.engineTemp.warn) return 'text-terminal-amber'
-      return 'text-terminal-green'
-    case 'oilPressure':
-      if (value <= WARNINGS.oilPressure.alarmLow) return 'text-terminal-red'
-      if (value <= WARNINGS.oilPressure.warnLow) return 'text-terminal-amber'
-      return 'text-terminal-green'
-    case 'batteryVoltage':
-      if (value < WARNINGS.batteryVoltage.warnLow || value > WARNINGS.batteryVoltage.warnHigh) return 'text-terminal-red'
-      return 'text-terminal-green'
-    default:
-      return 'text-terminal-green'
-  }
-}
-
-function formatValue(value, decimals = 1, unit = '') {
-  if (value == null) return '--'
-  return `${typeof value === 'number' ? value.toFixed(decimals) : value}${unit ? ` ${unit}` : ''}`
-}
-
-function RpmGauge({ rpm }) {
-  const maxRpm = 6500
-  const segments = 26
-  const rpmPerSegment = maxRpm / segments
-  const activeSegments = rpm != null ? Math.min(Math.round(rpm / rpmPerSegment), segments) : 0
-
-  return (
-    <div className="bg-terminal-surface p-3 rounded-lg border border-terminal-border flex flex-col h-full">
-      <div className="text-xs text-terminal-green-dim uppercase tracking-wider mb-2">Engine RPM</div>
-
-      {/* Segmented bar gauge */}
-      <div className="flex gap-[2px] mb-2 h-10 items-end">
-        {Array.from({ length: segments }, (_, i) => {
-          const segRpm = (i + 1) * rpmPerSegment
-          const isActive = i < activeSegments
-          let colorClass = 'bg-terminal-green'
-          if (segRpm > WARNINGS.rpmRedline) colorClass = 'bg-terminal-red'
-          else if (segRpm > WARNINGS.rpmAmber) colorClass = 'bg-terminal-amber'
-
-          return (
-            <div
-              key={i}
-              className={`flex-1 rounded-sm transition-all ${
-                isActive ? colorClass : 'bg-terminal-border'
-              }`}
-              style={{ height: `${60 + (i / segments) * 40}%` }}
-            />
-          )
-        })}
-      </div>
-
-      {/* Tick labels */}
-      <div className="flex justify-between text-[10px] text-terminal-green-dim font-mono px-0.5 mb-3">
-        <span>0</span>
-        <span>1</span>
-        <span>2</span>
-        <span>3</span>
-        <span>4</span>
-        <span>5</span>
-        <span>6</span>
-      </div>
-
-      {/* Digital readout */}
-      <div className="text-center mt-auto">
-        <span className={`text-4xl font-mono font-bold text-glow ${
-          rpm != null && rpm > WARNINGS.rpmRedline ? 'text-terminal-red' :
-          rpm != null && rpm > WARNINGS.rpmAmber ? 'text-terminal-amber' :
-          rpm != null ? 'text-terminal-green' : 'text-terminal-green-dim'
-        }`}>
-          {rpm != null ? rpm.toLocaleString() : '----'}
-        </span>
-        <span className="text-xs text-terminal-green-dim ml-2">RPM</span>
-      </div>
-    </div>
-  )
-}
-
-function DataCard({ label, value, unit, decimals = 1, field, children }) {
-  const colorClass = field ? getValueColor(value, field) : 'text-terminal-green'
-  return (
-    <div className="bg-terminal-surface p-3 rounded-lg border border-terminal-border">
-      <div className="text-xs text-terminal-green-dim uppercase tracking-wider mb-1">{label}</div>
-      {children || (
-        <div className={`text-2xl font-mono ${colorClass} text-glow`}>
-          {formatValue(value, decimals, unit)}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function FuelBar({ level }) {
-  const pct = level != null ? Math.max(0, Math.min(100, level)) : 0
-  const barColor = level != null && level < 15 ? 'bg-terminal-red' :
-                   level != null && level < 25 ? 'bg-terminal-amber' :
-                   'bg-terminal-green'
-  return (
-    <div className="mt-1">
-      <div className="w-full h-3 bg-terminal-border rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${barColor}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
-  )
-}
+import useGpsData from '../hooks/useGpsData'
+import HudOverlay from './HudOverlay'
+import RetroGauge from './RetroGauge'
 
 function VesselView() {
   const { vesselData, error, loading, dataAge } = useVesselData()
+  const { gpsData } = useGpsData()
 
   if (loading) {
     return (
@@ -139,80 +22,180 @@ function VesselView() {
                      vesselData?.isConnected ? 'NMEA 2000' :
                      'NO LINK'
 
+  // Depth from vessel data (NMEA 2000 PGN 128267) — already in feet
+  const depthFt = vesselData?.waterDepth
+  // Convert back to meters for HudOverlay (it does ft conversion internally)
+  const depthMeters = depthFt != null ? depthFt / 3.28084 : null
+
   return (
-    <div className="h-full p-3 flex flex-col">
-      {/* Header row */}
-      <div className="flex items-center justify-between mb-2">
+    <div className="h-full flex flex-col bg-terminal-bg overflow-hidden">
+
+      {/* ── Status Bar ── */}
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-terminal-border flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className={`w-3 h-3 rounded-full ${
+          <div className={`w-2.5 h-2.5 rounded-full ${
             vesselData?.isConnected ? 'bg-terminal-green animate-pulse' :
             vesselData?.isDemoMode ? 'bg-terminal-amber animate-pulse' :
             'bg-terminal-red'
           }`} />
-          <span className={`text-sm font-bold uppercase ${
+          <span className={`text-xs font-bold uppercase font-mono ${
             vesselData?.isConnected ? 'text-terminal-green' :
             vesselData?.isDemoMode ? 'text-terminal-amber' :
             'text-terminal-red'
           }`}>
             {statusText}
           </span>
-          <span className="text-terminal-green-dim text-sm">
-            PGNs: {vesselData?.pgnCount || 0}
+          <span className="text-terminal-green-dim text-xs font-mono">
+            PGN {vesselData?.pgnCount || 0}
           </span>
         </div>
         <div className="flex items-center gap-4">
-          <span className={`text-sm font-mono ${isStale ? 'text-terminal-red font-bold' : 'text-terminal-green-dim'}`}>
+          {vesselData?.engineHours != null && (
+            <span className="text-xs text-terminal-green-dim font-mono">
+              ENG {vesselData.engineHours.toFixed(1)} HRS
+            </span>
+          )}
+          <span className={`text-xs font-mono ${isStale ? 'text-terminal-red font-bold' : 'text-terminal-green-dim'}`}>
             {dataAge != null ? (dataAge > 2000 ? 'STALE' : `${(dataAge / 1000).toFixed(1)}s`) : '--'}
           </span>
         </div>
       </div>
 
       {error && (
-        <div className="p-2 bg-terminal-surface border border-terminal-red rounded text-terminal-red text-xs mb-2">
+        <div className="px-3 py-1 bg-terminal-surface border-b border-terminal-red text-terminal-red text-xs font-mono">
           {error}
         </div>
       )}
 
-      {/* Main content - 3 columns */}
-      <div className="flex-1 flex gap-3 min-h-0">
-        {/* Left column - RPM */}
-        <div className="w-1/3 flex flex-col">
-          <RpmGauge rpm={vesselData?.rpm} />
+      {/* ── HUD Section (upper portion) ── */}
+      <div className="relative flex-1 min-h-0">
+        <HudOverlay
+          heading={gpsData?.heading}
+          speedMs={gpsData?.groundSpeed}
+          depthMeters={depthMeters}
+        />
+
+        {/* Center info when no GPS */}
+        {!gpsData?.heading && !gpsData?.groundSpeed && !depthMeters && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-terminal-green-dim text-sm font-mono opacity-50">
+              AWAITING GPS SIGNAL
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* ── Gauge Panel (lower portion) ── */}
+      <div className="flex-shrink-0 border-t border-terminal-border bg-terminal-surface px-3 py-2 space-y-1.5">
+
+        {/* RPM — full width, large */}
+        <RetroGauge
+          label="RPM"
+          value={vesselData?.rpm}
+          min={0}
+          max={6500}
+          majorInterval={1000}
+          minorInterval={250}
+          warnAt={4000}
+          alarmAt={5500}
+          large
+        />
+
+        {/* 2-column grid for remaining gauges */}
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+          <RetroGauge
+            label="ENG TMP"
+            value={vesselData?.engineTemp}
+            min={100}
+            max={260}
+            unit="°F"
+            majorInterval={40}
+            minorInterval={10}
+            warnAt={200}
+            alarmAt={220}
+          />
+          <RetroGauge
+            label="VOLTS"
+            value={vesselData?.batteryVoltage}
+            min={10}
+            max={16}
+            unit="V"
+            decimals={1}
+            majorInterval={2}
+            minorInterval={0.5}
+            warnAt={12}
+            alarmAt={11}
+            invertWarning
+          />
+          <RetroGauge
+            label="OIL PSI"
+            value={vesselData?.oilPressure}
+            min={0}
+            max={80}
+            unit="PSI"
+            majorInterval={20}
+            minorInterval={5}
+            warnAt={25}
+            alarmAt={15}
+            invertWarning
+          />
+          <RetroGauge
+            label="FUEL"
+            value={vesselData?.fuelLevel}
+            min={0}
+            max={100}
+            unit="%"
+            majorInterval={25}
+            minorInterval={5}
+            warnAt={25}
+            alarmAt={15}
+            invertWarning
+          />
+          <RetroGauge
+            label="TRIM"
+            value={vesselData?.trimPosition}
+            min={0}
+            max={100}
+            unit="%"
+            majorInterval={25}
+            minorInterval={5}
+          />
+          <RetroGauge
+            label="FUEL RT"
+            value={vesselData?.fuelRate}
+            min={0}
+            max={30}
+            unit="GPH"
+            decimals={1}
+            majorInterval={10}
+            minorInterval={2}
+          />
         </div>
 
-        {/* Middle column - Engine & Fuel */}
-        <div className="w-1/3 flex flex-col gap-2">
-          <DataCard label="Engine Temp" value={vesselData?.engineTemp} unit="°F" decimals={0} field="engineTemp" />
-          <DataCard label="Oil Pressure" value={vesselData?.oilPressure} unit="PSI" field="oilPressure" />
-          <DataCard label="Trim" value={vesselData?.trimPosition} unit="%" decimals={0} />
-          <DataCard label="Engine Hours" value={vesselData?.engineHours} unit="hrs" />
-          <DataCard label="Fuel Rate" value={vesselData?.fuelRate} unit="GPH" />
-          <DataCard label="Fuel Level" value={vesselData?.fuelLevel} unit="%" field="fuelLevel">
-            <div className="flex items-center gap-2">
-              <span className={`text-2xl font-mono text-glow ${
-                vesselData?.fuelLevel != null && vesselData.fuelLevel < 15 ? 'text-terminal-red' :
-                vesselData?.fuelLevel != null && vesselData.fuelLevel < 25 ? 'text-terminal-amber' :
-                'text-terminal-green'
-              }`}>
-                {formatValue(vesselData?.fuelLevel, 1, '%')}
-              </span>
-              {vesselData?.fuelCapacity != null && (
-                <span className="text-xs text-terminal-green-dim">
-                  / {vesselData.fuelCapacity} gal
-                </span>
-              )}
-            </div>
-            <FuelBar level={vesselData?.fuelLevel} />
-          </DataCard>
+        {/* Small text readouts row */}
+        <div className="flex justify-between pt-1 border-t border-terminal-border">
+          <SmallReadout label="WATER TEMP" value={vesselData?.waterTemp} unit="°F" />
+          <SmallReadout label="BATT AMPS" value={vesselData?.batteryCurrent} unit="A" decimals={1} />
+          <SmallReadout label="WATER DEPTH" value={vesselData?.waterDepth} unit="ft" />
+          {vesselData?.fuelCapacity != null && (
+            <SmallReadout label="FUEL CAP" value={vesselData.fuelCapacity} unit="gal" />
+          )}
         </div>
+      </div>
+    </div>
+  )
+}
 
-        {/* Right column - Environment & Electrical */}
-        <div className="w-1/3 flex flex-col gap-2">
-          <DataCard label="Water Depth" value={vesselData?.waterDepth} unit="ft" />
-          <DataCard label="Water Temp" value={vesselData?.waterTemp} unit="°F" decimals={0} />
-          <DataCard label="Battery Voltage" value={vesselData?.batteryVoltage} unit="V" decimals={2} field="batteryVoltage" />
-          <DataCard label="Battery Current" value={vesselData?.batteryCurrent} unit="A" decimals={1} />
-        </div>
+function SmallReadout({ label, value, unit, decimals = 0 }) {
+  const display = value != null
+    ? `${typeof value === 'number' ? value.toFixed(decimals) : value}`
+    : '--'
+  return (
+    <div className="text-center">
+      <div className="text-[9px] text-terminal-green-dim uppercase tracking-wider font-mono">{label}</div>
+      <div className="text-sm font-mono text-terminal-green text-glow-sm">
+        {display}
+        {unit && <span className="text-[9px] text-terminal-green-dim ml-0.5">{unit}</span>}
       </div>
     </div>
   )
