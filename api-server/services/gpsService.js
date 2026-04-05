@@ -321,12 +321,12 @@ export function setGpsUpdateCallback(callback) {
 }
 
 /**
- * Find GPS device - checks all ttyUSB* and ttyACM* devices
+ * Find GPS device - checks Linux and macOS serial device paths
  */
 async function findGpsDevice() {
   try {
-    // Use ls to find serial devices
-    const { stdout } = await execAsync('ls /dev/ttyUSB* /dev/ttyACM* 2>/dev/null || true')
+    // Check both Linux and macOS serial device paths
+    const { stdout } = await execAsync('ls /dev/ttyUSB* /dev/ttyACM* /dev/cu.usbserial-* /dev/cu.usbmodem* 2>/dev/null || true')
     const devices = stdout.trim().split('\n').filter(d => d.length > 0)
 
     for (const device of devices) {
@@ -604,7 +604,7 @@ export async function startGpsService() {
   try {
     serialPort = new SerialPort({
       path: device,
-      baudRate: 9600,
+      baudRate: 115200,
       dataBits: 8,
       parity: 'none',
       stopBits: 1,

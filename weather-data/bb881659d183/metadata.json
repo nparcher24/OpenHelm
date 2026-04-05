@@ -1,0 +1,3529 @@
+{
+  "name": "Home",
+  "bounds": [
+    -77.4755,
+    34.8257,
+    -72.7624,
+    38.0162
+  ],
+  "forecastDays": 3,
+  "dataTypes": [
+    "tides",
+    "currents",
+    "wind",
+    "wind_grid",
+    "marine_grid"
+  ],
+  "downloadedAt": "2026-03-27T00:05:19.794Z",
+  "forecastStart": "2026-03-27T00:05:19.230Z",
+  "forecastEnd": "2026-03-30T00:05:19.230Z",
+  "stations": {
+    "tide": [
+      {
+        "id": "8571072",
+        "name": "Ape Hole Creek, Pocomoke Sound",
+        "lat": 37.96169,
+        "lng": -75.82169,
+        "state": "MD",
+        "type": "tide"
+      },
+      {
+        "id": "8571091",
+        "name": "Crisfield, Little Annemessex River",
+        "lat": 37.9767,
+        "lng": -75.8633,
+        "state": "MD",
+        "type": "tide"
+      },
+      {
+        "id": "8571097",
+        "name": "Shelltown",
+        "lat": 37.98,
+        "lng": -75.6383,
+        "state": "MD",
+        "type": "tide"
+      },
+      {
+        "id": "8571117",
+        "name": "Ewell, Smith Island",
+        "lat": 37.995,
+        "lng": -76.0317,
+        "state": "MD",
+        "type": "tide"
+      },
+      {
+        "id": "8573777",
+        "name": "Saxis, Starling Creek, Pocomoke Sound",
+        "lat": 37.92166666666701,
+        "lng": -75.728333333333,
+        "state": "",
+        "type": "tide"
+      },
+      {
+        "id": "8630055",
+        "name": "Franklin City",
+        "lat": 38.0067,
+        "lng": -75.3817,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8630111",
+        "name": "Jesters Island",
+        "lat": 37.9817008972168,
+        "lng": -75.30169677734375,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8630194",
+        "name": "Chincoteague Island, Blake Cove",
+        "lat": 37.9517,
+        "lng": -75.355,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8630225",
+        "name": "Chincoteague Island, Oyster Bay",
+        "lat": 37.9417,
+        "lng": -75.3467,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8630229",
+        "name": "Chincoteague Island, Lewis Creek",
+        "lat": 37.9383,
+        "lng": -75.3733,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8630249",
+        "name": "Chincoteague Island, USCG Station",
+        "lat": 37.93170166015625,
+        "lng": -75.38330078125,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8630308",
+        "name": "Chincoteague Channel (south end)",
+        "lat": 37.9067,
+        "lng": -75.405,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8630315",
+        "name": "Southern Chincoteague Island",
+        "lat": 37.902400970458984,
+        "lng": -75.40789794921875,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8630371",
+        "name": "Wishart Point, Bogues Bay",
+        "lat": 37.8817,
+        "lng": -75.4917,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8630413",
+        "name": "Assateague Beach, Toms Cove",
+        "lat": 37.865,
+        "lng": -75.3683,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8630440",
+        "name": "Wallops Island",
+        "lat": 37.8417,
+        "lng": -75.4783,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8630637",
+        "name": "Gargathy Neck",
+        "lat": 37.7767,
+        "lng": -75.5617,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8630839",
+        "name": "Folly Creek, Metompkin Inlet",
+        "lat": 37.6967,
+        "lng": -75.635,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8630901",
+        "name": "Metompkin Inlet",
+        "lat": 37.6717,
+        "lng": -75.595,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8631044",
+        "name": "Wachapreague, Wachapreague Channel",
+        "lat": 37.60777777777778,
+        "lng": -75.68583333333333,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8631234",
+        "name": "Revel Creek, Revel Island",
+        "lat": 37.4967,
+        "lng": -75.6833,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8631287",
+        "name": "Upshur Neck, south end",
+        "lat": 37.4667,
+        "lng": -75.8,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8631411",
+        "name": "Great Machipongo Inlet (inside)",
+        "lat": 37.3933,
+        "lng": -75.7133,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8631542",
+        "name": "Sand Shoal Inlet (Coast Guard Station)",
+        "lat": 37.3017,
+        "lng": -75.7783,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8631591",
+        "name": "Oyster Harbor",
+        "lat": 37.2883,
+        "lng": -75.925,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8631874",
+        "name": "Smith Island (Coast Guard Station)",
+        "lat": 37.1233,
+        "lng": -75.9117,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8632085",
+        "name": "Fishermans Island",
+        "lat": 37.0967,
+        "lng": -75.9833,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8632200",
+        "name": "Kiptopeke Beach",
+        "lat": 37.165199279785156,
+        "lng": -75.9884033203125,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8632314",
+        "name": "Old Plantation Light",
+        "lat": 37.2333,
+        "lng": -76.05,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8632366",
+        "name": "Cape Charles Harbor",
+        "lat": 37.2633,
+        "lng": -76.02,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8632837",
+        "name": "Rappahannock Light",
+        "lat": 37.538299560546875,
+        "lng": -76.01499938964844,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8632869",
+        "name": "Gaskins Point, Occohannock Creek",
+        "lat": 37.5567,
+        "lng": -75.9167,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8633091",
+        "name": "Harborton, Pungoteague Creek",
+        "lat": 37.6667,
+        "lng": -75.8333,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8633214",
+        "name": "Onancock, Onancock Creek",
+        "lat": 37.7117,
+        "lng": -75.7567,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8633362",
+        "name": "Chesconessex Creek, Schooner Bay",
+        "lat": 37.7633,
+        "lng": -75.7733,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8633451",
+        "name": "Watts Island",
+        "lat": 37.7983,
+        "lng": -75.8967,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8633532",
+        "name": "Tangier Island",
+        "lat": 37.8283,
+        "lng": -75.9933,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8633596",
+        "name": "Guard Shore",
+        "lat": 37.85,
+        "lng": -75.7,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8633604",
+        "name": "Muddy Creek Entrance",
+        "lat": 37.855,
+        "lng": -75.675,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8633777",
+        "name": "Saxis, Starling Creek",
+        "lat": 37.92169952392578,
+        "lng": -75.72830200195312,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8635750",
+        "name": "Lewisetta, Va.",
+        "lat": 37.99610137939453,
+        "lng": -76.46440124511719,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8635762",
+        "name": "Travis Point, Coan River, Va.",
+        "lat": 37.9967,
+        "lng": -76.4667,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8635881",
+        "name": "Tappahannock",
+        "lat": 37.93,
+        "lng": -76.8567,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8635959",
+        "name": "Sunnybank, Little Wicomico River",
+        "lat": 37.8867,
+        "lng": -76.2667,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8635985",
+        "name": "Wares Wharf",
+        "lat": 37.8733,
+        "lng": -76.7833,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8636046",
+        "name": "Glebe Point, Great Wicomico River",
+        "lat": 37.8467,
+        "lng": -76.3683,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8636128",
+        "name": "Fleeton Point",
+        "lat": 37.8133,
+        "lng": -76.275,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8636142",
+        "name": "Great Wicomico River Light",
+        "lat": 37.805,
+        "lng": -76.2683,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8636261",
+        "name": "Bayport",
+        "lat": 37.755,
+        "lng": -76.6733,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8636458",
+        "name": "Millenbeck, Corrotoman River",
+        "lat": 37.6683,
+        "lng": -76.4867,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8636499",
+        "name": "Wakema (Fraziers Ferry), Mattaponi River",
+        "lat": 37.65,
+        "lng": -76.9,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8636522",
+        "name": "Urbanna",
+        "lat": 37.65,
+        "lng": -76.575,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8636558",
+        "name": "Northbury",
+        "lat": 37.625,
+        "lng": -77.1217,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8636580",
+        "name": "Windmill Point",
+        "lat": 37.6155,
+        "lng": -76.28977777777777,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8636623",
+        "name": "Windmill Point Light",
+        "lat": 37.5967,
+        "lng": -76.2367,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8636653",
+        "name": "Lester Manor",
+        "lat": 37.5833,
+        "lng": -76.99,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8636654",
+        "name": "Mill Creek (Grey Point)",
+        "lat": 37.5833,
+        "lng": -76.4183,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8636735",
+        "name": "Jackson Creek, Deltaville",
+        "lat": 37.5483,
+        "lng": -76.3317,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8636769",
+        "name": "West Point",
+        "lat": 37.535,
+        "lng": -76.7933,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8636831",
+        "name": "Dixie",
+        "lat": 37.5067,
+        "lng": -76.4167,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8636941",
+        "name": "Richmond Deepwater Terminal, James River",
+        "lat": 37.45955555555555,
+        "lng": -77.42077777777777,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8636969",
+        "name": "Roane Point",
+        "lat": 37.4467,
+        "lng": -76.7083,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8637072",
+        "name": "Belleville",
+        "lat": 37.4117,
+        "lng": -76.4383,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8637144",
+        "name": "Wolf Trap Light",
+        "lat": 37.39,
+        "lng": -76.19,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8637199",
+        "name": "Mobjack, East River",
+        "lat": 37.3733,
+        "lng": -76.3467,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8637444",
+        "name": "Browns Bay",
+        "lat": 37.3,
+        "lng": -76.4,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8637472",
+        "name": "Cheatham Annex",
+        "lat": 37.2917,
+        "lng": -76.5867,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8637624",
+        "name": "Gloucester Point",
+        "lat": 37.2467,
+        "lng": -76.5,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8637663",
+        "name": "Tue Marshes Light",
+        "lat": 37.235,
+        "lng": -76.385,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8637686",
+        "name": "Yorktown, Goodwin Neck",
+        "lat": 37.23,
+        "lng": -76.4367,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8637689",
+        "name": "Yorktown, USCG Training Center",
+        "lat": 37.2265,
+        "lng": -76.47880555555555,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8637712",
+        "name": "Jamestown",
+        "lat": 37.22010040283203,
+        "lng": -76.79139709472656,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638017",
+        "name": "Fort Eustis (MARAD)",
+        "lat": 37.13822222222223,
+        "lng": -76.62275,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638051",
+        "name": "Messick Point, Back River",
+        "lat": 37.1083,
+        "lng": -76.3183,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638288",
+        "name": "Old Point Comfort",
+        "lat": 37.0033,
+        "lng": -76.315,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638339",
+        "name": "Western Branch",
+        "lat": 36.82322222222222,
+        "lng": -76.39911111111111,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638379",
+        "name": "Newport News",
+        "lat": 36.9733,
+        "lng": -76.4333,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638401",
+        "name": "Huntington Park",
+        "lat": 37.0133,
+        "lng": -76.4583,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638406",
+        "name": "Town Point",
+        "lat": 36.8833,
+        "lng": -76.5083,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638407",
+        "name": "Menchville",
+        "lat": 37.0817,
+        "lng": -76.525,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638409",
+        "name": "Hollidays Point (Kings Highway bridge)",
+        "lat": 36.8383,
+        "lng": -76.55,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638418",
+        "name": "Smithfield, Pagan River",
+        "lat": 36.9833,
+        "lng": -76.63,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638421",
+        "name": "Burwell Bay",
+        "lat": 37.0567,
+        "lng": -76.6683,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638424",
+        "name": "Kingsmill",
+        "lat": 37.22,
+        "lng": -76.6633,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638433",
+        "name": "Scotland",
+        "lat": 37.185,
+        "lng": -76.7833,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638441",
+        "name": "Wright Island Landing",
+        "lat": 37.345,
+        "lng": -76.875,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638442",
+        "name": "Ferry Point (bridge)",
+        "lat": 37.2633,
+        "lng": -76.8767,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638445",
+        "name": "Lanexa, Chicahomny River",
+        "lat": 37.4033,
+        "lng": -76.9117,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638449",
+        "name": "Claremont",
+        "lat": 37.2317,
+        "lng": -76.9483,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638450",
+        "name": "Tettington, James River",
+        "lat": 37.24,
+        "lng": -76.9433,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638455",
+        "name": "Sturgeon Point",
+        "lat": 37.3067,
+        "lng": -77.0067,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638464",
+        "name": "Willcox Wharf, Charles City",
+        "lat": 37.315,
+        "lng": -77.0983,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638476",
+        "name": "Jordan Point",
+        "lat": 37.3133,
+        "lng": -77.2233,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638478",
+        "name": "Haxall",
+        "lat": 37.3733,
+        "lng": -77.2433,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638481",
+        "name": "City Point, Hopewell",
+        "lat": 37.3133,
+        "lng": -77.27,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638486",
+        "name": "Meadowville",
+        "lat": 37.3783,
+        "lng": -77.3233,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638489",
+        "name": "Puddledock, Appomattox River",
+        "lat": 37.2667,
+        "lng": -77.3717,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638491",
+        "name": "Chester",
+        "lat": 37.3833,
+        "lng": -77.3783,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638495",
+        "name": "Richmond (river locks)",
+        "lat": 37.525,
+        "lng": -77.42,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638514",
+        "name": "Pig Point",
+        "lat": 36.9167,
+        "lng": -76.435,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638596",
+        "name": "Craney Island Light",
+        "lat": 36.8917,
+        "lng": -76.3383,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638610",
+        "name": "HAMPTON ROADS (Sewells Point)",
+        "lat": 36.9427778,
+        "lng": -76.3286111,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638654",
+        "name": "Norfolk",
+        "lat": 36.8517,
+        "lng": -76.2983,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638660",
+        "name": "Portsmouth, Naval Shipyard",
+        "lat": 36.8217,
+        "lng": -76.2933,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638671",
+        "name": "Lafayette River",
+        "lat": 36.88422222222222,
+        "lng": -76.27585833333333,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638776",
+        "name": "Little Creek, NAB",
+        "lat": 36.9117,
+        "lng": -76.175,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638854",
+        "name": "Buchanan Creek entrance",
+        "lat": 36.8617,
+        "lng": -76.115,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638863",
+        "name": "CHESAPEAKE BAY BRIDGE TUNNEL",
+        "lat": 36.96670150756836,
+        "lng": -76.11329650878906,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638867",
+        "name": "Bayville",
+        "lat": 36.8933,
+        "lng": -76.105,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638888",
+        "name": "Lynnhaven Inlet, Virginia Pilots Dock",
+        "lat": 36.9067,
+        "lng": -76.09,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638901",
+        "name": "CBBT, CHESAPEAKE CHANNEL",
+        "lat": 37.032901763916016,
+        "lng": -76.08329772949219,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638916",
+        "name": "Long Creek",
+        "lat": 36.9033,
+        "lng": -76.07,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638922",
+        "name": "Brown Cove",
+        "lat": 36.875,
+        "lng": -76.0617,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638923",
+        "name": "Broad Bay Canal",
+        "lat": 36.9017,
+        "lng": -76.0617,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8638999",
+        "name": "Cape Henry",
+        "lat": 36.93000030517578,
+        "lng": -76.00666809082031,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8639168",
+        "name": "Virginia Beach",
+        "lat": 36.8433,
+        "lng": -75.9717,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8639207",
+        "name": "Rudee Inlet, interior channel",
+        "lat": 36.8317,
+        "lng": -75.9733,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8639208",
+        "name": "Rudee Inlet entrance",
+        "lat": 36.8317,
+        "lng": -75.9683,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8639214",
+        "name": "Rudee Heights, Lake Wesley",
+        "lat": 36.825,
+        "lng": -75.975,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8639219",
+        "name": "Lake Rudee, south end",
+        "lat": 36.825,
+        "lng": -75.9817,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8639348",
+        "name": "Money Point",
+        "lat": 36.77819444444445,
+        "lng": -76.30186111111111,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8639414",
+        "name": "Deep Creek Entrance",
+        "lat": 36.755,
+        "lng": -76.2933,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8639428",
+        "name": "Sandbridge",
+        "lat": 36.6917,
+        "lng": -75.92,
+        "state": "VA",
+        "type": "tide"
+      },
+      {
+        "id": "8651370",
+        "name": "DUCK PIER",
+        "lat": 36.18330001831055,
+        "lng": -75.74669647216797,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8651605",
+        "name": "Kitty Hawk (ocean)",
+        "lat": 36.1017,
+        "lng": -75.71,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8652226",
+        "name": "Jennettes Pier, Nags Head (ocean)",
+        "lat": 35.91,
+        "lng": -75.59169444444444,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8652247",
+        "name": "Manns Harbor, Croatan Sound",
+        "lat": 35.9033,
+        "lng": -75.77,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8652437",
+        "name": "Oyster Creek, Croatan Sound",
+        "lat": 35.845,
+        "lng": -75.655,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8652547",
+        "name": "Roanoke Marshes Light, Croatan Sound",
+        "lat": 35.8117,
+        "lng": -75.7,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8652587",
+        "name": "OREGON INLET MARINA",
+        "lat": 35.79569444444444,
+        "lng": -75.54819444444445,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8652591",
+        "name": "Roanoke Sound Channel",
+        "lat": 35.7983,
+        "lng": -75.5833,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8652648",
+        "name": "Old House Channel",
+        "lat": 35.77669906616211,
+        "lng": -75.58499908447266,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8652657",
+        "name": "Oregon Inlet Channel",
+        "lat": 35.7733,
+        "lng": -75.5583,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8652659",
+        "name": "Oregon Inlet Bridge",
+        "lat": 35.7733,
+        "lng": -75.5383,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8652678",
+        "name": "Oregon Inlet (USCG Station)",
+        "lat": 35.7683,
+        "lng": -75.5267,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8652737",
+        "name": "Davis Slough",
+        "lat": 35.7483,
+        "lng": -75.5533,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8653215",
+        "name": "Rodanthe, Pamlico Sound",
+        "lat": 35.595001220703125,
+        "lng": -75.4717025756836,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8653244",
+        "name": "Pungo River, Route 45, NC",
+        "lat": 35.585201263427734,
+        "lng": -76.48560333251953,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8653471",
+        "name": "Engelhard",
+        "lat": 35.5093994140625,
+        "lng": -75.98889923095703,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8653951",
+        "name": "Peter's Ditch",
+        "lat": 35.35013888888889,
+        "lng": -75.51202777777777,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8654400",
+        "name": "CAPE HATTERAS FISHING PIER",
+        "lat": 35.2233,
+        "lng": -75.635,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8654467",
+        "name": "Hatteras (ocean)",
+        "lat": 35.20861111111111,
+        "lng": -75.70419444444444,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8654769",
+        "name": "Ocracoke, Pamlico Sound",
+        "lat": 35.115501403808594,
+        "lng": -75.98690032958984,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8655133",
+        "name": "Oriental, Neuse River",
+        "lat": 35.024600982666016,
+        "lng": -76.69180297851562,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8655151",
+        "name": "Cedar Island",
+        "lat": 35.01890182495117,
+        "lng": -76.31430053710938,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "8655875",
+        "name": "Sea Level",
+        "lat": 34.875,
+        "lng": -76.3433,
+        "state": "NC",
+        "type": "tide"
+      },
+      {
+        "id": "TEC2789",
+        "name": "Cape Hatteras",
+        "lat": 35.23333333333299,
+        "lng": -75.516666666667,
+        "state": "",
+        "type": "tide"
+      },
+      {
+        "id": "TEC2791",
+        "name": "Hatteras Inlet",
+        "lat": 35.2,
+        "lng": -75.733333333333,
+        "state": "",
+        "type": "tide"
+      },
+      {
+        "id": "TEC2793",
+        "name": "Ocracoke Inlet",
+        "lat": 35.06666666666701,
+        "lng": -76.016666666667,
+        "state": "",
+        "type": "tide"
+      }
+    ],
+    "current": [
+      {
+        "id": "ACT4496",
+        "name": "Smith Island Shoal, southeast of",
+        "lat": 37.08833,
+        "lng": -75.725,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4501",
+        "name": "Cape Henry Light, 2.2 miles southeast of",
+        "lat": 36.89833,
+        "lng": -75.97833,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4506",
+        "name": "Cape Henry Light, 3.4nm NNE of",
+        "lat": 36.97983,
+        "lng": -75.98083,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4506",
+        "name": "Cape Henry Light, 3.4nm NNE of",
+        "lat": 36.97983,
+        "lng": -75.98083,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4506",
+        "name": "Cape Henry Light, 3.4nm NNE of",
+        "lat": 36.97983,
+        "lng": -75.98083,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4511",
+        "name": "Cape Henry Light, 2.35nm NNE of",
+        "lat": 36.96233,
+        "lng": -75.98567,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4511",
+        "name": "Cape Henry Light, 2.35nm NNE of",
+        "lat": 36.96233,
+        "lng": -75.98567,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4511",
+        "name": "Cape Henry Light, 2.35nm NNE of",
+        "lat": 36.96233,
+        "lng": -75.98567,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4511",
+        "name": "Cape Henry Light, 2.35nm NNE of",
+        "lat": 36.96233,
+        "lng": -75.98567,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4516",
+        "name": "Cape Henry Light, 1.4nm NE of",
+        "lat": 36.9455,
+        "lng": -75.98967,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4516",
+        "name": "Cape Henry Light, 1.4nm NE of",
+        "lat": 36.9455,
+        "lng": -75.98967,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4516",
+        "name": "Cape Henry Light, 1.4nm NE of",
+        "lat": 36.9455,
+        "lng": -75.98967,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4516",
+        "name": "Cape Henry Light, 1.4nm NE of",
+        "lat": 36.9455,
+        "lng": -75.98967,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4521",
+        "name": "Cape Henry Light, 0.8 n.mi. NNE of",
+        "lat": 36.93883,
+        "lng": -75.99967,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4521",
+        "name": "Cape Henry Light, 0.8 n.mi. NNE of",
+        "lat": 36.93883,
+        "lng": -75.99967,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4531",
+        "name": "Cape Henry Light, 3.2 miles north of",
+        "lat": 36.98,
+        "lng": -75.998,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4536",
+        "name": "Cape Henry Light, 4.6 miles north of",
+        "lat": 37.00167,
+        "lng": -75.98833,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4541",
+        "name": "Cape Henry Light, 5.9 n.mi. north of",
+        "lat": 37.02333,
+        "lng": -75.9925,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4546",
+        "name": "Cape Henry Light, 8.3 mi. NW of",
+        "lat": 37.03667,
+        "lng": -76.11,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4551",
+        "name": "Lynnhaven Roads",
+        "lat": 36.91833,
+        "lng": -76.08167,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4556",
+        "name": "Lynnhaven Inlet bridge",
+        "lat": 36.90667,
+        "lng": -76.09333,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4561",
+        "name": "Chesapeake Beach, 1.5 miles north of",
+        "lat": 36.94483,
+        "lng": -76.12217,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4571",
+        "name": "Tail of the Horseshoe",
+        "lat": 36.99283,
+        "lng": -76.10333,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4576",
+        "name": "Chesapeake Channel (bridge tunnel)",
+        "lat": 37.04167,
+        "lng": -76.07217,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4581",
+        "name": "Chesapeake Channel (Buoy '15')",
+        "lat": 37.05667,
+        "lng": -76.093,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4581",
+        "name": "Chesapeake Channel (Buoy '15')",
+        "lat": 37.05667,
+        "lng": -76.093,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4586",
+        "name": "Fishermans Island, 3.2 miles WSW of",
+        "lat": 37.06667,
+        "lng": -76.0375,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4591",
+        "name": "Fishermans Island, 1.4 miles WSW of",
+        "lat": 37.07967,
+        "lng": -76.00417,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4596",
+        "name": "Fishermans Island, 2.45nm south of",
+        "lat": 37.044,
+        "lng": -75.96283,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4596",
+        "name": "Fishermans Island, 2.45nm south of",
+        "lat": 37.044,
+        "lng": -75.96283,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4596",
+        "name": "Fishermans Island, 2.45nm south of",
+        "lat": 37.044,
+        "lng": -75.96283,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4601",
+        "name": "Fishermans Island, 1.7 n.mi. south of",
+        "lat": 37.05617,
+        "lng": -75.97217,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4601",
+        "name": "Fishermans Island, 1.7 n.mi. south of",
+        "lat": 37.05617,
+        "lng": -75.97217,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4606",
+        "name": "Fishermans Island, 0.5 n.mi. SW of",
+        "lat": 37.08083,
+        "lng": -75.9805,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4611",
+        "name": "Fishermans I., 0.4 mile west of",
+        "lat": 37.09283,
+        "lng": -75.98883,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4616",
+        "name": "Fishermans I., 1.4 n.mi. WNW of",
+        "lat": 37.10167,
+        "lng": -76.0055,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4621",
+        "name": "Fishermans I., 1.1 miles northwest of",
+        "lat": 37.10833,
+        "lng": -76,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4626",
+        "name": "Cape Charles, off Wise Point",
+        "lat": 37.11467,
+        "lng": -75.97167,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4631",
+        "name": "Little Creek, 0.2 n.mi. N of east jetty",
+        "lat": 36.93417,
+        "lng": -76.17667,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4636",
+        "name": "Butler Bluff, 2.1 n.mi. WSW of",
+        "lat": 37.15617,
+        "lng": -76.02667,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4641",
+        "name": "York Spit Channel, N of Buoy '26'",
+        "lat": 37.215,
+        "lng": -76.14167,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4646",
+        "name": "Old Plantation Flats Lt., 0.5 mi. W of",
+        "lat": 37.23333,
+        "lng": -76.06833,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4651",
+        "name": "Cape Charles City, 3.3 n.mi. west of",
+        "lat": 37.2645,
+        "lng": -76.09367,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4651",
+        "name": "Cape Charles City, 3.3 n.mi. west of",
+        "lat": 37.2645,
+        "lng": -76.09367,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4651",
+        "name": "Cape Charles City, 3.3 n.mi. west of",
+        "lat": 37.2645,
+        "lng": -76.09367,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4656",
+        "name": "New Point Comfort, 4.1 n.mi. ESE of",
+        "lat": 37.29,
+        "lng": -76.19083,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4661",
+        "name": "Wolf Trap Light, 0.5 mile west of",
+        "lat": 37.39,
+        "lng": -76.19833,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4666",
+        "name": "Wolf Trap Light, 5.8 miles east of",
+        "lat": 37.385,
+        "lng": -76.07167,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4671",
+        "name": "Church Neck Point, 1.9 n.mi. W of",
+        "lat": 37.40333,
+        "lng": -76.013,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4676",
+        "name": "Wolf Trap Light, 6.1 n.mi. ENE of",
+        "lat": 37.40833,
+        "lng": -76.06383,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4676",
+        "name": "Wolf Trap Light, 6.1 n.mi. ENE of",
+        "lat": 37.40833,
+        "lng": -76.06383,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4681",
+        "name": "Wolf Trap Light, 5.2 n.mi. ENE of",
+        "lat": 37.40833,
+        "lng": -76.08333,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4681",
+        "name": "Wolf Trap Light, 5.2 n.mi. ENE of",
+        "lat": 37.40833,
+        "lng": -76.08333,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4681",
+        "name": "Wolf Trap Light, 5.2 n.mi. ENE of",
+        "lat": 37.40833,
+        "lng": -76.08333,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4686",
+        "name": "Wolf Trap Light, 1.4 n.mi. NNE of",
+        "lat": 37.41117,
+        "lng": -76.17617,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4691",
+        "name": "Wolf Trap Light, 2.0 n.mi. NW of",
+        "lat": 37.41667,
+        "lng": -76.215,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4696",
+        "name": "Nassawadox Point, 1.9 n.mi. NW of",
+        "lat": 37.4995,
+        "lng": -75.9895,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4701",
+        "name": "Gwynn Island, 8.0 n.mi. east of",
+        "lat": 37.495,
+        "lng": -76.10833,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4701",
+        "name": "Gwynn Island, 8.0 n.mi. east of",
+        "lat": 37.495,
+        "lng": -76.10833,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4706",
+        "name": "Gwynn Island, 1.5 n.mi. east of",
+        "lat": 37.5005,
+        "lng": -76.245,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4711",
+        "name": "Stingray Point, 5.5 miles east of",
+        "lat": 37.58333,
+        "lng": -76.17333,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4716",
+        "name": "Stingray Point, 12.5 miles east of",
+        "lat": 37.56333,
+        "lng": -76.03833,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4721",
+        "name": "Powells Bluff, 2.2 n.mi. NW of",
+        "lat": 37.59083,
+        "lng": -76.96833,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4726",
+        "name": "Windmill Point Light, 8.3 n.mi. ESE of",
+        "lat": 37.57667,
+        "lng": -76.06333,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4726",
+        "name": "Windmill Point Light, 8.3 n.mi. ESE of",
+        "lat": 37.57667,
+        "lng": -76.06333,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4731",
+        "name": "Windmill Point Light, 2.2 n.mi. ESE of",
+        "lat": 37.58833,
+        "lng": -76.19167,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4731",
+        "name": "Windmill Point Light, 2.2 n.mi. ESE of",
+        "lat": 37.58833,
+        "lng": -76.19167,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4736",
+        "name": "Milby Point, 5.3 n.mi. WNW of",
+        "lat": 37.66417,
+        "lng": -76.00867,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4736",
+        "name": "Milby Point, 5.3 n.mi. WNW of",
+        "lat": 37.66417,
+        "lng": -76.00867,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4741",
+        "name": "Bluff Point, 4.6 n.mi. east of",
+        "lat": 37.67833,
+        "lng": -76.20417,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4741",
+        "name": "Bluff Point, 4.6 n.mi. east of",
+        "lat": 37.67833,
+        "lng": -76.20417,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4746",
+        "name": "Tangier Sound Light, 5.8 n.mi. west of",
+        "lat": 37.78383,
+        "lng": -76.09467,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4751",
+        "name": "Great Wicomico R. Lt., 3.8 n.mi. ESE of",
+        "lat": 37.78333,
+        "lng": -76.19167,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4751",
+        "name": "Great Wicomico R. Lt., 3.8 n.mi. ESE of",
+        "lat": 37.78333,
+        "lng": -76.19167,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4756",
+        "name": "Smith Point Light, 6.7 n.mi. east of",
+        "lat": 37.8805,
+        "lng": -76.04417,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4761",
+        "name": "Smith Point Light, 4.5 n.mi. east of",
+        "lat": 37.87783,
+        "lng": -76.08833,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4761",
+        "name": "Smith Point Light, 4.5 n.mi. east of",
+        "lat": 37.87783,
+        "lng": -76.08833,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4766",
+        "name": "Smith Point Light, 3.0 n.mi. east of",
+        "lat": 37.8775,
+        "lng": -76.118,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4766",
+        "name": "Smith Point Light, 3.0 n.mi. east of",
+        "lat": 37.8775,
+        "lng": -76.118,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4771",
+        "name": "Smith Point Light, 1.5 n.mi. east of",
+        "lat": 37.87917,
+        "lng": -76.152,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4771",
+        "name": "Smith Point Light, 1.5 n.mi. east of",
+        "lat": 37.87917,
+        "lng": -76.152,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4771",
+        "name": "Smith Point Light, 1.5 n.mi. east of",
+        "lat": 37.87917,
+        "lng": -76.152,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4776",
+        "name": "Smith Point Light, 0.8 n.mi. NW of",
+        "lat": 37.88717,
+        "lng": -76.19833,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4786",
+        "name": "Smith Point Light, 6 miles north of",
+        "lat": 37.98167,
+        "lng": -76.19,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4791",
+        "name": "Smith Island, 3.6 n.mi. northwest of",
+        "lat": 38.0075,
+        "lng": -76.12133,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4796",
+        "name": "Point Lookout, 5.9 n.mi. ESE of",
+        "lat": 38.01467,
+        "lng": -76.202,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT4796",
+        "name": "Point Lookout, 5.9 n.mi. ESE of",
+        "lat": 38.01467,
+        "lng": -76.202,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5161",
+        "name": "Thimble Shoal Channel (west end)",
+        "lat": 37.00533,
+        "lng": -76.22667,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5171",
+        "name": "0.55 n.mi. east of",
+        "lat": 37.002,
+        "lng": -76.29533,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5176",
+        "name": "0.2 mile south of",
+        "lat": 36.99617,
+        "lng": -76.31467,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5181",
+        "name": "0.9 mile southwest of",
+        "lat": 36.98883,
+        "lng": -76.32617,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5186",
+        "name": "Willoughby Spit, 0.8 mile northwest of",
+        "lat": 36.97667,
+        "lng": -76.30667,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5191",
+        "name": "Willoughby Bay entrance",
+        "lat": 36.96167,
+        "lng": -76.29833,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5201",
+        "name": "Norfolk Harbor Reach (Buoy R '8')",
+        "lat": 36.95,
+        "lng": -76.3395,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5201",
+        "name": "Norfolk Harbor Reach (Buoy R '8')",
+        "lat": 36.95,
+        "lng": -76.3395,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5206",
+        "name": "Sewells Point, pierhead",
+        "lat": 36.94667,
+        "lng": -76.335,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5211",
+        "name": "Channel, middle",
+        "lat": 36.95633,
+        "lng": -76.38167,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5221",
+        "name": "Middle Ground, 1 mile south of",
+        "lat": 36.93333,
+        "lng": -76.38667,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5226",
+        "name": "Craney Island",
+        "lat": 36.89467,
+        "lng": -76.33583,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5236",
+        "name": "Lamberts Point",
+        "lat": 36.875,
+        "lng": -76.3325,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5241",
+        "name": "West Norfolk Bridge, Western Branch",
+        "lat": 36.85833,
+        "lng": -76.34333,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5246",
+        "name": "Seaboard Coast Line RR, Pinner Point",
+        "lat": 36.86,
+        "lng": -76.31667,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5251",
+        "name": "Berkley Bridge, Eastern Branch",
+        "lat": 36.84167,
+        "lng": -76.28333,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5256",
+        "name": "Norfolk and Western RR. Bridge, E Branch",
+        "lat": 36.83667,
+        "lng": -76.245,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5261",
+        "name": "Berkley, Southern Branch",
+        "lat": 36.83333,
+        "lng": -76.29667,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5266",
+        "name": "Chesapeake, Southern Branch",
+        "lat": 36.80833,
+        "lng": -76.29,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5271",
+        "name": "Gilmerton Hwy. bridge, Southern Branch",
+        "lat": 36.775,
+        "lng": -76.295,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5276",
+        "name": "Money Point, Southern Branch",
+        "lat": 36.777000427246094,
+        "lng": -76.30216979980469,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5281",
+        "name": "Pig Point, 1.8 miles northeast of",
+        "lat": 36.92333,
+        "lng": -76.41833,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5286",
+        "name": "Town Point Bridge, 0.5 mile east of",
+        "lat": 36.88833,
+        "lng": -76.48333,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5291",
+        "name": "Dumpling Island",
+        "lat": 36.80833,
+        "lng": -76.55833,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5301",
+        "name": "0.8 mile SW of shipbuilding plant",
+        "lat": 36.975,
+        "lng": -76.455,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5306",
+        "name": "1.5 miles SW of shipbuilding plant",
+        "lat": 36.96833,
+        "lng": -76.47,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5311",
+        "name": "South end",
+        "lat": 37.05833,
+        "lng": -76.59383,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5316",
+        "name": "Middle",
+        "lat": 37.08667,
+        "lng": -76.61383,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5321",
+        "name": "North end",
+        "lat": 37.11,
+        "lng": -76.6325,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5326",
+        "name": "Point of Shoals, west of",
+        "lat": 37.065,
+        "lng": -76.66,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5331",
+        "name": "Deepwater Shoals",
+        "lat": 37.14333,
+        "lng": -76.63667,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5336",
+        "name": "Hog Point",
+        "lat": 37.2,
+        "lng": -76.69167,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5341",
+        "name": "Jamestown Island, Church Point",
+        "lat": 37.20333,
+        "lng": -76.78333,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5346",
+        "name": "Chickahominy River Bridge",
+        "lat": 37.26167,
+        "lng": -76.875,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5351",
+        "name": "Caremont Landing",
+        "lat": 37.23333,
+        "lng": -76.95333,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5356",
+        "name": "Brandon Point, 0.3 mile northeast of",
+        "lat": 37.275,
+        "lng": -76.98667,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5361",
+        "name": "Windmill Point",
+        "lat": 37.31167,
+        "lng": -77.095,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5366",
+        "name": "Coggins Point, 0.5 mile north of",
+        "lat": 37.30667,
+        "lng": -77.16667,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5371",
+        "name": "City Point",
+        "lat": 37.31667,
+        "lng": -77.27167,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5376",
+        "name": "Appomattox River entrance",
+        "lat": 37.31167,
+        "lng": -77.295,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5381",
+        "name": "Bermuda Hundred",
+        "lat": 37.33667,
+        "lng": -77.27,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5386",
+        "name": "Dutch Gap Canal, 0.5 mile east of",
+        "lat": 37.38,
+        "lng": -77.34667,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5401",
+        "name": "York Spit Light, 0.8 mile southwest of",
+        "lat": 37.2,
+        "lng": -76.26667,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5406",
+        "name": "York River Ent. Channel (NW end)",
+        "lat": 37.22583,
+        "lng": -76.30783,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5411",
+        "name": "Tue Marshes Light, 0.7 n.mi. north of",
+        "lat": 37.24667,
+        "lng": -76.388,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5411",
+        "name": "Tue Marshes Light, 0.7 n.mi. north of",
+        "lat": 37.24667,
+        "lng": -76.388,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5411",
+        "name": "Tue Marshes Light, 0.7 n.mi. north of",
+        "lat": 37.24667,
+        "lng": -76.388,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5416",
+        "name": "Tue Marshes Light, 0.9 n.mi. WNW of",
+        "lat": 37.238,
+        "lng": -76.40217,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5416",
+        "name": "Tue Marshes Light, 0.9 n.mi. WNW of",
+        "lat": 37.238,
+        "lng": -76.40217,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5421",
+        "name": "Midchannel",
+        "lat": 37.23333,
+        "lng": -76.44333,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5426",
+        "name": "North edge of channel",
+        "lat": 37.23667,
+        "lng": -76.44333,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5431",
+        "name": "South edge of channel",
+        "lat": 37.22667,
+        "lng": -76.44167,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5436",
+        "name": "Yorktown",
+        "lat": 37.24167,
+        "lng": -76.50833,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5441",
+        "name": "Gloucester Point, 150 yds. southeast of",
+        "lat": 37.2425,
+        "lng": -76.50167,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5446",
+        "name": "Gloucester Point, 0.4 mile southwest of",
+        "lat": 37.24033,
+        "lng": -76.51083,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5451",
+        "name": "Pages Rock, 1 mile SSE of",
+        "lat": 37.29333,
+        "lng": -76.58,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5456",
+        "name": "Blundering Point, 0.9 mile SSW of",
+        "lat": 37.30217,
+        "lng": -76.58467,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5461",
+        "name": "Clay Bank Pier, 100 yds. southwest of",
+        "lat": 37.34633,
+        "lng": -76.61333,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5466",
+        "name": "Allmondsville",
+        "lat": 37.4,
+        "lng": -76.66667,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5471",
+        "name": "Purtan Island, 0.2 mile southwest of",
+        "lat": 37.41467,
+        "lng": -76.687,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5476",
+        "name": "Goff Point, 0.8 mile SSW of",
+        "lat": 37.4995,
+        "lng": -76.78383,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5481",
+        "name": "West Point, 0.8 mile below",
+        "lat": 37.515,
+        "lng": -76.79167,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5486",
+        "name": "Lord Delaware Bridge, 100 yds. S of",
+        "lat": 37.537,
+        "lng": -76.79083,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5491",
+        "name": "Wakema, Mattaponi River",
+        "lat": 37.65333,
+        "lng": -76.9,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5496",
+        "name": "Walkerton, Mattaponi River",
+        "lat": 37.72333,
+        "lng": -77.025,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5501",
+        "name": "Eltham Bridge, 100 yds. north of",
+        "lat": 37.535,
+        "lng": -76.807,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5506",
+        "name": "Lester Manor, Pamunkey River",
+        "lat": 37.58167,
+        "lng": -76.99,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5511",
+        "name": "Northbury, Pamunkey River",
+        "lat": 37.625,
+        "lng": -77.12167,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5516",
+        "name": "New Point Comfort, 2.0 n.mi. WSW of",
+        "lat": 37.295,
+        "lng": -76.32083,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5521",
+        "name": "Bland Point, Piankatank River",
+        "lat": 37.53,
+        "lng": -76.365,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5526",
+        "name": "Doctor Point, 0.4 mile west of",
+        "lat": 37.51833,
+        "lng": -76.45,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5531",
+        "name": "Stingray Point, 1.2 n.mi. NE of",
+        "lat": 37.5755,
+        "lng": -76.28467,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5536",
+        "name": "Windmill Point, 1.0 n.mi SSW of",
+        "lat": 37.6,
+        "lng": -76.29167,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5536",
+        "name": "Windmill Point, 1.0 n.mi SSW of",
+        "lat": 37.6,
+        "lng": -76.29167,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5541",
+        "name": "Mosquito Point, 0.9 mile SSE of",
+        "lat": 37.59533,
+        "lng": -76.35133,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5551",
+        "name": "Orchard Point, 1.0 mile south of",
+        "lat": 37.63283,
+        "lng": -76.4575,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5556",
+        "name": "Towles Point",
+        "lat": 37.63,
+        "lng": -76.50667,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5566",
+        "name": "Waterview, 1.3 miles NNE of",
+        "lat": 37.74917,
+        "lng": -76.59867,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5571",
+        "name": "Tarpley Point, 1.5 miles south of",
+        "lat": 37.76917,
+        "lng": -76.652,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5576",
+        "name": "Jones Point, 1.4 miles NNW of",
+        "lat": 37.8005,
+        "lng": -76.693,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5581",
+        "name": "Sharps, 1.2 miles south of",
+        "lat": 37.803,
+        "lng": -76.69867,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5586",
+        "name": "Bowlers Rock, 0.2 mile north of",
+        "lat": 37.82633,
+        "lng": -76.73333,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5591",
+        "name": "Accaceek Point, 0.3 mile southwest of",
+        "lat": 37.87533,
+        "lng": -76.77333,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5596",
+        "name": "Tappahannock Bridge, 1.8 miles SE of",
+        "lat": 37.91833,
+        "lng": -76.82117,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5611",
+        "name": "Pocomoke Sound Approach",
+        "lat": 37.63333,
+        "lng": -75.965,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5621",
+        "name": "Watts Island, 4 miles south of",
+        "lat": 37.72,
+        "lng": -75.9,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5626",
+        "name": "Watts Island, 2.3 n.mi. east of",
+        "lat": 37.79367,
+        "lng": -75.84717,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5626",
+        "name": "Watts Island, 2.3 n.mi. east of",
+        "lat": 37.79367,
+        "lng": -75.84717,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5631",
+        "name": "Long Point, 2.0 n.mi. northeast of",
+        "lat": 37.915,
+        "lng": -75.79833,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5636",
+        "name": "Pocomoke R., 0.5 mile below Shelltown",
+        "lat": 37.97167,
+        "lng": -75.645,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5641",
+        "name": "Tangier Sound Light, 0.5 n.mi. east of",
+        "lat": 37.7875,
+        "lng": -75.96383,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5641",
+        "name": "Tangier Sound Light, 0.5 n.mi. east of",
+        "lat": 37.7875,
+        "lng": -75.96383,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5646",
+        "name": "Tangier Sound Light, 1.5 miles NE of",
+        "lat": 37.80833,
+        "lng": -75.95667,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5651",
+        "name": "Clump Island, 2.5 n.mi. west of",
+        "lat": 37.90833,
+        "lng": -75.957,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5651",
+        "name": "Clump Island, 2.5 n.mi. west of",
+        "lat": 37.90833,
+        "lng": -75.957,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5656",
+        "name": "Janes Island Light, 2.3 n.mi. NNE OF",
+        "lat": 38.00083,
+        "lng": -75.90867,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5656",
+        "name": "Janes Island Light, 2.3 n.mi. NNE OF",
+        "lat": 38.00083,
+        "lng": -75.90867,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5656",
+        "name": "Janes Island Light, 2.3 n.mi. NNE OF",
+        "lat": 38.00083,
+        "lng": -75.90867,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5746",
+        "name": "Sandy Point, east of",
+        "lat": 37.82167,
+        "lng": -76.3,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5751",
+        "name": "Point Lookout, 5.2 n.mi. SW of",
+        "lat": 37.96867,
+        "lng": -76.39167,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5756",
+        "name": "Point Lookout, 3.1 n.mi. SW of",
+        "lat": 37.99783,
+        "lng": -76.3625,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5756",
+        "name": "Point Lookout, 3.1 n.mi. SW of",
+        "lat": 37.99783,
+        "lng": -76.3625,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5761",
+        "name": "Point Lookout, 1.8 n.mi. SW of",
+        "lat": 38.01333,
+        "lng": -76.34367,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5761",
+        "name": "Point Lookout, 1.8 n.mi. SW of",
+        "lat": 38.01333,
+        "lng": -76.34367,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT5781",
+        "name": "Cornfield Point, 3.8 miles south of",
+        "lat": 37.9900016784668,
+        "lng": -76.35832977294922,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT6261",
+        "name": "Cape Henry Light, 0.7 mile east of",
+        "lat": 36.92833,
+        "lng": -75.99333,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT6266",
+        "name": "Virginia Beach, south end",
+        "lat": 36.55,
+        "lng": -75.86833,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT6271",
+        "name": "Bodie Island-Pea Island, between",
+        "lat": 35.77667,
+        "lng": -75.535,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT6271",
+        "name": "Bodie Island-Pea Island, between",
+        "lat": 35.77667,
+        "lng": -75.535,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT6276",
+        "name": "Coast Guard Tower, southwest of",
+        "lat": 35.76167,
+        "lng": -75.53167,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT6276",
+        "name": "Coast Guard Tower, southwest of",
+        "lat": 35.76167,
+        "lng": -75.53167,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT6281",
+        "name": "Herbert C. Bonner Bridge, WSW of",
+        "lat": 35.77,
+        "lng": -75.54667,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT6286",
+        "name": "Hatteras Inlet",
+        "lat": 35.2,
+        "lng": -75.75,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT6296",
+        "name": "Ocracoke Inlet, channel entrance",
+        "lat": 35.06529998779297,
+        "lng": -76.018798828125,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT6301",
+        "name": "Teaches Hole Channel",
+        "lat": 35.07917,
+        "lng": -76.00467,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT6306",
+        "name": "Blair Channel",
+        "lat": 35.08133,
+        "lng": -76.03383,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT6311",
+        "name": "Wallace Channel",
+        "lat": 35.07967,
+        "lng": -76.052,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "ACT6316",
+        "name": "Sheep Island Slue",
+        "lat": 35.06667,
+        "lng": -76.1,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "CHB0303",
+        "name": "Smith Point Light, 5.0 n.mi. NW of",
+        "lat": 37.93652,
+        "lng": -76.26135,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "CHB0303",
+        "name": "Smith Point Light, 5.0 n.mi. NW of",
+        "lat": 37.93652,
+        "lng": -76.26135,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "CHB9902",
+        "name": "0.75nm west, Thimble Shoal Channel",
+        "lat": 36.97739,
+        "lng": -76.1242,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "CHB9902",
+        "name": "0.75nm west, Thimble Shoal Channel",
+        "lat": 36.97739,
+        "lng": -76.1242,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "CHB9902",
+        "name": "0.75nm west, Thimble Shoal Channel",
+        "lat": 36.97739,
+        "lng": -76.1242,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "CHB9902",
+        "name": "0.75nm west, Thimble Shoal Channel",
+        "lat": 36.97739,
+        "lng": -76.1242,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "CHB9903",
+        "name": "Hampton Roads entrance, midchannel",
+        "lat": 36.99428,
+        "lng": -76.30527,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "CHB9903",
+        "name": "Hampton Roads entrance, midchannel",
+        "lat": 36.99428,
+        "lng": -76.30527,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "CHB9903",
+        "name": "Hampton Roads entrance, midchannel",
+        "lat": 36.99428,
+        "lng": -76.30527,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "CHB9903",
+        "name": "Hampton Roads entrance, midchannel",
+        "lat": 36.99428,
+        "lng": -76.30527,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "CHB9903",
+        "name": "Hampton Roads entrance, midchannel",
+        "lat": 36.99428,
+        "lng": -76.30527,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "CHB9904",
+        "name": "0.15nm WSW of Pier No.2",
+        "lat": 36.97925,
+        "lng": -76.44348,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "CHB9904",
+        "name": "0.15nm WSW of Pier No.2",
+        "lat": 36.97925,
+        "lng": -76.44348,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "CHB9904",
+        "name": "0.15nm WSW of Pier No.2",
+        "lat": 36.97925,
+        "lng": -76.44348,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "CHB9904",
+        "name": "0.15nm WSW of Pier No.2",
+        "lat": 36.97925,
+        "lng": -76.44348,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "CHB9905",
+        "name": "Craney Island Reach",
+        "lat": 36.89053,
+        "lng": -76.33575,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "CHB9905",
+        "name": "Craney Island Reach",
+        "lat": 36.89053,
+        "lng": -76.33575,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "CHB9905",
+        "name": "Craney Island Reach",
+        "lat": 36.89053,
+        "lng": -76.33575,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "CHB9905",
+        "name": "Craney Island Reach",
+        "lat": 36.89053,
+        "lng": -76.33575,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb0102",
+        "name": "Chesapeake Bay Ent., 2.0 n.mi. N of Cape Henry Lt.",
+        "lat": 36.9594,
+        "lng": -76.0128,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb0102",
+        "name": "Chesapeake Bay Ent., 2.0 n.mi. N of Cape Henry Lt.",
+        "lat": 36.9594,
+        "lng": -76.0128,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb0102",
+        "name": "Chesapeake Bay Ent., 2.0 n.mi. N of Cape Henry Lt.",
+        "lat": 36.9594,
+        "lng": -76.0128,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb0201",
+        "name": "York River Entrance Channel (SE end)",
+        "lat": 37.14,
+        "lng": -76.13383,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb0201",
+        "name": "York River Entrance Channel (SE end)",
+        "lat": 37.14,
+        "lng": -76.13383,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb0201",
+        "name": "York River Entrance Channel (SE end)",
+        "lat": 37.14,
+        "lng": -76.13383,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb0301",
+        "name": "Thimble Shoal Channel, 2.4 n.mi east of Ft. Monroe",
+        "lat": 37.0112,
+        "lng": -76.2495,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb0301",
+        "name": "Thimble Shoal Channel, 2.4 n.mi east of Ft. Monroe",
+        "lat": 37.0112,
+        "lng": -76.2495,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb0301",
+        "name": "Thimble Shoal Channel, 2.4 n.mi east of Ft. Monroe",
+        "lat": 37.0112,
+        "lng": -76.2495,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb0301",
+        "name": "Thimble Shoal Channel, 2.4 n.mi east of Ft. Monroe",
+        "lat": 37.0112,
+        "lng": -76.2495,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb0402",
+        "name": "Sewells Point (Naval Station Norfolk)",
+        "lat": 36.96295,
+        "lng": -76.33388,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb0402",
+        "name": "Sewells Point (Naval Station Norfolk)",
+        "lat": 36.96295,
+        "lng": -76.33388,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb0402",
+        "name": "Sewells Point (Naval Station Norfolk)",
+        "lat": 36.96295,
+        "lng": -76.33388,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb0601",
+        "name": "Newport News Channel, west end",
+        "lat": 36.95602,
+        "lng": -76.41448,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb0601",
+        "name": "Newport News Channel, west end",
+        "lat": 36.95602,
+        "lng": -76.41448,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb0601",
+        "name": "Newport News Channel, west end",
+        "lat": 36.95602,
+        "lng": -76.41448,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb0701",
+        "name": "James River Entrance",
+        "lat": 36.96233,
+        "lng": -76.42417,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb0801",
+        "name": "Bluff Point, 7.2 n.mi. east of",
+        "lat": 37.67442,
+        "lng": -76.15462,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb0801",
+        "name": "Bluff Point, 7.2 n.mi. east of",
+        "lat": 37.67442,
+        "lng": -76.15462,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb0801",
+        "name": "Bluff Point, 7.2 n.mi. east of",
+        "lat": 37.67442,
+        "lng": -76.15462,
+        "state": "",
+        "type": "current"
+      },
+      {
+        "id": "cb1401",
+        "name": "Newport News Shipbuilding",
+        "lat": 36.98379898071289,
+        "lng": -76.443603515625,
+        "state": "",
+        "type": "current"
+      }
+    ],
+    "met": [
+      {
+        "id": "8631044",
+        "name": "Wachapreague",
+        "lat": 37.607777,
+        "lng": -75.68584,
+        "state": "VA",
+        "type": "met"
+      },
+      {
+        "id": "8632200",
+        "name": "Kiptopeke",
+        "lat": 37.1652,
+        "lng": -75.9884,
+        "state": "VA",
+        "type": "met"
+      },
+      {
+        "id": "8635750",
+        "name": "Lewisetta",
+        "lat": 37.9961,
+        "lng": -76.4644,
+        "state": "VA",
+        "type": "met"
+      },
+      {
+        "id": "8636580",
+        "name": "Windmill Point",
+        "lat": 37.6155,
+        "lng": -76.28978,
+        "state": "VA",
+        "type": "met"
+      },
+      {
+        "id": "8637689",
+        "name": "Yorktown USCG Training Center",
+        "lat": 37.2265,
+        "lng": -76.478806,
+        "state": "VA",
+        "type": "met"
+      },
+      {
+        "id": "8638610",
+        "name": "Sewells Point",
+        "lat": 36.94278,
+        "lng": -76.32861,
+        "state": "VA",
+        "type": "met"
+      },
+      {
+        "id": "8638901",
+        "name": "CBBT, Chesapeake Channel",
+        "lat": 37.0329,
+        "lng": -76.0833,
+        "state": "VA",
+        "type": "met"
+      },
+      {
+        "id": "8639348",
+        "name": "Money Point",
+        "lat": 36.778194,
+        "lng": -76.301865,
+        "state": "VA",
+        "type": "met"
+      },
+      {
+        "id": "8651370",
+        "name": "Duck",
+        "lat": 36.1833,
+        "lng": -75.7467,
+        "state": "NC",
+        "type": "met"
+      },
+      {
+        "id": "8652587",
+        "name": "Oregon Inlet Marina",
+        "lat": 35.795696,
+        "lng": -75.548195,
+        "state": "NC",
+        "type": "met"
+      },
+      {
+        "id": "8654467",
+        "name": "USCG Station Hatteras",
+        "lat": 35.20861,
+        "lng": -75.70419,
+        "state": "NC",
+        "type": "met"
+      }
+    ],
+    "ndbc": [
+      {
+        "id": "41025",
+        "name": "Diamond Shoals, NC",
+        "lat": 35.026,
+        "lng": -75.38,
+        "type": "ndbc"
+      },
+      {
+        "id": "41082",
+        "name": "OOI Pioneer - Mid-Atlantic Bight Central Surface Mooring",
+        "lat": 35.95,
+        "lng": -75.125,
+        "type": "ndbc"
+      },
+      {
+        "id": "41083",
+        "name": "OOI Pioneer - Mid-Atlantic Bight Southern Surface Mooring",
+        "lat": 35.725,
+        "lng": -74.853,
+        "type": "ndbc"
+      },
+      {
+        "id": "41120",
+        "name": "Cape Hatteras East, NC (250)",
+        "lat": 35.258,
+        "lng": -75.285,
+        "type": "ndbc"
+      },
+      {
+        "id": "44014",
+        "name": "VIRGINIA BEACH 64 NM East of Virginia Beach, VA",
+        "lat": 36.603,
+        "lng": -74.837,
+        "type": "ndbc"
+      },
+      {
+        "id": "44041",
+        "name": "Jamestown, VA",
+        "lat": 37.211,
+        "lng": -76.787,
+        "type": "ndbc"
+      },
+      {
+        "id": "44056",
+        "name": "Duck FRF, NC",
+        "lat": 36.2,
+        "lng": -75.714,
+        "type": "ndbc"
+      },
+      {
+        "id": "44058",
+        "name": "Stingray Point, VA",
+        "lat": 37.567,
+        "lng": -76.257,
+        "type": "ndbc"
+      },
+      {
+        "id": "44064",
+        "name": "First Landing, VA",
+        "lat": 36.998,
+        "lng": -76.087,
+        "type": "ndbc"
+      },
+      {
+        "id": "44072",
+        "name": "York Spit, VA   ",
+        "lat": 37.201,
+        "lng": -76.266,
+        "type": "ndbc"
+      },
+      {
+        "id": "44079",
+        "name": "OOI Pioneer - Mid-Atlantic Bight Northern Surface Mooring",
+        "lat": 36.175,
+        "lng": -74.827,
+        "type": "ndbc"
+      },
+      {
+        "id": "44086",
+        "name": "Nags Head, NC (243)",
+        "lat": 36.001,
+        "lng": -75.421,
+        "type": "ndbc"
+      },
+      {
+        "id": "44087",
+        "name": "Thimble Shoal, VA (240)",
+        "lat": 37.045,
+        "lng": -76.127,
+        "type": "ndbc"
+      },
+      {
+        "id": "44088",
+        "name": "Virginia Beach Offshore, VA (171)",
+        "lat": 36.612,
+        "lng": -74.839,
+        "type": "ndbc"
+      },
+      {
+        "id": "44089",
+        "name": "Wallops Island, VA (224)",
+        "lat": 37.756,
+        "lng": -75.325,
+        "type": "ndbc"
+      },
+      {
+        "id": "44095",
+        "name": "Oregon Inlet, NC (192)",
+        "lat": 35.75,
+        "lng": -75.33,
+        "type": "ndbc"
+      },
+      {
+        "id": "44099",
+        "name": "Cape Henry, VA (147)",
+        "lat": 36.915,
+        "lng": -75.722,
+        "type": "ndbc"
+      },
+      {
+        "id": "44100",
+        "name": "Duck FRF 26m, NC (430)",
+        "lat": 36.258,
+        "lng": -75.593,
+        "type": "ndbc"
+      },
+      {
+        "id": "chbv2",
+        "name": "8638901 - Chesapeake Bay Bridge Tunnel, VA",
+        "lat": 37.032,
+        "lng": -76.083,
+        "type": "ndbc"
+      },
+      {
+        "id": "chyv2",
+        "name": "8638999 - Cape Henry, VA",
+        "lat": 36.926,
+        "lng": -76.007,
+        "type": "ndbc"
+      },
+      {
+        "id": "cryv2",
+        "name": "8638595 - South Craney Island, VA",
+        "lat": 36.888,
+        "lng": -76.338,
+        "type": "ndbc"
+      },
+      {
+        "id": "cvqv2",
+        "name": "Sweethall Pier, Chesapeake Bay Reserve, VA",
+        "lat": 37.571,
+        "lng": -76.884,
+        "type": "ndbc"
+      },
+      {
+        "id": "domv2",
+        "name": "8638511 - Dominion Terminal Associates, VA",
+        "lat": 36.962,
+        "lng": -76.424,
+        "type": "ndbc"
+      },
+      {
+        "id": "dukn7",
+        "name": " 8651370 - Duck Pier, NC ",
+        "lat": 36.184,
+        "lng": -75.746,
+        "type": "ndbc"
+      },
+      {
+        "id": "frfn7",
+        "name": "USACE-CHL Field Research Facility, Duck, NC",
+        "lat": 36.19,
+        "lng": -75.739,
+        "type": "ndbc"
+      },
+      {
+        "id": "hcgn7",
+        "name": "8654467 - USCG Station Hatteras, NC",
+        "lat": 35.209,
+        "lng": -75.704,
+        "type": "ndbc"
+      },
+      {
+        "id": "kptv2",
+        "name": "8632200 - Kiptopeke, VA",
+        "lat": 37.165,
+        "lng": -75.988,
+        "type": "ndbc"
+      },
+      {
+        "id": "lwtv2",
+        "name": "8635750 - Lewisetta, VA",
+        "lat": 37.995,
+        "lng": -76.465,
+        "type": "ndbc"
+      },
+      {
+        "id": "mnpv2",
+        "name": "8639348 - Money Point, VA",
+        "lat": 36.778,
+        "lng": -76.302,
+        "type": "ndbc"
+      },
+      {
+        "id": "orin7",
+        "name": "8652587 - Oregon Inlet Marina, NC",
+        "lat": 35.796,
+        "lng": -75.548,
+        "type": "ndbc"
+      },
+      {
+        "id": "rplv2",
+        "name": "8632837 - Rappahannock Light, VA",
+        "lat": 37.538,
+        "lng": -76.014,
+        "type": "ndbc"
+      },
+      {
+        "id": "swpv2",
+        "name": "8638610 - Sewells Point, VA",
+        "lat": 36.943,
+        "lng": -76.329,
+        "type": "ndbc"
+      },
+      {
+        "id": "tcsv2",
+        "name": "Taskinas Creek, Chesapeake Bay Reserve, VA",
+        "lat": 37.415,
+        "lng": -76.714,
+        "type": "ndbc"
+      },
+      {
+        "id": "wahv2",
+        "name": "8631044 - Wachapreague, VA",
+        "lat": 37.608,
+        "lng": -75.686,
+        "type": "ndbc"
+      },
+      {
+        "id": "wdsv2",
+        "name": "8638614 - Willoughby Deguassing Station, VA",
+        "lat": 36.977,
+        "lng": -76.315,
+        "type": "ndbc"
+      },
+      {
+        "id": "yktv2",
+        "name": "8637689 - Yorktown USCG Training Center, VA",
+        "lat": 37.227,
+        "lng": -76.479,
+        "type": "ndbc"
+      },
+      {
+        "id": "yrsv2",
+        "name": "Taskinas Creek, Chesapeake Bay Reserve, VA",
+        "lat": 37.414,
+        "lng": -76.712,
+        "type": "ndbc"
+      }
+    ]
+  }
+}

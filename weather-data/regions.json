@@ -1,0 +1,56 @@
+[
+  {
+    "id": "dd13f83df106",
+    "name": "Home",
+    "bounds": [
+      -77.4755,
+      34.8257,
+      -72.7624,
+      38.0162
+    ],
+    "forecastDays": 3,
+    "dataTypes": [
+      "tides",
+      "currents",
+      "wind",
+      "wind_grid",
+      "marine_grid"
+    ],
+    "stationCount": 442,
+    "gridPoints": 234,
+    "totalApiCalls": 738,
+    "failedCalls": 0,
+    "windTimestampCount": 25,
+    "marineTimestampCount": 72,
+    "forecastStart": "2026-03-27T01:17:01.842Z",
+    "forecastEnd": "2026-03-30T01:17:01.842Z",
+    "downloadedAt": "2026-03-27T01:18:01.846Z"
+  },
+  {
+    "id": "f040a3764cda",
+    "name": "Home (updated)",
+    "bounds": [
+      -77.4755,
+      34.8257,
+      -72.7624,
+      38.0162
+    ],
+    "forecastDays": 3,
+    "dataTypes": [
+      "tides",
+      "currents",
+      "wind",
+      "wind_grid",
+      "marine_grid"
+    ],
+    "stationCount": 442,
+    "gridPoints": 234,
+    "totalApiCalls": 738,
+    "failedCalls": 0,
+    "windTimestampCount": 25,
+    "marineTimestampCount": 72,
+    "forecastStart": "2026-03-27T19:42:55.268Z",
+    "forecastEnd": "2026-03-30T19:42:55.268Z",
+    "downloadedAt": "2026-03-27T19:44:03.132Z"
+  }
+]
