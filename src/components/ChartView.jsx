@@ -1019,7 +1019,7 @@ function ChartView() {
     }
   }
 
-  // Load S-57 vector chart layers (GeoJSON direct)
+  // Load S-57 vector chart layers (vector tiles from Martin)
   const loadS57Layers = async () => {
     try {
       const result = await getDownloadedS57Regions()
@@ -1035,41 +1035,32 @@ function ChartView() {
       setS57RegionCount(regions.length)
       console.log(`[ChartView] Loading ${regions.length} S-57 vector regions`)
 
-      const apiBaseUrl = API_BASE
-
       for (const region of regions) {
         if (!map.current) return
 
-        // Skip if already loaded
-        const testSourceId = `${S57_LAYER_PREFIX}${region.regionId}-DEPARE`
-        if (map.current.getSource(testSourceId)) {
+        // Skip if already loaded (check for the single vector tile source)
+        const sourceId = `${S57_LAYER_PREFIX}${region.regionId}`
+        if (map.current.getSource(sourceId)) {
           console.log(`[ChartView] S-57 region ${region.regionId} already loaded, skipping`)
           continue
         }
 
-        // Get available layers for this region
-        const availableLayers = region.layers || []
-        if (availableLayers.length === 0) {
-          console.log(`[ChartView] No layers for S-57 region ${region.regionId}`)
-          continue
-        }
+        // Create sources and layers from the nautical style (vector tiles)
+        const { sources, layers } = createNauticalStyle(region.regionId, region.layers || [], TILE_BASE)
 
-        // Create sources and layers from the nautical style
-        const { sources, layers } = createNauticalStyle(region.regionId, availableLayers, apiBaseUrl)
-
-        // Add all sources
-        for (const [sourceId, sourceConfig] of Object.entries(sources)) {
-          if (!map.current.getSource(sourceId)) {
-            map.current.addSource(sourceId, sourceConfig)
+        // Add the single vector tile source
+        for (const [sid, sourceConfig] of Object.entries(sources)) {
+          if (!map.current.getSource(sid)) {
+            map.current.addSource(sid, sourceConfig)
           }
         }
 
-        // Add all layers (visibility effect will apply correct state after load)
+        // Add all layers (missing source-layers in mbtiles are silently ignored by MapLibre)
         for (const layer of layers) {
           map.current.addLayer(layer)
         }
 
-        console.log(`[ChartView] Added ${layers.length} S-57 layers for ${region.regionId} (${availableLayers.length} GeoJSON sources)`)
+        console.log(`[ChartView] Added ${layers.length} S-57 layers for ${region.regionId} (vector tiles)`)
       }
 
       // Collect all S-57 layer IDs for queryRenderedFeatures
