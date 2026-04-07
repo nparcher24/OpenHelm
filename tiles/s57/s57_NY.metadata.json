@@ -1,0 +1,77 @@
+{
+  "region_id": "NY",
+  "download_date": "2026-04-06T20:39:41.826Z",
+  "source_url": "https://charts.noaa.gov/ENCs/NY_ENCs.zip",
+  "file_count": 447,
+  "mbtiles_size_mb": 483.5,
+  "layers": [
+    {
+      "name": "DEPARE",
+      "features": 26474
+    },
+    {
+      "name": "DEPCNT",
+      "features": 28365
+    },
+    {
+      "name": "SOUNDG",
+      "features": 193616
+    },
+    {
+      "name": "LNDARE",
+      "features": 9817
+    },
+    {
+      "name": "COALNE",
+      "features": 30189
+    },
+    {
+      "name": "SLCONS",
+      "features": 39772
+    },
+    {
+      "name": "BOYSPP",
+      "features": 724
+    },
+    {
+      "name": "LIGHTS",
+      "features": 3364
+    },
+    {
+      "name": "OBSTRN",
+      "features": 5749
+    },
+    {
+      "name": "WRECKS",
+      "features": 3166
+    },
+    {
+      "name": "RESARE",
+      "features": 1427
+    },
+    {
+      "name": "SEAARE",
+      "features": 3297
+    },
+    {
+      "name": "BRIDGE",
+      "features": 2421
+    },
+    {
+      "name": "BCNSPP",
+      "features": 584
+    },
+    {
+      "name": "UWTROC",
+      "features": 10741
+    },
+    {
+      "name": "ACHARE",
+      "features": 256
+    },
+    {
+      "name": "DRGARE",
+      "features": 1103
+    }
+  ]
+}

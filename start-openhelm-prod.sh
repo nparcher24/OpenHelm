@@ -152,6 +152,7 @@ if [ -n "$CHROMIUM_CMD" ]; then
       --enable-gpu-rasterization \
       --ignore-gpu-blocklist \
       --disable-dev-shm-usage \
+      --js-flags="--max-old-space-size=8192" \
       --password-store=basic \
       --overscroll-history-navigation=0 \
       --touch-events=enabled \
@@ -191,8 +192,23 @@ trap cleanup SIGINT SIGTERM
 
 while true; do
     if ! kill -0 $MARTIN_PID 2>/dev/null; then
-        print_error "Martin died unexpectedly"
-        break
+        # Check if a new Martin was spawned by the API server (e.g. restart from UI)
+        NEW_PID=$(lsof -ti :3001 2>/dev/null | head -1)
+        if [ -n "$NEW_PID" ]; then
+            print_status "Martin restarted externally (new PID: $NEW_PID)"
+            MARTIN_PID=$NEW_PID
+        else
+            print_warning "Martin stopped — restarting..."
+            martin --config martin-config.yaml >> martin.log 2>&1 &
+            MARTIN_PID=$!
+            sleep 2
+            if kill -0 $MARTIN_PID 2>/dev/null; then
+                print_success "Martin restarted (PID: $MARTIN_PID)"
+            else
+                print_error "Martin failed to restart"
+                break
+            fi
+        fi
     fi
     if ! kill -0 $API_PID 2>/dev/null; then
         print_error "API server died unexpectedly"

@@ -1,0 +1,77 @@
+{
+  "region_id": "VA",
+  "download_date": "2026-04-06T20:21:07.028Z",
+  "source_url": "https://charts.noaa.gov/ENCs/VA_ENCs.zip",
+  "file_count": 228,
+  "mbtiles_size_mb": 317.8,
+  "layers": [
+    {
+      "name": "DEPARE",
+      "features": 17619
+    },
+    {
+      "name": "LNDARE",
+      "features": 7435
+    },
+    {
+      "name": "COALNE",
+      "features": 30756
+    },
+    {
+      "name": "SLCONS",
+      "features": 25596
+    },
+    {
+      "name": "LIGHTS",
+      "features": 2935
+    },
+    {
+      "name": "RESARE",
+      "features": 398
+    },
+    {
+      "name": "SEAARE",
+      "features": 3180
+    },
+    {
+      "name": "BRIDGE",
+      "features": 1162
+    },
+    {
+      "name": "DEPCNT",
+      "features": 18490
+    },
+    {
+      "name": "SOUNDG",
+      "features": 109761
+    },
+    {
+      "name": "BOYSPP",
+      "features": 329
+    },
+    {
+      "name": "OBSTRN",
+      "features": 5300
+    },
+    {
+      "name": "WRECKS",
+      "features": 1625
+    },
+    {
+      "name": "DRGARE",
+      "features": 842
+    },
+    {
+      "name": "BCNSPP",
+      "features": 934
+    },
+    {
+      "name": "UWTROC",
+      "features": 286
+    },
+    {
+      "name": "ACHARE",
+      "features": 52
+    }
+  ]
+}

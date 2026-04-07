@@ -1,0 +1,73 @@
+{
+  "region_id": "NH",
+  "download_date": "2026-04-06T20:45:28.305Z",
+  "source_url": "https://charts.noaa.gov/ENCs/NH_ENCs.zip",
+  "file_count": 20,
+  "mbtiles_size_mb": 320.5,
+  "layers": [
+    {
+      "name": "DEPARE",
+      "features": 2676
+    },
+    {
+      "name": "DEPCNT",
+      "features": 2740
+    },
+    {
+      "name": "SOUNDG",
+      "features": 14445
+    },
+    {
+      "name": "LNDARE",
+      "features": 1796
+    },
+    {
+      "name": "COALNE",
+      "features": 1760
+    },
+    {
+      "name": "SLCONS",
+      "features": 414
+    },
+    {
+      "name": "UWTROC",
+      "features": 354
+    },
+    {
+      "name": "RESARE",
+      "features": 89
+    },
+    {
+      "name": "SEAARE",
+      "features": 420
+    },
+    {
+      "name": "BRIDGE",
+      "features": 145
+    },
+    {
+      "name": "BOYSPP",
+      "features": 124
+    },
+    {
+      "name": "BCNSPP",
+      "features": 24
+    },
+    {
+      "name": "LIGHTS",
+      "features": 408
+    },
+    {
+      "name": "OBSTRN",
+      "features": 220
+    },
+    {
+      "name": "WRECKS",
+      "features": 654
+    },
+    {
+      "name": "DRGARE",
+      "features": 4
+    }
+  ]
+}

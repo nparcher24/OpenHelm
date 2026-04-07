@@ -1,0 +1,77 @@
+{
+  "region_id": "RI",
+  "download_date": "2026-04-06T20:41:18.317Z",
+  "source_url": "https://charts.noaa.gov/ENCs/RI_ENCs.zip",
+  "file_count": 47,
+  "mbtiles_size_mb": 298.1,
+  "layers": [
+    {
+      "name": "DEPARE",
+      "features": 3162
+    },
+    {
+      "name": "DEPCNT",
+      "features": 3197
+    },
+    {
+      "name": "SOUNDG",
+      "features": 24307
+    },
+    {
+      "name": "RESARE",
+      "features": 175
+    },
+    {
+      "name": "LNDARE",
+      "features": 1988
+    },
+    {
+      "name": "BOYSPP",
+      "features": 102
+    },
+    {
+      "name": "LIGHTS",
+      "features": 483
+    },
+    {
+      "name": "WRECKS",
+      "features": 762
+    },
+    {
+      "name": "SEAARE",
+      "features": 546
+    },
+    {
+      "name": "OBSTRN",
+      "features": 789
+    },
+    {
+      "name": "UWTROC",
+      "features": 3397
+    },
+    {
+      "name": "ACHARE",
+      "features": 33
+    },
+    {
+      "name": "COALNE",
+      "features": 2876
+    },
+    {
+      "name": "SLCONS",
+      "features": 4590
+    },
+    {
+      "name": "BRIDGE",
+      "features": 254
+    },
+    {
+      "name": "BCNSPP",
+      "features": 30
+    },
+    {
+      "name": "DRGARE",
+      "features": 120
+    }
+  ]
+}

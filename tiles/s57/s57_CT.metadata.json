@@ -1,0 +1,77 @@
+{
+  "region_id": "CT",
+  "download_date": "2026-04-06T20:40:33.983Z",
+  "source_url": "https://charts.noaa.gov/ENCs/CT_ENCs.zip",
+  "file_count": 79,
+  "mbtiles_size_mb": 316.9,
+  "layers": [
+    {
+      "name": "DEPARE",
+      "features": 6388
+    },
+    {
+      "name": "DEPCNT",
+      "features": 6613
+    },
+    {
+      "name": "SOUNDG",
+      "features": 54299
+    },
+    {
+      "name": "RESARE",
+      "features": 380
+    },
+    {
+      "name": "LNDARE",
+      "features": 2881
+    },
+    {
+      "name": "COALNE",
+      "features": 6103
+    },
+    {
+      "name": "SLCONS",
+      "features": 7225
+    },
+    {
+      "name": "BOYSPP",
+      "features": 138
+    },
+    {
+      "name": "BCNSPP",
+      "features": 107
+    },
+    {
+      "name": "LIGHTS",
+      "features": 688
+    },
+    {
+      "name": "OBSTRN",
+      "features": 885
+    },
+    {
+      "name": "WRECKS",
+      "features": 915
+    },
+    {
+      "name": "UWTROC",
+      "features": 3899
+    },
+    {
+      "name": "SEAARE",
+      "features": 909
+    },
+    {
+      "name": "BRIDGE",
+      "features": 641
+    },
+    {
+      "name": "ACHARE",
+      "features": 57
+    },
+    {
+      "name": "DRGARE",
+      "features": 467
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "region_id": "NJ",
+  "download_date": "2026-04-06T20:37:43.015Z",
+  "source_url": "https://charts.noaa.gov/ENCs/NJ_ENCs.zip",
+  "file_count": 139,
+  "mbtiles_size_mb": 344.7,
+  "layers": [
+    {
+      "name": "DEPARE",
+      "features": 9760
+    },
+    {
+      "name": "DEPCNT",
+      "features": 10366
+    },
+    {
+      "name": "SOUNDG",
+      "features": 69079
+    },
+    {
+      "name": "LNDARE",
+      "features": 4733
+    },
+    {
+      "name": "COALNE",
+      "features": 8692
+    },
+    {
+      "name": "SLCONS",
+      "features": 11553
+    },
+    {
+      "name": "BOYSPP",
+      "features": 182
+    },
+    {
+      "name": "BCNSPP",
+      "features": 341
+    },
+    {
+      "name": "LIGHTS",
+      "features": 1204
+    },
+    {
+      "name": "OBSTRN",
+      "features": 1678
+    },
+    {
+      "name": "WRECKS",
+      "features": 1490
+    },
+    {
+      "name": "UWTROC",
+      "features": 310
+    },
+    {
+      "name": "RESARE",
+      "features": 345
+    },
+    {
+      "name": "SEAARE",
+      "features": 1516
+    },
+    {
+      "name": "BRIDGE",
+      "features": 968
+    },
+    {
+      "name": "DRGARE",
+      "features": 506
+    },
+    {
+      "name": "ACHARE",
+      "features": 46
+    }
+  ]
+}

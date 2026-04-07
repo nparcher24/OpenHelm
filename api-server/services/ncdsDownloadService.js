@@ -645,17 +645,26 @@ export async function restartMartin() {
     const martinConfig = path.join(PROJECT_ROOT, 'martin-config.yaml');
     const martinLog = path.join(PROJECT_ROOT, 'martin.log');
 
-    // Kill existing martin process
+    // Kill existing martin process by finding the PID listening on port 3001
+    // Using lsof instead of pkill to avoid killing unrelated processes and
+    // triggering cascading shutdowns from parent monitoring scripts
     try {
-      await execAsync('pkill -f "martin" || true');
-      console.log('[NCDS] Killed existing Martin process');
+      const { stdout: pidOut } = await execAsync('lsof -ti :3001 || true');
+      const pids = pidOut.trim().split('\n').filter(Boolean);
+      if (pids.length > 0) {
+        for (const pid of pids) {
+          try { process.kill(parseInt(pid), 'SIGTERM'); } catch {}
+        }
+        console.log(`[NCDS] Killed existing Martin process(es): ${pids.join(', ')}`);
+      } else {
+        console.log('[NCDS] No existing Martin process found on port 3001');
+      }
     } catch (killError) {
-      // It's ok if no process was found
       console.log('[NCDS] No existing Martin process to kill');
     }
 
-    // Wait a moment for process to die
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Wait a moment for process to die and port to free up
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     // Find martin binary dynamically (supports /usr/local/bin, /opt/homebrew/bin, etc.)
     let martinBin = 'martin';

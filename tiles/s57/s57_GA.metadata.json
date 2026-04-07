@@ -1,0 +1,77 @@
+{
+  "region_id": "GA",
+  "download_date": "2026-04-06T20:49:39.145Z",
+  "source_url": "https://charts.noaa.gov/ENCs/GA_ENCs.zip",
+  "file_count": 133,
+  "mbtiles_size_mb": 572.9,
+  "layers": [
+    {
+      "name": "DEPARE",
+      "features": 9892
+    },
+    {
+      "name": "DEPCNT",
+      "features": 9877
+    },
+    {
+      "name": "SOUNDG",
+      "features": 42760
+    },
+    {
+      "name": "LNDARE",
+      "features": 4136
+    },
+    {
+      "name": "BOYSPP",
+      "features": 120
+    },
+    {
+      "name": "LIGHTS",
+      "features": 1127
+    },
+    {
+      "name": "OBSTRN",
+      "features": 778
+    },
+    {
+      "name": "WRECKS",
+      "features": 467
+    },
+    {
+      "name": "RESARE",
+      "features": 268
+    },
+    {
+      "name": "SEAARE",
+      "features": 1591
+    },
+    {
+      "name": "COALNE",
+      "features": 9336
+    },
+    {
+      "name": "SLCONS",
+      "features": 1766
+    },
+    {
+      "name": "BRIDGE",
+      "features": 260
+    },
+    {
+      "name": "BCNSPP",
+      "features": 371
+    },
+    {
+      "name": "UWTROC",
+      "features": 181
+    },
+    {
+      "name": "ACHARE",
+      "features": 7
+    },
+    {
+      "name": "DRGARE",
+      "features": 334
+    }
+  ]
+}

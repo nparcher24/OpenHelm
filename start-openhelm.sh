@@ -206,6 +206,7 @@ if xset q &>/dev/null; then
           --ignore-gpu-blocklist \
           --enable-zero-copy \
           --disable-dev-shm-usage \
+          --js-flags="--max-old-space-size=8192" \
           --password-store=basic \
           --overscroll-history-navigation=0 \
           --touch-events=enabled \
@@ -257,27 +258,42 @@ trap cleanup SIGINT SIGTERM
 while true; do
     # Check if any critical process died
     if ! kill -0 $MARTIN_PID 2>/dev/null; then
-        print_error "Martin tile server died unexpectedly"
-        break
+        # Check if a new Martin was spawned by the API server (e.g. restart from UI)
+        NEW_PID=$(lsof -ti :3001 2>/dev/null | head -1)
+        if [ -n "$NEW_PID" ]; then
+            print_status "Martin restarted externally (new PID: $NEW_PID)"
+            MARTIN_PID=$NEW_PID
+        else
+            print_warning "Martin stopped — restarting..."
+            martin --config martin-config.yaml >> martin.log 2>&1 &
+            MARTIN_PID=$!
+            sleep 2
+            if kill -0 $MARTIN_PID 2>/dev/null; then
+                print_success "Martin restarted (PID: $MARTIN_PID)"
+            else
+                print_error "Martin tile server failed to restart"
+                break
+            fi
+        fi
     fi
-    
+
     if ! kill -0 $API_PID 2>/dev/null; then
         print_error "API server died unexpectedly"
         break
     fi
-    
+
     if ! kill -0 $VITE_PID 2>/dev/null; then
         print_error "Vite development server died unexpectedly"
         break
     fi
-    
+
     # Only monitor Chromium if it was started
     if [ -n "$CHROMIUM_PID" ] && ! kill -0 $CHROMIUM_PID 2>/dev/null; then
         print_warning "Chromium closed - keeping servers running"
         print_status "You can reopen at: http://localhost:3000"
         CHROMIUM_PID=""  # Don't keep checking
     fi
-    
+
     sleep 5
 done
 
