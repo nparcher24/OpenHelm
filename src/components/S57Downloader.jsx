@@ -167,12 +167,10 @@ function S57Downloader() {
     try {
       setIsRestartingMartin(true)
       await restartMartin()
-      setTimeout(async () => {
-        await loadMartinStatus()
-        setIsRestartingMartin(false)
-      }, 2000)
+      await loadMartinStatus()
     } catch (err) {
       setError(err.message)
+    } finally {
       setIsRestartingMartin(false)
     }
   }

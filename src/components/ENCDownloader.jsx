@@ -207,14 +207,11 @@ function ENCDownloader() {
     try {
       setIsRestartingMartin(true)
       await restartMartin()
-      // Wait a moment then check status
-      setTimeout(async () => {
-        await loadMartinStatus()
-        setIsRestartingMartin(false)
-      }, 2000)
+      await loadMartinStatus()
     } catch (err) {
       console.error('Failed to restart Martin:', err)
       setError(err.message)
+    } finally {
       setIsRestartingMartin(false)
     }
   }

@@ -636,101 +636,155 @@ export async function deleteRegion(regionId) {
 }
 
 /**
- * Restart Martin tileserver to pick up new MBTiles
+ * Find the martin binary path. Checks PATH, then common install locations.
+ * Returns the absolute path or null if not found.
+ */
+async function findMartinBinary() {
+  // Try PATH first (with expanded PATH to cover common locations)
+  const expandedPath = [
+    process.env.PATH,
+    '/usr/local/bin',
+    '/opt/homebrew/bin',
+    `${process.env.HOME}/.cargo/bin`,
+  ].filter(Boolean).join(':');
+
+  try {
+    const { stdout } = await execAsync('which martin', { env: { ...process.env, PATH: expandedPath } });
+    const bin = stdout.trim();
+    if (bin) return bin;
+  } catch {}
+
+  // Explicit fallback paths
+  for (const p of ['/usr/local/bin/martin', '/opt/homebrew/bin/martin', `${process.env.HOME}/.cargo/bin/martin`]) {
+    try { await fs.access(p, fsSync.constants.X_OK); return p; } catch {}
+  }
+
+  return null;
+}
+
+/**
+ * Wait for port to be free, polling up to maxWaitMs.
+ */
+async function waitForPortFree(port, maxWaitMs = 8000) {
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    try {
+      await fetch(`http://localhost:${port}/health`, { signal: AbortSignal.timeout(500) });
+      // Still responding — wait and retry
+      await new Promise(r => setTimeout(r, 500));
+    } catch {
+      return true; // Port is free
+    }
+  }
+  return false;
+}
+
+/**
+ * Restart Martin tileserver to pick up new MBTiles.
+ * Resolves the binary BEFORE killing the old process so we never leave martin dead.
  */
 export async function restartMartin() {
   try {
-    console.log('[NCDS] Restarting Martin tileserver...');
+    console.log('[Martin] Restarting tileserver...');
 
     const martinConfig = path.join(PROJECT_ROOT, 'martin-config.yaml');
     const martinLog = path.join(PROJECT_ROOT, 'martin.log');
 
-    // Kill existing martin process by finding the PID listening on port 3001
-    // Using lsof instead of pkill to avoid killing unrelated processes and
-    // triggering cascading shutdowns from parent monitoring scripts
+    // Step 1: Find the binary BEFORE killing — abort if not found
+    const martinBin = await findMartinBinary();
+    if (!martinBin) {
+      console.error('[Martin] Cannot find martin binary — aborting restart to keep current instance alive');
+      return { success: false, error: 'Martin binary not found. Restart aborted to preserve running instance.' };
+    }
+    console.log(`[Martin] Using binary: ${martinBin}`);
+
+    // Step 2: Kill the martin process that is LISTENING on port 3001.
+    // IMPORTANT: Use -sTCP:LISTEN to only find the server process, NOT clients
+    // (e.g. the API server) that have connections to port 3001.
+    const ownPid = process.pid;
     try {
-      const { stdout: pidOut } = await execAsync('lsof -ti :3001 || true');
-      const pids = pidOut.trim().split('\n').filter(Boolean);
+      const { stdout: pidOut } = await execAsync('lsof -ti :3001 -sTCP:LISTEN || true');
+      const pids = pidOut.trim().split('\n').filter(Boolean).filter(p => parseInt(p) !== ownPid);
       if (pids.length > 0) {
         for (const pid of pids) {
           try { process.kill(parseInt(pid), 'SIGTERM'); } catch {}
         }
-        console.log(`[NCDS] Killed existing Martin process(es): ${pids.join(', ')}`);
+        console.log(`[Martin] Sent SIGTERM to PID(s): ${pids.join(', ')}`);
       } else {
-        console.log('[NCDS] No existing Martin process found on port 3001');
+        console.log('[Martin] No existing martin LISTEN process on port 3001');
       }
-    } catch (killError) {
-      console.log('[NCDS] No existing Martin process to kill');
-    }
-
-    // Wait a moment for process to die and port to free up
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Find martin binary dynamically (supports /usr/local/bin, /opt/homebrew/bin, etc.)
-    let martinBin = 'martin';
-    try {
-      const { stdout: whichOut } = await execAsync('which martin');
-      martinBin = whichOut.trim();
     } catch {
-      // Fall back to common paths
-      for (const p of ['/opt/homebrew/bin/martin', '/usr/local/bin/martin']) {
-        try { await execAsync(`test -x "${p}"`); martinBin = p; break; } catch {}
-      }
+      console.log('[Martin] No existing process to kill');
     }
-    console.log(`[NCDS] Using martin binary: ${martinBin}`);
 
-    // Start martin in background from project directory
-    try {
-      const martinProcess = spawn(martinBin, ['--config', martinConfig], {
-        cwd: PROJECT_ROOT,
-        detached: true,
-        stdio: ['ignore', 'pipe', 'pipe']
-      });
+    // Step 3: Wait for port to actually be free (poll instead of fixed delay)
+    const portFreed = await waitForPortFree(3001, 8000);
+    if (!portFreed) {
+      console.warn('[Martin] Port 3001 still occupied after 8s — force killing');
+      try {
+        const { stdout: pidOut } = await execAsync('lsof -ti :3001 -sTCP:LISTEN || true');
+        const pids = pidOut.trim().split('\n').filter(Boolean).filter(p => parseInt(p) !== ownPid);
+        for (const pid of pids) {
+          try { process.kill(parseInt(pid), 'SIGKILL'); } catch {}
+        }
+        await new Promise(r => setTimeout(r, 1000));
+      } catch {}
+    }
 
-      // Handle spawn errors to prevent crashing the API server
-      martinProcess.on('error', (err) => {
-        console.error('[NCDS] Martin spawn error:', err.message);
-      });
+    // Step 4: Spawn martin
+    const martinProcess = spawn(martinBin, ['--config', martinConfig], {
+      cwd: PROJECT_ROOT,
+      detached: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env },
+    });
 
-      // Write output to log file
-      const logStream = fsSync.createWriteStream(martinLog, { flags: 'a' });
-      martinProcess.stdout.pipe(logStream);
-      martinProcess.stderr.pipe(logStream);
+    let spawnFailed = false;
+    martinProcess.on('error', (err) => {
+      console.error('[Martin] Spawn error:', err.message);
+      spawnFailed = true;
+    });
 
-      // Unref to allow parent process to exit independently
-      martinProcess.unref();
+    const logStream = fsSync.createWriteStream(martinLog, { flags: 'a' });
+    martinProcess.stdout.pipe(logStream);
+    martinProcess.stderr.pipe(logStream);
+    martinProcess.unref();
 
-      console.log(`[NCDS] Martin started with PID: ${martinProcess.pid}`);
+    console.log(`[Martin] Spawned with PID: ${martinProcess.pid}`);
 
-      // Wait for Martin to start and verify it's running
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Check if Martin is responding
+    // Step 5: Poll for Martin to become healthy (up to 10s)
+    for (let i = 0; i < 10; i++) {
+      await new Promise(r => setTimeout(r, 1000));
+      if (spawnFailed) break;
       const status = await getMartinStatus();
       if (status.running) {
-        console.log('[NCDS] Martin restarted successfully');
+        console.log('[Martin] Restarted successfully');
         return { success: true, method: 'spawn', pid: martinProcess.pid };
-      } else {
-        console.warn('[NCDS] Martin started but not responding yet');
-        return { success: true, method: 'spawn', pid: martinProcess.pid, note: 'Started but may need more time to initialize' };
-      }
-
-    } catch (spawnError) {
-      console.error('[NCDS] Failed to spawn Martin:', spawnError.message);
-
-      // Try alternative: use shell command
-      try {
-        await execAsync(`cd "${PROJECT_ROOT}" && "${martinBin}" --config "${martinConfig}" >> "${martinLog}" 2>&1 &`);
-        console.log('[NCDS] Martin restarted via shell command');
-        return { success: true, method: 'shell' };
-      } catch (shellError) {
-        console.error('[NCDS] Shell fallback also failed:', shellError.message);
-        throw shellError;
       }
     }
 
+    // Step 6: If spawn didn't work, try shell command as fallback
+    if (spawnFailed) {
+      console.warn('[Martin] Spawn failed, trying shell fallback...');
+      try {
+        await execAsync(`cd "${PROJECT_ROOT}" && "${martinBin}" --config "${martinConfig}" >> "${martinLog}" 2>&1 &`);
+        await new Promise(r => setTimeout(r, 3000));
+        const status = await getMartinStatus();
+        if (status.running) {
+          console.log('[Martin] Restarted via shell fallback');
+          return { success: true, method: 'shell' };
+        }
+      } catch (shellErr) {
+        console.error('[Martin] Shell fallback also failed:', shellErr.message);
+      }
+    }
+
+    // Even if not healthy yet, it may still be starting up
+    console.warn('[Martin] Not responding after restart — may need more time');
+    return { success: true, method: 'spawn', pid: martinProcess.pid, note: 'Started but not yet responding' };
+
   } catch (error) {
-    console.error('[NCDS] Error restarting Martin:', error);
+    console.error('[Martin] Restart error:', error);
     return { success: false, error: error.message };
   }
 }
