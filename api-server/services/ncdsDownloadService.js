@@ -684,7 +684,10 @@ async function waitForPortFree(port, maxWaitMs = 8000) {
  * Resolves the binary BEFORE killing the old process so we never leave martin dead.
  */
 export async function restartMartin() {
+  const lockFile = path.join(PROJECT_ROOT, 'martin-restart.lock');
   try {
+    // Write lock file so startup script monitoring loop doesn't race us
+    fsSync.writeFileSync(lockFile, String(process.pid));
     console.log('[Martin] Restarting tileserver...');
 
     const martinConfig = path.join(PROJECT_ROOT, 'martin-config.yaml');
@@ -786,6 +789,8 @@ export async function restartMartin() {
   } catch (error) {
     console.error('[Martin] Restart error:', error);
     return { success: false, error: error.message };
+  } finally {
+    try { fsSync.unlinkSync(lockFile); } catch {}
   }
 }
 

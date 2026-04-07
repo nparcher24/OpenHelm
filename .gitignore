@@ -6,6 +6,7 @@ node_modules/
 *.log
 api.log
 martin.log
+martin-restart.lock
 vite.log
 openhelm.log
 logs/

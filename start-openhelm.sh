@@ -258,21 +258,35 @@ trap cleanup SIGINT SIGTERM
 while true; do
     # Check if any critical process died
     if ! kill -0 $MARTIN_PID 2>/dev/null; then
-        # Check if a new Martin was spawned by the API server (e.g. restart from UI)
-        NEW_PID=$(lsof -ti :3001 2>/dev/null | head -1)
-        if [ -n "$NEW_PID" ]; then
-            print_status "Martin restarted externally (new PID: $NEW_PID)"
-            MARTIN_PID=$NEW_PID
-        else
-            print_warning "Martin stopped — restarting..."
-            martin --config martin-config.yaml >> martin.log 2>&1 &
-            MARTIN_PID=$!
-            sleep 2
-            if kill -0 $MARTIN_PID 2>/dev/null; then
-                print_success "Martin restarted (PID: $MARTIN_PID)"
+        # If API server is actively restarting Martin, don't interfere
+        SKIP_RESTART=false
+        if [ -f "martin-restart.lock" ]; then
+            LOCK_PID=$(cat martin-restart.lock 2>/dev/null)
+            if [ -n "$LOCK_PID" ] && kill -0 "$LOCK_PID" 2>/dev/null; then
+                print_status "Martin restart in progress (API server PID $LOCK_PID) — skipping"
+                SKIP_RESTART=true
             else
-                print_error "Martin tile server failed to restart"
-                break
+                print_warning "Stale martin-restart.lock — removing"
+                rm -f martin-restart.lock
+            fi
+        fi
+        if [ "$SKIP_RESTART" = false ]; then
+            # Check if a new Martin was spawned by the API server (e.g. restart from UI)
+            NEW_PID=$(lsof -ti :3001 -sTCP:LISTEN 2>/dev/null | head -1)
+            if [ -n "$NEW_PID" ]; then
+                print_status "Martin restarted externally (new PID: $NEW_PID)"
+                MARTIN_PID=$NEW_PID
+            else
+                print_warning "Martin stopped — restarting..."
+                martin --config martin-config.yaml >> martin.log 2>&1 &
+                MARTIN_PID=$!
+                sleep 2
+                if kill -0 $MARTIN_PID 2>/dev/null; then
+                    print_success "Martin restarted (PID: $MARTIN_PID)"
+                else
+                    print_error "Martin tile server failed to restart"
+                    break
+                fi
             fi
         fi
     fi
