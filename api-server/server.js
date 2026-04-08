@@ -16,7 +16,7 @@ import encMetadataRoutes from './routes/encMetadata.js'
 import blueTopoRoutes from './routes/bluetopo.js'
 import cuspRoutes from './routes/cusp.js'
 import gpsRoutes from './routes/gps.js'
-import { setGpsUpdateCallback, startGpsService } from './services/gpsService.js'
+import { setGpsUpdateCallback, startGpsService, startGpsWatcher } from './services/gpsService.js'
 import { startSimulator, stopSimulator, isSimulatorRunning } from './services/gpsSimulator.js'
 import vesselRoutes from './routes/vessel.js'
 import { setVesselUpdateCallback, startNmea2000Service } from './services/nmea2000Service.js'
@@ -278,12 +278,11 @@ setVesselUpdateCallback((vesselData) => {
   })
 })
 
-// Auto-start GPS service on server startup
-startGpsService().then(() => {
-  console.log('🛰️ GPS service auto-started')
-}).catch(err => {
-  console.log('⚠️ GPS service not available:', err.message)
-})
+// Auto-start GPS hot-plug watcher on server startup. The watcher will scan
+// for the GPS, auto-detect its baud rate, and reconnect if it is unplugged
+// and re-inserted on any USB port.
+startGpsWatcher()
+console.log('🛰️ GPS watcher auto-started (will detect device on any USB port)')
 
 // Auto-start NMEA 2000 service on server startup
 startNmea2000Service().then(() => {

@@ -3,7 +3,7 @@
  */
 
 import { Router } from 'express'
-import { startGpsService, stopGpsService, getGpsData, isGpsRunning, getHeadingOffset, setHeadingOffset } from '../services/gpsService.js'
+import { startGpsService, stopGpsService, startGpsWatcher, getGpsData, isGpsRunning, getHeadingOffset, setHeadingOffset } from '../services/gpsService.js'
 
 const router = Router()
 
@@ -28,10 +28,12 @@ router.get('/', async (req, res) => {
 })
 
 /**
- * POST /api/gps/start - Start GPS service
+ * POST /api/gps/start - Start GPS service (and ensure the hot-plug watcher
+ * is running so a re-plug will be detected automatically).
  */
 router.post('/start', async (req, res) => {
   try {
+    startGpsWatcher()
     await startGpsService()
     res.json({
       success: true,

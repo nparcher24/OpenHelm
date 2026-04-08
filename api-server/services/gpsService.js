@@ -16,6 +16,38 @@ const execAsync = promisify(exec)
 const CALIBRATION_FILE = path.join(process.cwd(), 'heading-calibration.json')
 let headingOffset = 0
 
+// Baud rate cache (persisted to file) - skips re-detection on restart
+const BAUD_CACHE_FILE = path.join(process.cwd(), 'gps-baud-cache.json')
+let cachedBaudRate = null
+
+// Common WitMotion baud rates, ordered by likelihood
+const WITMOTION_BAUD_RATES = [115200, 9600, 230400, 921600, 460800, 57600, 38400]
+
+function loadBaudCache() {
+  try {
+    if (fs.existsSync(BAUD_CACHE_FILE)) {
+      const data = JSON.parse(fs.readFileSync(BAUD_CACHE_FILE, 'utf8'))
+      if (typeof data.baudRate === 'number' && WITMOTION_BAUD_RATES.includes(data.baudRate)) {
+        cachedBaudRate = data.baudRate
+        console.log(`[GPS] Loaded cached baud rate: ${cachedBaudRate}`)
+      }
+    }
+  } catch (err) {
+    console.error('[GPS] Failed to load baud cache:', err.message)
+  }
+}
+
+function saveBaudCache(rate) {
+  try {
+    fs.writeFileSync(BAUD_CACHE_FILE, JSON.stringify({ baudRate: rate }, null, 2))
+    cachedBaudRate = rate
+  } catch (err) {
+    console.error('[GPS] Failed to save baud cache:', err.message)
+  }
+}
+
+loadBaudCache()
+
 function loadHeadingOffset() {
   try {
     if (fs.existsSync(CALIBRATION_FILE)) {
@@ -73,6 +105,7 @@ let gpsData = {
   vdop: null,
   timestamp: null,
   device: null,
+  baudRate: null,
   error: null,
   // Additional sensor data
   cog: null,           // Course Over Ground (degrees)
@@ -321,27 +354,122 @@ export function setGpsUpdateCallback(callback) {
 }
 
 /**
- * Find GPS device - checks Linux and macOS serial device paths
+ * Find candidate GPS device paths - checks Linux and macOS serial device paths.
+ * Returns ALL accessible USB-serial devices (not just the first), so we can
+ * probe each one for a real WitMotion device.
  */
-async function findGpsDevice() {
+async function findGpsDevices() {
   try {
-    // Check both Linux and macOS serial device paths
     const { stdout } = await execAsync('ls /dev/ttyUSB* /dev/ttyACM* /dev/cu.usbserial-* /dev/cu.usbmodem* 2>/dev/null || true')
     const devices = stdout.trim().split('\n').filter(d => d.length > 0)
+    const accessible = []
 
     for (const device of devices) {
       try {
         fs.accessSync(device, fs.constants.R_OK | fs.constants.W_OK)
-        console.log(`GPS: Found device ${device}`)
-        return device
+        accessible.push(device)
       } catch (e) {
-        console.log(`GPS: Device ${device} not accessible`)
+        // Skip inaccessible devices silently (logged once below if none found)
       }
     }
+    return accessible
   } catch (e) {
     console.log('GPS: Error finding devices:', e.message)
+    return []
   }
+}
 
+/**
+ * Test whether a serial device speaks WitMotion at the given baud rate.
+ * Opens the port, listens briefly, and counts checksummed messages.
+ * Resolves true as soon as 2 valid messages arrive, or false after the timeout.
+ */
+function testBaudRate(devicePath, baudRate, timeoutMs = 700) {
+  return new Promise((resolve) => {
+    let port
+    let buffer = Buffer.alloc(0)
+    let validCount = 0
+    let resolved = false
+    let timer = null
+
+    const finish = (result) => {
+      if (resolved) return
+      resolved = true
+      if (timer) clearTimeout(timer)
+      try {
+        if (port && port.isOpen) port.close(() => resolve(result))
+        else resolve(result)
+      } catch {
+        resolve(result)
+      }
+    }
+
+    try {
+      port = new SerialPort({
+        path: devicePath,
+        baudRate,
+        dataBits: 8,
+        parity: 'none',
+        stopBits: 1,
+        autoOpen: false
+      })
+    } catch (e) {
+      return resolve(false)
+    }
+
+    port.on('error', () => finish(false))
+
+    port.on('data', (data) => {
+      buffer = Buffer.concat([buffer, data])
+      while (buffer.length >= 11) {
+        const idx = buffer.indexOf(0x55)
+        if (idx === -1) {
+          buffer = Buffer.alloc(0)
+          break
+        }
+        if (idx > 0) buffer = buffer.slice(idx)
+        if (buffer.length < 11) break
+        if (buffer[1] >= 0x50 && buffer[1] <= 0x5F && validateChecksum(buffer.slice(0, 11))) {
+          validCount++
+          buffer = buffer.slice(11)
+          if (validCount >= 2) return finish(true)
+        } else {
+          buffer = buffer.slice(1)
+        }
+      }
+    })
+
+    port.open((err) => {
+      if (err) return finish(false)
+      timer = setTimeout(() => finish(validCount >= 1), timeoutMs)
+    })
+  })
+}
+
+/**
+ * Probe each candidate device at each candidate baud rate, looking for a
+ * WitMotion device. Returns { device, baudRate } or null if nothing found.
+ * The previously-cached baud rate is tried first to make subsequent boots fast.
+ */
+async function detectWitMotionDevice() {
+  const devices = await findGpsDevices()
+  if (devices.length === 0) return null
+
+  // Try cached baud rate first, then the rest in order
+  const baudOrder = cachedBaudRate
+    ? [cachedBaudRate, ...WITMOTION_BAUD_RATES.filter(r => r !== cachedBaudRate)]
+    : WITMOTION_BAUD_RATES
+
+  for (const device of devices) {
+    for (const rate of baudOrder) {
+      const ok = await testBaudRate(device, rate)
+      if (ok) {
+        console.log(`GPS: Detected WitMotion on ${device} @ ${rate} baud`)
+        if (rate !== cachedBaudRate) saveBaudCache(rate)
+        return { device, baudRate: rate }
+      }
+    }
+  }
   return null
 }
 
@@ -582,29 +710,53 @@ function processData(data) {
 }
 
 /**
- * Start GPS service
+ * Reset all transient state after a disconnect/error so a fresh connection
+ * can take over cleanly. Does NOT clear cached calibration or baud rate.
+ */
+function resetConnectionState() {
+  serialPort = null
+  isRunning = false
+  messageBuffer = Buffer.alloc(0)
+  gpsData.device = null
+  gpsData.baudRate = null
+  // Mark previously-known fields as stale by leaving them — front-end uses
+  // gpsData.age to know when to consider them stale.
+}
+
+/**
+ * Start GPS service. Auto-detects which USB-serial device is the WitMotion
+ * unit and at what baud rate it is configured. Safe to call repeatedly —
+ * if already running, it returns the current state without disturbing it.
  */
 export async function startGpsService() {
-  if (isRunning) {
-    console.log('GPS: Service already running')
+  if (isRunning && serialPort && serialPort.isOpen) {
     return gpsData
   }
 
-  const device = await findGpsDevice()
+  // Make sure any stale port object is gone before we probe
+  if (serialPort) {
+    try { if (serialPort.isOpen) serialPort.close() } catch {}
+    serialPort = null
+  }
 
-  if (!device) {
+  const detected = await detectWitMotionDevice()
+
+  if (!detected) {
     gpsData.error = 'No GPS device found'
-    console.log('GPS: No device found')
+    gpsData.device = null
+    gpsData.baudRate = null
     return gpsData
   }
 
+  const { device, baudRate } = detected
   gpsData.device = device
+  gpsData.baudRate = baudRate
   gpsData.error = null
 
   try {
     serialPort = new SerialPort({
       path: device,
-      baudRate: 115200,
+      baudRate,
       dataBits: 8,
       parity: 'none',
       stopBits: 1,
@@ -616,12 +768,14 @@ export async function startGpsService() {
     serialPort.on('error', (err) => {
       console.error('GPS: Serial port error:', err.message)
       gpsData.error = err.message
-      isRunning = false
+      // Tear down so the watcher can reconnect cleanly
+      try { if (serialPort && serialPort.isOpen) serialPort.close() } catch {}
+      resetConnectionState()
     })
 
     serialPort.on('close', () => {
       console.log('GPS: Serial port closed')
-      isRunning = false
+      resetConnectionState()
     })
 
     await new Promise((resolve, reject) => {
@@ -632,29 +786,92 @@ export async function startGpsService() {
     })
 
     isRunning = true
-    console.log(`GPS: Service started on ${device}`)
+    console.log(`GPS: Service started on ${device} @ ${baudRate} baud`)
 
   } catch (err) {
     console.error('GPS: Failed to start:', err.message)
     gpsData.error = err.message
-    isRunning = false
+    resetConnectionState()
   }
 
   return gpsData
 }
 
 /**
- * Stop GPS service
+ * Stop GPS service (also stops the hot-plug watcher).
  */
 export async function stopGpsService() {
+  stopGpsWatcher()
   if (serialPort && serialPort.isOpen) {
     await new Promise((resolve) => {
       serialPort.close(resolve)
     })
   }
-  isRunning = false
-  serialPort = null
+  resetConnectionState()
   console.log('GPS: Service stopped')
+}
+
+// ============================================================
+// Hot-plug watcher
+// ============================================================
+//
+// findGpsDevices() / startGpsService() only act once when called. The watcher
+// keeps trying so the GPS is picked up no matter when the user plugs it in,
+// and so it auto-reconnects after a temporary disconnect.
+
+let watcherInterval = null
+const WATCHER_INTERVAL_MS = 2000
+let watcherBusy = false
+
+async function watcherTick() {
+  if (watcherBusy) return
+  watcherBusy = true
+  try {
+    if (isRunning && serialPort && serialPort.isOpen) {
+      // Connected — verify the device path still exists. If it was unplugged,
+      // the 'close' event usually fires, but check anyway as a safety net.
+      if (gpsData.device && !fs.existsSync(gpsData.device)) {
+        console.log(`GPS: Device ${gpsData.device} disappeared, closing port`)
+        try { serialPort.close() } catch {}
+        resetConnectionState()
+      }
+      return
+    }
+
+    // Not connected — see if there's a device to connect to.
+    const devices = await findGpsDevices()
+    if (devices.length === 0) return
+
+    await startGpsService()
+  } catch (err) {
+    console.error('GPS: Watcher error:', err.message)
+  } finally {
+    watcherBusy = false
+  }
+}
+
+/**
+ * Start the hot-plug watcher. Safe to call multiple times — only one
+ * interval will be active at a time. Triggers an immediate scan.
+ */
+export function startGpsWatcher() {
+  if (watcherInterval) return
+  console.log('GPS: Hot-plug watcher started')
+  // Fire one immediately so we don't wait WATCHER_INTERVAL_MS for the first scan
+  watcherTick()
+  watcherInterval = setInterval(watcherTick, WATCHER_INTERVAL_MS)
+}
+
+/**
+ * Stop the hot-plug watcher. After this, the GPS will not auto-reconnect
+ * if the device is unplugged and re-inserted.
+ */
+export function stopGpsWatcher() {
+  if (watcherInterval) {
+    clearInterval(watcherInterval)
+    watcherInterval = null
+    console.log('GPS: Hot-plug watcher stopped')
+  }
 }
 
 /**

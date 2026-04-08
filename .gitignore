@@ -41,6 +41,7 @@ BlueTopo_Tile_Scheme_*.gpkg
 
 # Device-specific calibration
 heading-calibration.json
+gps-baud-cache.json
 
 # Build outputs
 dist/
