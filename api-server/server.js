@@ -21,6 +21,7 @@ import { startSimulator, stopSimulator, isSimulatorRunning } from './services/gp
 import vesselRoutes from './routes/vessel.js'
 import { setVesselUpdateCallback, startNmea2000Service } from './services/nmea2000Service.js'
 import waypointRoutes from './routes/waypoints.js'
+import driftRoutes from './routes/drift.js'
 import ncdsRoutes from './routes/ncds.js'
 import s57Routes from './routes/s57.js'
 import satelliteRoutes from './routes/satellite.js'
@@ -86,6 +87,7 @@ app.use('/api/cusp', cuspRoutes)
 app.use('/api/gps', gpsRoutes)
 app.use('/api/vessel', vesselRoutes)
 app.use('/api/waypoints', waypointRoutes)
+app.use('/api/drift', driftRoutes)
 app.use('/api/ncds', ncdsRoutes)
 app.use('/api/s57', s57Routes)
 app.use('/api/satellite', satelliteRoutes)

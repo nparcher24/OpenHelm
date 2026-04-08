@@ -4,13 +4,16 @@
  * Used in both ChartView (create) and Settings (edit)
  */
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { XMarkIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { WAYPOINT_ICONS, WAYPOINT_COLORS, WaypointIcon, formatLatitude, formatLongitude } from '../utils/waypointIcons'
+import { computeDriftCorrected, DEFAULT_DEPTH_M } from '../utils/driftCalc'
+import { getDepthAtLocation } from '../services/blueTopoTileService'
 
 export default function WaypointEditModal({
   waypoint, // null for create, object for edit
   initialPosition, // { lat, lng } for create mode
+  latestDrift, // latest drift calibration row or null
   onSave,
   onDelete,
   onClose
@@ -24,10 +27,58 @@ export default function WaypointEditModal({
   const [color, setColor] = useState(waypoint?.color || '#00ff00')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  // Drift-compensation UI state
+  const [driftStatus, setDriftStatus] = useState('idle') // 'idle' | 'loading' | 'ready' | 'noop'
+  const [driftCorrected, setDriftCorrected] = useState(null)
+  const [driftMessage, setDriftMessage] = useState(null)
 
   // Get coordinates from waypoint or initial position
   const lat = waypoint?.latitude ?? initialPosition?.lat
   const lng = waypoint?.longitude ?? initialPosition?.lng
+
+  // Normalize field names between the API row (snake_case) and the shape
+  // returned by the in-memory fit (camelCase).
+  const driftSpeedMps =
+    latestDrift?.driftSpeedMps ?? latestDrift?.drift_speed_mps ?? null
+  const driftBearingDeg =
+    latestDrift?.driftBearingDeg ?? latestDrift?.drift_bearing_deg ?? null
+  const hasDrift = driftSpeedMps != null && driftBearingDeg != null
+
+  const handleCompensateForDrift = useCallback(async () => {
+    if (!hasDrift || lat == null || lng == null) return
+    setDriftStatus('loading')
+    setDriftMessage(null)
+    let depthM = null
+    try {
+      // getDepthAtLocation takes arguments as (lon, lat)
+      const depthRes = await getDepthAtLocation(lng, lat)
+      if (depthRes?.success && typeof depthRes.depth === 'number' && depthRes.depth > 0) {
+        depthM = depthRes.depth
+      }
+    } catch (err) {
+      // Non-fatal — we'll fall back to DEFAULT_DEPTH_M.
+      console.warn('Drift depth lookup failed, using default:', err)
+    }
+
+    const corrected = computeDriftCorrected(lat, lng, depthM, {
+      driftSpeedMps,
+      driftBearingDeg
+    })
+    if (!corrected) {
+      setDriftStatus('noop')
+      setDriftMessage('Drift is too small to compensate')
+      setDriftCorrected(null)
+      return
+    }
+    setDriftCorrected(corrected)
+    setDriftStatus('ready')
+  }, [hasDrift, lat, lng, driftSpeedMps, driftBearingDeg])
+
+  const handleClearDriftCorrection = useCallback(() => {
+    setDriftCorrected(null)
+    setDriftStatus('idle')
+    setDriftMessage(null)
+  }, [])
 
   const handleSave = async () => {
     // Validation
@@ -132,6 +183,56 @@ export default function WaypointEditModal({
               <div className="font-mono text-lg text-terminal-green bg-terminal-bg px-3 py-2 rounded border border-terminal-border">
                 {formatLatitude(lat)} / {formatLongitude(lng)}
               </div>
+            </div>
+
+            {/* Drift compensation */}
+            <div>
+              {driftStatus !== 'ready' && (
+                <button
+                  type="button"
+                  onClick={handleCompensateForDrift}
+                  disabled={!hasDrift || driftStatus === 'loading'}
+                  className="w-full min-h-[44px] bg-terminal-surface border border-terminal-green rounded text-xs text-terminal-green uppercase disabled:opacity-30 disabled:border-terminal-border active:bg-terminal-green active:text-black"
+                >
+                  {driftStatus === 'loading' ? 'Computing...' : 'Compensate for Drift'}
+                </button>
+              )}
+              {!hasDrift && driftStatus === 'idle' && (
+                <div className="mt-1 text-xs text-terminal-green-dim text-center">
+                  No drift calibrated — go to GPS page
+                </div>
+              )}
+              {driftStatus === 'noop' && driftMessage && (
+                <div className="mt-1 text-xs text-terminal-amber text-center">
+                  {driftMessage}
+                </div>
+              )}
+
+              {driftStatus === 'ready' && driftCorrected && (
+                <div className="mt-1">
+                  <label className="block text-sm text-terminal-cyan mb-1">
+                    Drift-Corrected Hold Position{driftCorrected.approximate ? ' (approx.)' : ''}
+                  </label>
+                  <div className="font-mono text-lg text-terminal-cyan bg-terminal-bg px-3 py-2 rounded border border-terminal-cyan/40">
+                    {formatLatitude(driftCorrected.lat)} / {formatLongitude(driftCorrected.lng)}
+                  </div>
+                  <div className="mt-1 text-xs text-terminal-green-dim font-mono text-center">
+                    Offset {driftCorrected.offsetM.toFixed(1)} m @{' '}
+                    {driftCorrected.upstreamBearingDeg.toFixed(0)}° (upstream)
+                  </div>
+                  <div className="text-xs text-terminal-green-dim font-mono text-center">
+                    drift {driftCorrected.driftOffsetM.toFixed(1)} m + boat {driftCorrected.boatLengthM.toFixed(1)} m
+                    {' · '}sink {driftCorrected.sinkTimeS.toFixed(0)} s
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClearDriftCorrection}
+                    className="mt-2 w-full min-h-[36px] bg-terminal-surface border border-terminal-border rounded text-xs text-terminal-green-dim uppercase active:bg-terminal-green active:text-black"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Icon selector */}

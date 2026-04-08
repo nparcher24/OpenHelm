@@ -1,9 +1,14 @@
 import { useState, useEffect, useRef, lazy, Suspense, useCallback } from 'react'
 
 import { API_BASE, WS_BASE as WS_URL } from '../utils/apiConfig.js'
+import { fitDriftLinearRegression } from '../utils/driftCalc'
+import { saveDriftCalculation } from '../services/driftService'
 
 // Lazy load the 3D component for better initial load
 const AttitudeIndicator3D = lazy(() => import('./AttitudeIndicator3D'))
+
+// Drift calibration window length in milliseconds.
+const DRIFT_SAMPLE_WINDOW_MS = 20000
 
 // Pressure history for trend calculation
 const PRESSURE_HISTORY_SIZE = 10
@@ -22,6 +27,19 @@ function GpsView() {
   const [calibrationStatus, setCalibrationStatus] = useState(null) // 'saving' | 'saved' | 'error'
   const [autoCalPreview, setAutoCalPreview] = useState(null) // number or null
   const [updateHz, setUpdateHz] = useState(null)
+  // Drift measurement UI state
+  const [driftPhase, setDriftPhase] = useState('idle') // 'idle' | 'sampling' | 'saving' | 'done' | 'error'
+  const [driftCountdown, setDriftCountdown] = useState(0)
+  const [driftResult, setDriftResult] = useState(null)
+  const [driftError, setDriftError] = useState(null)
+  // Refs — sample collection is high-frequency and must not trigger renders.
+  const driftSamplesRef = useRef([])
+  const driftStartTimeRef = useRef(0)
+  const driftTickRef = useRef(null)
+  // Flipped to true on unmount so in-flight async work inside the drift
+  // interval skips its final setState calls.
+  const driftCancelledRef = useRef(false)
+  const lastDriftSampleTsRef = useRef(0)
   const wsRef = useRef(null)
   const ageIntervalRef = useRef(null)
   const msgTimestampsRef = useRef([]) // Circular buffer for Hz calculation
@@ -179,6 +197,120 @@ function GpsView() {
     if (diff < -PRESSURE_TREND_THRESHOLD) return { trend: 'falling', arrow: '↓' }
     return { trend: 'steady', arrow: '→' }
   }
+
+  // While sampling, push each fresh GPS fix into the drift sample ref.
+  // Using an effect gated by the phase avoids piping the sample collection
+  // through component state (which would re-render on every fix).
+  useEffect(() => {
+    if (driftPhase !== 'sampling') return
+    if (!gpsData || gpsData.latitude == null || gpsData.longitude == null) return
+    const ts = gpsData.timestamp || Date.now()
+    // Dedup on timestamp — the GPS service broadcasts many messages per fix
+    // and we only want one sample per distinct reading.
+    if (ts === lastDriftSampleTsRef.current) return
+    lastDriftSampleTsRef.current = ts
+    driftSamplesRef.current.push({
+      t: ts,
+      lat: gpsData.latitude,
+      lng: gpsData.longitude
+    })
+  }, [gpsData?.timestamp, gpsData?.latitude, gpsData?.longitude, driftPhase])
+
+  // Kick off a 20 s drift calibration. Runs a setInterval that ticks the
+  // visible countdown each second and, on the final tick, fits the samples
+  // and POSTs the result.
+  const startDriftCalculation = useCallback(() => {
+    // Reset state
+    driftSamplesRef.current = []
+    lastDriftSampleTsRef.current = 0
+    driftStartTimeRef.current = Date.now()
+    setDriftError(null)
+    setDriftResult(null)
+    setDriftCountdown(Math.round(DRIFT_SAMPLE_WINDOW_MS / 1000))
+    setDriftPhase('sampling')
+
+    // Seed with the current fix so we always have at least one sample even
+    // if the WebSocket goes quiet briefly.
+    if (gpsData?.latitude != null && gpsData?.longitude != null) {
+      const seedTs = gpsData.timestamp || Date.now()
+      lastDriftSampleTsRef.current = seedTs
+      driftSamplesRef.current.push({
+        t: seedTs,
+        lat: gpsData.latitude,
+        lng: gpsData.longitude
+      })
+    }
+
+    if (driftTickRef.current) clearInterval(driftTickRef.current)
+    driftTickRef.current = setInterval(async () => {
+      const elapsed = Date.now() - driftStartTimeRef.current
+      const remaining = Math.max(
+        0,
+        Math.ceil((DRIFT_SAMPLE_WINDOW_MS - elapsed) / 1000)
+      )
+      setDriftCountdown(remaining)
+
+      if (elapsed >= DRIFT_SAMPLE_WINDOW_MS) {
+        clearInterval(driftTickRef.current)
+        driftTickRef.current = null
+
+        const samples = driftSamplesRef.current
+        const fit = fitDriftLinearRegression(samples)
+        if (driftCancelledRef.current) return
+        if (!fit) {
+          setDriftPhase('error')
+          setDriftError(
+            `Not enough samples (${samples.length}). Need at least 3 distinct GPS fixes.`
+          )
+          return
+        }
+
+        setDriftPhase('saving')
+        try {
+          const res = await saveDriftCalculation({
+            latitude: fit.latitude,
+            longitude: fit.longitude,
+            driftSpeedMps: fit.driftSpeedMps,
+            driftBearingDeg: fit.driftBearingDeg,
+            durationS: fit.durationS,
+            sampleCount: fit.sampleCount
+          })
+          if (driftCancelledRef.current) return
+          setDriftResult(res.drift || fit)
+          setDriftPhase('done')
+        } catch (err) {
+          if (driftCancelledRef.current) return
+          setDriftPhase('error')
+          setDriftError(err.message || 'Failed to save drift')
+        }
+      }
+    }, 250)
+  }, [gpsData?.latitude, gpsData?.longitude, gpsData?.timestamp])
+
+  const resetDriftCalculation = useCallback(() => {
+    if (driftTickRef.current) {
+      clearInterval(driftTickRef.current)
+      driftTickRef.current = null
+    }
+    driftSamplesRef.current = []
+    lastDriftSampleTsRef.current = 0
+    setDriftCountdown(0)
+    setDriftResult(null)
+    setDriftError(null)
+    setDriftPhase('idle')
+  }, [])
+
+  // Clear the drift interval AND flip the cancel flag on unmount so any
+  // in-flight save() skips its final setState calls.
+  useEffect(() => {
+    return () => {
+      driftCancelledRef.current = true
+      if (driftTickRef.current) {
+        clearInterval(driftTickRef.current)
+        driftTickRef.current = null
+      }
+    }
+  }, [])
 
   // Calculate drift angle (difference between heading and COG)
   const getDriftAngle = () => {
@@ -509,6 +641,84 @@ function GpsView() {
                 {calibrationStatus === 'error' && (
                   <div className="text-xs text-terminal-red text-center">Save failed</div>
                 )}
+              </div>
+            )}
+          </div>
+
+          {/* Drift Calculation */}
+          <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border">
+            <div className="text-xs text-terminal-green-dim uppercase mb-2">
+              Drift Calibration
+            </div>
+
+            {driftPhase === 'idle' && (
+              <button
+                onClick={startDriftCalculation}
+                disabled={!hasFix || gpsData?.latitude == null}
+                className="w-full min-h-[44px] bg-terminal-surface border border-terminal-green rounded text-xs text-terminal-green uppercase disabled:opacity-30 disabled:border-terminal-border active:bg-terminal-green active:text-black"
+              >
+                Calculate Drift
+              </button>
+            )}
+
+            {driftPhase === 'sampling' && (
+              <div className="space-y-1">
+                <button
+                  disabled
+                  className="w-full min-h-[44px] bg-terminal-surface border border-terminal-green rounded text-xs text-terminal-green uppercase opacity-60"
+                >
+                  Sampling... {driftCountdown}s
+                </button>
+                <div className="text-xs text-terminal-green-dim text-center font-mono">
+                  {driftSamplesRef.current.length} samples collected
+                </div>
+              </div>
+            )}
+
+            {driftPhase === 'saving' && (
+              <div className="text-xs text-terminal-green-dim text-center animate-pulse py-2">
+                Saving...
+              </div>
+            )}
+
+            {driftPhase === 'done' && driftResult && (
+              <div className="space-y-1">
+                <div className="grid grid-cols-2 gap-1 text-xs font-mono">
+                  <div className="text-terminal-green-dim">Speed</div>
+                  <div className="text-terminal-green text-right">
+                    {(driftResult.driftSpeedMps ?? driftResult.drift_speed_mps ?? 0).toFixed(2)} m/s
+                    {' '}
+                    ({((driftResult.driftSpeedMps ?? driftResult.drift_speed_mps ?? 0) * 1.94384).toFixed(2)} kn)
+                  </div>
+                  <div className="text-terminal-green-dim">Bearing</div>
+                  <div className="text-terminal-green text-right">
+                    {(driftResult.driftBearingDeg ?? driftResult.drift_bearing_deg ?? 0).toFixed(0)}°
+                  </div>
+                  <div className="text-terminal-green-dim">Samples</div>
+                  <div className="text-terminal-green text-right">
+                    {driftResult.sampleCount ?? driftResult.sample_count ?? 0}
+                  </div>
+                </div>
+                <button
+                  onClick={resetDriftCalculation}
+                  className="w-full min-h-[44px] bg-terminal-surface border border-terminal-border rounded text-xs text-terminal-green-dim uppercase active:bg-terminal-green active:text-black"
+                >
+                  Recalculate
+                </button>
+              </div>
+            )}
+
+            {driftPhase === 'error' && (
+              <div className="space-y-1">
+                <div className="text-xs text-terminal-red text-center">
+                  {driftError || 'Drift measurement failed'}
+                </div>
+                <button
+                  onClick={resetDriftCalculation}
+                  className="w-full min-h-[44px] bg-terminal-surface border border-terminal-border rounded text-xs text-terminal-green-dim uppercase active:bg-terminal-green active:text-black"
+                >
+                  Try Again
+                </button>
               </div>
             )}
           </div>

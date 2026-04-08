@@ -8,6 +8,8 @@ import { getDownloadedRegions as getDownloadedENCRegions } from '../services/enc
 import { getDownloadedRegions as getDownloadedS57Regions } from '../services/s57DownloadService'
 import { createNauticalStyle, S57_LAYER_PREFIX } from '../styles/nauticalChartStyle'
 import { getAllWaypoints, createWaypoint } from '../services/waypointService'
+import { getLatestDrift } from '../services/driftService'
+import { computeDriftCorrected } from '../utils/driftCalc'
 import { getWeatherRegions, getRegionData, getTimestamps, getGridAtTime, buildStationGeoJSON } from '../services/weatherDataService'
 import ForecastTimeSlider from './ForecastTimeSlider'
 import WeatherStationPopup from './WeatherStationPopup'
@@ -66,6 +68,10 @@ function ChartView() {
   const [waypointDropdownOpen, setWaypointDropdownOpen] = useState(false)
   const [waypointEditModalOpen, setWaypointEditModalOpen] = useState(false)
   const [waypointEditPosition, setWaypointEditPosition] = useState(null)
+  // Latest drift calibration (from /api/drift/latest) and the per-waypoint
+  // drift-corrected hold positions we derive from it.
+  const [latestDrift, setLatestDrift] = useState(null)
+  const [waypointDriftCorrections, setWaypointDriftCorrections] = useState({})
   const waypointMarkersRef = useRef(new Map())
   const [selectedS57Feature, setSelectedS57Feature] = useState(null)
   const s57LayerIdsRef = useRef([])
@@ -337,10 +343,84 @@ function ChartView() {
     }
   }
 
+  // Fetch the most recent drift calibration from the API. Called on mount
+  // and whenever the user opens the dropdown or the Add Waypoint modal so
+  // that a just-measured drift shows up without a full reload.
+  const refreshLatestDrift = useCallback(async () => {
+    try {
+      const res = await getLatestDrift()
+      setLatestDrift(res?.drift || null)
+    } catch (err) {
+      console.error('Failed to load latest drift:', err)
+    }
+  }, [])
+
   useEffect(() => {
     if (!mapLoaded) return
     loadWaypoints()
-  }, [mapLoaded])
+    refreshLatestDrift()
+  }, [mapLoaded, refreshLatestDrift])
+
+  // Pull latest drift whenever the dropdown or modal opens so the user
+  // always sees the newest calibration.
+  useEffect(() => {
+    if (waypointDropdownOpen || waypointEditModalOpen) {
+      refreshLatestDrift()
+    }
+  }, [waypointDropdownOpen, waypointEditModalOpen, refreshLatestDrift])
+
+  // Pre-compute drift-corrected positions for every saved waypoint. Depth
+  // lookups are fired in parallel via Promise.all to avoid a waterfall.
+  useEffect(() => {
+    // Fast path: no drift calibrated or no waypoints → clear corrections.
+    if (!latestDrift || !waypoints || waypoints.length === 0) {
+      setWaypointDriftCorrections({})
+      return
+    }
+    // Normalize drift fields (API returns snake_case).
+    const drift = {
+      driftSpeedMps:
+        latestDrift.driftSpeedMps ?? latestDrift.drift_speed_mps ?? 0,
+      driftBearingDeg:
+        latestDrift.driftBearingDeg ?? latestDrift.drift_bearing_deg ?? 0
+    }
+
+    let cancelled = false
+    const computeAll = async () => {
+      const results = await Promise.all(
+        waypoints.map(async (wp) => {
+          let depthM = null
+          try {
+            // getDepthAtLocation arg order is (lon, lat).
+            const d = await getDepthAtLocation(wp.longitude, wp.latitude)
+            if (d?.success && typeof d.depth === 'number' && d.depth > 0) {
+              depthM = d.depth
+            }
+          } catch {
+            // Fall through with depthM = null → computeDriftCorrected uses default.
+          }
+          const corrected = computeDriftCorrected(
+            wp.latitude,
+            wp.longitude,
+            depthM,
+            drift
+          )
+          return [wp.id, corrected]
+        })
+      )
+      if (cancelled) return
+      const corrections = {}
+      for (const [id, corrected] of results) {
+        if (corrected) corrections[id] = corrected
+      }
+      setWaypointDriftCorrections(corrections)
+    }
+    computeAll()
+
+    return () => {
+      cancelled = true
+    }
+  }, [waypoints, latestDrift])
 
   // Render waypoint markers on map
   useEffect(() => {
@@ -1794,6 +1874,7 @@ function ChartView() {
         <WaypointEditModal
           waypoint={null}
           initialPosition={waypointEditPosition}
+          latestDrift={latestDrift}
           onSave={handleSaveWaypoint}
           onClose={() => {
             setWaypointEditModalOpen(false)
@@ -1991,6 +2072,7 @@ function ChartView() {
           {waypointDropdownOpen && (
             <WaypointDropdown
               waypoints={waypoints}
+              driftCorrections={waypointDriftCorrections}
               onSelect={handleWaypointSelect}
               onClose={() => setWaypointDropdownOpen(false)}
             />
