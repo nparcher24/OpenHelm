@@ -479,10 +479,10 @@ function GpsView() {
           <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border">
             <div className="text-xs text-terminal-green-dim uppercase">Ground Speed</div>
             <div className="text-lg font-mono text-terminal-green text-glow">
-              {gpsData?.groundSpeed !== null ? `${(gpsData.groundSpeed * 1.94384).toFixed(1)} kts` : '--'}
+              {gpsData?.groundSpeed !== null ? `${(gpsData.groundSpeed * 2.23694).toFixed(1)} mph` : '--'}
             </div>
             <div className="text-xs text-terminal-green-dim font-mono">
-              {gpsData?.groundSpeed !== null ? `${(gpsData.groundSpeed * 3.6).toFixed(1)} km/h` : ''}
+              {gpsData?.groundSpeed !== null ? `${(gpsData.groundSpeed * 1.94384).toFixed(1)} kts` : ''}
             </div>
           </div>
 

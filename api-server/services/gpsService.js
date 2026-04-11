@@ -16,6 +16,12 @@ const execAsync = promisify(exec)
 const CALIBRATION_FILE = path.join(process.cwd(), 'heading-calibration.json')
 let headingOffset = 0
 
+// Auto-calibration: nudge heading offset toward COG when speed > 10 kts
+const AUTO_CAL_SPEED_THRESHOLD = 5.14444 // 10 knots in m/s
+const AUTO_CAL_ALPHA = 0.2 // EMA smoothing — converges ~3s for a 20° error at 5 Hz
+let lastAutoCalSave = 0 // timestamp of last file save
+const AUTO_CAL_SAVE_INTERVAL = 30000 // persist to disk every 30s
+
 // Baud rate cache (persisted to file) - skips re-detection on restart
 const BAUD_CACHE_FILE = path.join(process.cwd(), 'gps-baud-cache.json')
 let cachedBaudRate = null
@@ -131,6 +137,10 @@ let gpsData = {
 let headingSin = null  // Running average of sin(heading)
 let headingCos = null  // Running average of cos(heading)
 const HEADING_SMOOTHING = 0.7  // 0-1: lower = smoother, higher = more responsive
+
+// Speed smoothing state (simple EMA — no circular wrap needed)
+let smoothedSpeed = null
+const SPEED_SMOOTHING = 0.8  // 0-1: lower = smoother; 0.8 at ~5 Hz ≈ 0.5 s settling
 
 /**
  * Smooth heading using exponential moving average with circular wrap-around handling
@@ -603,25 +613,59 @@ function parseWitMotionMessage(msg) {
       break
 
     case 'X': // 0x58 - GPS Ground Speed
-      // Correct WitMotion 0x58 format:
+      // WitMotion 0x58 format:
       // Bytes 0-1: GPSHeight (int16, 0.1m units)
-      // Bytes 2-3: GPSYaw (int16, 0.1° units) - Course Over Ground
+      // Bytes 2-3: GPSYaw (uint16, 0.01° units) - Course Over Ground
       // Bytes 4-7: GPSVelocity (uint32, 1/1000 km/h units)
       const gpsHeight = data.readInt16LE(0) / 10 // 0.1m to meters
-      let gpsCOG = data.readInt16LE(2) / 10 // 0.1° to degrees
+      let gpsCOG = data.readUInt16LE(2) / 100 // 0.01° to degrees
       const gpsSpeedRaw = data.readUInt32LE(4)
       const gpsSpeedKmh = gpsSpeedRaw / 1000 // to km/h
       const gpsSpeedMs = gpsSpeedKmh / 3.6 // to m/s
 
       // Normalize COG to 0-360 range
-      if (gpsCOG < 0) gpsCOG += 360
+      while (gpsCOG >= 360) gpsCOG -= 360
       gpsData.cog = gpsCOG
 
-      // Validate speed is reasonable (< 200 knots / ~100 m/s for any boat)
+      // Validate and smooth speed (EMA matches heading smoothing approach)
       if (gpsSpeedMs >= 0 && gpsSpeedMs < 100) {
-        gpsData.groundSpeed = gpsSpeedMs
+        if (smoothedSpeed === null) {
+          smoothedSpeed = gpsSpeedMs
+        } else {
+          smoothedSpeed = SPEED_SMOOTHING * gpsSpeedMs + (1 - SPEED_SMOOTHING) * smoothedSpeed
+        }
+        gpsData.groundSpeed = smoothedSpeed
       }
       gpsData.altitude = gpsHeight
+
+      // Auto-calibrate heading offset toward COG when cruising above 10 kts.
+      // At speed the boat points where it's going, so COG ≈ true heading.
+      if (gpsSpeedMs >= AUTO_CAL_SPEED_THRESHOLD && gpsData.heading != null && gpsCOG != null) {
+        let error = gpsCOG - gpsData.heading
+        // Shortest-path wrap to ±180°
+        while (error > 180) error -= 360
+        while (error < -180) error += 360
+
+        // Nudge offset by a fraction of the error
+        headingOffset += AUTO_CAL_ALPHA * error
+        // Keep offset in ±180° range
+        while (headingOffset > 180) headingOffset -= 360
+        while (headingOffset < -180) headingOffset += 360
+
+        // Re-apply corrected offset to current heading immediately
+        let recalibrated = gpsData.heading + AUTO_CAL_ALPHA * error
+        if (recalibrated < 0) recalibrated += 360
+        if (recalibrated >= 360) recalibrated -= 360
+        gpsData.heading = recalibrated
+        gpsData.headingOffset = headingOffset
+
+        // Persist to disk periodically (avoid thrashing)
+        const now = Date.now()
+        if (now - lastAutoCalSave > AUTO_CAL_SAVE_INTERVAL) {
+          lastAutoCalSave = now
+          saveHeadingOffset()
+        }
+      }
       break
 
     case 'Y': // 0x59 - Quaternion

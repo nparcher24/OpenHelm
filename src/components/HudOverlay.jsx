@@ -14,7 +14,7 @@ function HudOverlay({ heading, speedMs, depthMeters, color = '#22c55e' }) {
   const speedTapeRef = useRef(null)
   const depthTapeRef = useRef(null)
 
-  const speedKts = speedMs != null ? parseFloat((speedMs * 1.94384).toFixed(1)) : null
+  const speedMph = speedMs != null ? parseFloat((speedMs * 2.23694).toFixed(1)) : null
   const depthFt = depthMeters != null ? parseFloat((Math.abs(depthMeters) * 3.28084).toFixed(1)) : null
 
   // Single effect that rebuilds all tapes after layout
@@ -31,7 +31,7 @@ function HudOverlay({ heading, speedMs, depthMeters, color = '#22c55e' }) {
       }
       if (speedTapeRef.current) {
         const spdH = speedTapeRef.current.parentElement?.offsetHeight || tapeHeight
-        speedTapeRef.current.innerHTML = buildSpeedTapeSVG(speedKts, spdH, color)
+        speedTapeRef.current.innerHTML = buildSpeedTapeSVG(speedMph, spdH, color)
       }
       if (depthTapeRef.current) {
         const dptH = depthTapeRef.current.parentElement?.offsetHeight || tapeHeight
@@ -39,7 +39,7 @@ function HudOverlay({ heading, speedMs, depthMeters, color = '#22c55e' }) {
       }
     })
     return () => cancelAnimationFrame(raf)
-  }, [heading, speedKts, depthFt, color])
+  }, [heading, speedMph, depthFt, color])
 
   // Also rebuild on resize
   useEffect(() => {
@@ -50,12 +50,12 @@ function HudOverlay({ heading, speedMs, depthMeters, color = '#22c55e' }) {
       const tapeHeight = Math.round(vpH * 0.667)
 
       if (headingTapeRef.current) headingTapeRef.current.innerHTML = buildHeadingTapeSVG(heading ?? 0, hdgWidth, color)
-      if (speedTapeRef.current) speedTapeRef.current.innerHTML = buildSpeedTapeSVG(speedKts, speedTapeRef.current.parentElement?.offsetHeight || tapeHeight, color)
+      if (speedTapeRef.current) speedTapeRef.current.innerHTML = buildSpeedTapeSVG(speedMph, speedTapeRef.current.parentElement?.offsetHeight || tapeHeight, color)
       if (depthTapeRef.current) depthTapeRef.current.innerHTML = buildDepthTapeSVG(depthFt, depthTapeRef.current.parentElement?.offsetHeight || tapeHeight, color)
     }
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
-  }, [heading, speedKts, depthFt, color])
+  }, [heading, speedMph, depthFt, color])
 
   // Readout styles
   const readoutBox = {
@@ -102,8 +102,8 @@ function HudOverlay({ heading, speedMs, depthMeters, color = '#22c55e' }) {
         <div ref={speedTapeRef} style={{ position: 'absolute', top: 0, left: 0, width: '140px', height: '100%', overflow: 'visible' }} />
         {/* Digital readout at vertical center */}
         <div style={{ position: 'absolute', top: '50%', left: '4px', transform: 'translateY(-50%)', ...readoutBox, minWidth: '70px', textAlign: 'left' }}>
-          <span style={readoutVal}>{speedKts != null ? speedKts.toFixed(1) : '--.-'}</span>
-          <span style={readoutUnit}>kts</span>
+          <span style={readoutVal}>{speedMph != null ? speedMph.toFixed(1) : '--.-'}</span>
+          <span style={readoutUnit}>mph</span>
         </div>
       </div>
 

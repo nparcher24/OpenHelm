@@ -147,8 +147,8 @@ export function buildVerticalTapeSVG(value, side, majorInterval, minorInterval, 
 }
 
 // ── Convenience wrappers ──
-export function buildSpeedTapeSVG(speedKts, containerHeight, color) {
-  return buildVerticalTapeSVG(speedKts ?? 0, 'left', 5, 1, 24, containerHeight, 'hud-spd', color)
+export function buildSpeedTapeSVG(speedMph, containerHeight, color) {
+  return buildVerticalTapeSVG(speedMph ?? 0, 'left', 5, 1, 24, containerHeight, 'hud-spd', color)
 }
 
 export function buildDepthTapeSVG(depthFt, containerHeight, color) {
