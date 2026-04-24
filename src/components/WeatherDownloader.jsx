@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { useJobProgress } from '../hooks/useJobProgress'
+import { Glass } from '../ui/primitives'
 import {
   getStorageInfo,
   getRegions,
@@ -238,59 +239,57 @@ function WeatherDownloader() {
 
   return (
     <div className="p-6 space-y-6">
-      <h2 className="text-xl font-bold text-terminal-green">Weather & Ocean Data</h2>
-      <p className="text-sm text-terminal-green-dim">
+      <h2 className="text-xl font-bold" style={{ color: 'var(--fg1)' }}>Weather & Ocean Data</h2>
+      <p className="text-sm" style={{ color: 'var(--fg2)' }}>
         Download tide predictions, current forecasts, wind observations, and grid forecasts for offline use.
         Sources: NOAA CO-OPS, NDBC buoys, Open-Meteo.
       </p>
 
       {error && (
-        <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-3 text-red-400 text-sm break-all">
+        <div className="rounded-lg p-3 text-sm break-all" style={{ background: 'rgba(229,72,72,0.08)', border: '0.5px solid rgba(229,72,72,0.3)', color: '#E54848' }}>
           <span className="font-medium">Error: </span>{error}
-          <button onClick={() => setError(null)} className="ml-2 underline text-red-300">dismiss</button>
+          <button onClick={() => setError(null)} className="ml-2 underline">dismiss</button>
         </div>
       )}
 
       {/* Storage Summary */}
       {storageInfo && (
-        <div className="bg-terminal-surface rounded-lg border border-terminal-border p-4">
-          <h3 className="text-sm font-semibold text-terminal-green uppercase tracking-wide mb-3">Storage</h3>
+        <Glass pad={16} radius={12}>
+          <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--fg1)' }}>Storage</h3>
           <div className="space-y-2">
-            <div className="flex justify-between text-sm text-terminal-green-dim">
+            <div className="flex justify-between text-sm" style={{ color: 'var(--fg2)' }}>
               <span>Weather data: {storageInfo.weather?.totalSizeMB || 0} MB</span>
               <span>Free: {storageInfo.disk?.freeGB} GB / {storageInfo.disk?.totalGB} GB</span>
             </div>
-            <div className="w-full bg-terminal-border rounded-full h-2">
-              <div
-                className="bg-terminal-green/60 h-2 rounded-full transition-all"
-                style={{ width: `${storageInfo.disk?.usedPercent || 0}%` }}
-              />
+            <div style={{ height: 8, borderRadius: 999, background: 'var(--fill-2)', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${storageInfo.disk?.usedPercent || 0}%`, background: 'var(--signal)', transition: 'width 160ms' }} />
             </div>
           </div>
-        </div>
+        </Glass>
       )}
 
       {/* Download Panel */}
       {!isStarted ? (
-        <div className="bg-terminal-surface rounded-lg border border-terminal-border p-4 space-y-4">
-          <h3 className="text-sm font-semibold text-terminal-green uppercase tracking-wide">New Download</h3>
+        <Glass pad={16} radius={12} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <h3 className="text-sm font-semibold uppercase tracking-wide" style={{ color: 'var(--fg1)' }}>New Download</h3>
 
           {/* Region Name */}
           <div>
-            <label className="block text-sm text-terminal-green-dim mb-1">Region Name</label>
+            <label className="block text-sm mb-1" style={{ color: 'var(--fg2)' }}>Region Name</label>
             <input
               type="text"
               value={regionName}
               onChange={e => setRegionName(e.target.value)}
               placeholder="e.g., Chesapeake Bay"
-              className="w-full bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2 text-terminal-green placeholder:text-terminal-green/30 focus:border-terminal-green focus:outline-none"
+              className="w-full rounded-lg px-3 py-2 focus:outline-none"
+              style={{ background: 'var(--bg)', border: '0.5px solid var(--bg-hairline-strong)', color: 'var(--fg1)' }}
             />
           </div>
 
           {/* Bounding Box */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm text-terminal-green-dim">Bounding Box (decimal degrees)</label>
+              <label className="text-sm" style={{ color: 'var(--fg2)' }}>Bounding Box (decimal degrees)</label>
               <button
                 onClick={() => navigate('/weather-region', {
                   state: {
@@ -298,51 +297,41 @@ function WeatherDownloader() {
                     existingBounds: getBounds()
                   }
                 })}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-terminal-border text-terminal-green-dim hover:border-terminal-green hover:text-terminal-green transition-all touch-manipulation"
+                className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all touch-manipulation"
+                style={{ background: 'var(--fill-1)', border: '0.5px solid var(--bg-hairline-strong)', color: 'var(--fg2)' }}
               >
                 Select on Map
               </button>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-terminal-green/40 mb-1">West (lon)</label>
-                <input type="number" step="0.01" value={west} onChange={e => setWest(e.target.value)} placeholder="-76.5"
-                  className="w-full bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2 text-terminal-green placeholder:text-terminal-green/30 focus:border-terminal-green focus:outline-none font-mono text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs text-terminal-green/40 mb-1">East (lon)</label>
-                <input type="number" step="0.01" value={east} onChange={e => setEast(e.target.value)} placeholder="-75.5"
-                  className="w-full bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2 text-terminal-green placeholder:text-terminal-green/30 focus:border-terminal-green focus:outline-none font-mono text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs text-terminal-green/40 mb-1">South (lat)</label>
-                <input type="number" step="0.01" value={south} onChange={e => setSouth(e.target.value)} placeholder="36.5"
-                  className="w-full bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2 text-terminal-green placeholder:text-terminal-green/30 focus:border-terminal-green focus:outline-none font-mono text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs text-terminal-green/40 mb-1">North (lat)</label>
-                <input type="number" step="0.01" value={north} onChange={e => setNorth(e.target.value)} placeholder="37.5"
-                  className="w-full bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2 text-terminal-green placeholder:text-terminal-green/30 focus:border-terminal-green focus:outline-none font-mono text-sm" />
-              </div>
+              {[['West (lon)', west, setWest, '-76.5'], ['East (lon)', east, setEast, '-75.5'],
+                ['South (lat)', south, setSouth, '36.5'], ['North (lat)', north, setNorth, '37.5']].map(([label, val, setter, ph]) => (
+                <div key={label}>
+                  <label className="block text-xs mb-1" style={{ color: 'var(--fg2)' }}>{label}</label>
+                  <input type="number" step="0.01" value={val} onChange={e => setter(e.target.value)} placeholder={ph}
+                    className="w-full rounded-lg px-3 py-2 focus:outline-none font-mono text-sm"
+                    style={{ background: 'var(--bg)', border: '0.5px solid var(--bg-hairline-strong)', color: 'var(--fg1)' }} />
+                </div>
+              ))}
             </div>
             {west && east && south && north && !boundsValid && (
-              <p className="text-xs text-red-400 mt-1">Invalid bounds: West must be less than East, South less than North</p>
+              <p className="text-xs mt-1" style={{ color: '#E54848' }}>Invalid bounds: West must be less than East, South less than North</p>
             )}
           </div>
 
           {/* Forecast Duration */}
           <div>
-            <label className="block text-sm text-terminal-green-dim mb-1">Forecast Duration</label>
+            <label className="block text-sm mb-1" style={{ color: 'var(--fg2)' }}>Forecast Duration</label>
             <div className="flex gap-2">
               {[3, 7, 14].map(days => (
                 <button
                   key={days}
                   onClick={() => setForecastDays(days)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all touch-manipulation ${
-                    forecastDays === days
-                      ? 'bg-terminal-green/20 border-terminal-green text-terminal-green'
-                      : 'border-terminal-border text-terminal-green-dim hover:border-terminal-green/50'
-                  }`}
+                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all touch-manipulation"
+                  style={forecastDays === days
+                    ? { background: 'rgba(47,181,107,0.15)', border: '0.5px solid var(--signal)', color: 'var(--signal)' }
+                    : { background: 'transparent', border: '0.5px solid var(--bg-hairline-strong)', color: 'var(--fg2)' }
+                  }
                 >
                   {days} days
                 </button>
@@ -352,7 +341,7 @@ function WeatherDownloader() {
 
           {/* Data Types */}
           <div>
-            <label className="block text-sm text-terminal-green-dim mb-2">Data Types</label>
+            <label className="block text-sm mb-2" style={{ color: 'var(--fg2)' }}>Data Types</label>
             <div className="space-y-2">
               {DATA_TYPES.map(dt => (
                 <label key={dt.id} className="flex items-start gap-3 cursor-pointer touch-manipulation">
@@ -363,8 +352,8 @@ function WeatherDownloader() {
                     className="mt-0.5 accent-green-500"
                   />
                   <div>
-                    <div className="text-sm text-terminal-green">{dt.label}</div>
-                    <div className="text-xs text-terminal-green/40">{dt.desc}</div>
+                    <div className="text-sm" style={{ color: 'var(--fg1)' }}>{dt.label}</div>
+                    <div className="text-xs" style={{ color: 'var(--fg2)', opacity: 0.6 }}>{dt.desc}</div>
                   </div>
                 </label>
               ))}
@@ -373,49 +362,53 @@ function WeatherDownloader() {
 
           {/* Estimate */}
           {estimate && (
-            <div className="text-sm text-terminal-green-dim space-y-1">
+            <div className="text-sm space-y-1" style={{ color: 'var(--fg2)' }}>
               <div>
-                Stations: <span className="text-terminal-green font-medium">
+                Stations: <span className="font-medium" style={{ color: 'var(--fg1)' }}>
                   {(estimate.stations?.tideCount || 0)} tide, {(estimate.stations?.currentCount || 0)} current, {(estimate.stations?.metCount || 0)} met
                 </span>
               </div>
               <div>
-                Grid points: <span className="text-terminal-green font-medium">{estimate.gridPoints}</span>
-                {' · '}Est. API calls: <span className="text-terminal-green font-medium">{estimate.estimatedApiCalls}</span>
+                Grid points: <span className="font-medium" style={{ color: 'var(--fg1)' }}>{estimate.gridPoints}</span>
+                {' · '}Est. API calls: <span className="font-medium" style={{ color: 'var(--fg1)' }}>{estimate.estimatedApiCalls}</span>
               </div>
               {!estimate.stationsCached && (
-                <div className="text-xs text-yellow-400">Station cache not available — counts will be determined during download</div>
+                <div className="text-xs" style={{ color: 'var(--tint-yellow)' }}>Station cache not available — counts will be determined during download</div>
               )}
             </div>
           )}
           {loadingEstimate && (
-            <div className="text-sm text-terminal-green/50">Calculating estimate...</div>
+            <div className="text-sm" style={{ color: 'var(--fg2)' }}>Calculating estimate...</div>
           )}
 
           {/* Download Button */}
           <button
             onClick={handleStartDownload}
             disabled={!boundsValid || !regionName.trim() || selectedDataTypes.length === 0 || loadingEstimate}
-            className="w-full py-3 bg-terminal-green/20 hover:bg-terminal-green/30 border border-terminal-green text-terminal-green rounded-lg font-medium transition-all touch-manipulation disabled:opacity-30 disabled:cursor-not-allowed"
+            className="w-full py-3 rounded-lg font-medium transition-all touch-manipulation disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{ background: 'var(--signal)', color: '#fff' }}
           >
             Download Weather Data
           </button>
-        </div>
+        </Glass>
       ) : (
         /* Download Progress */
-        <div className="bg-terminal-surface rounded-lg border border-terminal-border p-4 space-y-4">
-          <h3 className="text-sm font-semibold text-terminal-green uppercase tracking-wide">
+        <Glass pad={16} radius={12} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <h3 className="text-sm font-semibold uppercase tracking-wide" style={{ color: 'var(--fg1)' }}>
             {isComplete ? 'Download Complete' : 'Downloading...'}
           </h3>
 
           <div className="space-y-2">
-            <div className="w-full bg-terminal-border rounded-full h-3">
-              <div
-                className={`h-3 rounded-full transition-all ${isComplete ? 'bg-green-500' : 'bg-terminal-green/60'}`}
-                style={{ width: `${jobProgress.progress || 0}%` }}
-              />
+            <div style={{ height: 8, borderRadius: 999, background: 'var(--fill-2)', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                width: `${jobProgress.progress || 0}%`,
+                background: 'var(--signal)',
+                boxShadow: '0 0 8px var(--signal-glow)',
+                transition: 'width 160ms'
+              }} />
             </div>
-            <div className="flex justify-between text-sm text-terminal-green-dim">
+            <div className="flex justify-between text-sm" style={{ color: 'var(--fg2)' }}>
               <span>{jobProgress.message || 'Starting...'}</span>
               <span>{jobProgress.progress || 0}%</span>
             </div>
@@ -424,64 +417,66 @@ function WeatherDownloader() {
           <div className="flex gap-2">
             {isDownloading && (
               <button onClick={handleCancel}
-                className="px-4 py-2 border border-red-500/50 text-red-400 hover:bg-red-900/20 rounded-lg text-sm touch-manipulation">
+                className="px-4 py-2 rounded-lg text-sm touch-manipulation"
+                style={{ background: 'rgba(229,72,72,0.14)', color: '#E54848', border: '0.5px solid rgba(229,72,72,0.3)' }}>
                 Cancel
               </button>
             )}
             {isComplete && (
               <button onClick={handleReset}
-                className="px-4 py-2 bg-terminal-green/20 hover:bg-terminal-green/30 border border-terminal-green text-terminal-green rounded-lg text-sm font-medium touch-manipulation">
+                className="px-4 py-2 rounded-lg text-sm font-medium touch-manipulation"
+                style={{ background: 'var(--signal)', color: '#fff' }}>
                 Download Another Region
               </button>
             )}
           </div>
-        </div>
+        </Glass>
       )}
 
       {/* Downloaded Regions List */}
-      <div className="bg-terminal-surface rounded-lg border border-terminal-border overflow-hidden">
+      <Glass radius={12} style={{ overflow: 'hidden' }}>
         <button onClick={() => setRegionsExpanded(v => !v)}
           className="w-full px-4 py-3 flex items-center justify-between text-left touch-manipulation">
-          <h3 className="text-sm font-semibold text-terminal-green uppercase tracking-wide">
+          <h3 className="text-sm font-semibold uppercase tracking-wide" style={{ color: 'var(--fg1)' }}>
             Downloaded Regions ({regions.length})
           </h3>
-          <span className="text-terminal-green-dim text-lg">{regionsExpanded ? '▾' : '▸'}</span>
+          <span className="text-lg" style={{ color: 'var(--fg2)' }}>{regionsExpanded ? '▾' : '▸'}</span>
         </button>
 
         {regionsExpanded && (
-          <div className="border-t border-terminal-border">
+          <div style={{ borderTop: '0.5px solid var(--bg-hairline-strong)' }}>
             {loadingRegions ? (
-              <div className="p-4 text-sm text-terminal-green/50">Loading...</div>
+              <div className="p-4 text-sm" style={{ color: 'var(--fg2)' }}>Loading...</div>
             ) : regions.length === 0 ? (
-              <div className="p-4 text-sm text-terminal-green/50">No regions downloaded yet</div>
+              <div className="p-4 text-sm" style={{ color: 'var(--fg2)' }}>No regions downloaded yet</div>
             ) : (
-              <div className="divide-y divide-terminal-border">
+              <div>
                 {regions.map(region => {
                   const age = dataAge(region.downloadedAt)
                   return (
-                    <div key={region.id} className="px-4 py-3 flex items-center justify-between">
+                    <div key={region.id} className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '0.5px solid var(--bg-hairline-strong)' }}>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-terminal-green truncate">{region.name}</span>
+                          <span className="text-sm font-medium truncate" style={{ color: 'var(--fg1)' }}>{region.name}</span>
                           <span className={`text-xs ${age.color}`}>{age.label}</span>
                         </div>
-                        <div className="text-xs text-terminal-green-dim mt-0.5">
+                        <div className="text-xs mt-0.5" style={{ color: 'var(--fg2)' }}>
                           {region.stationCount} stations &middot; {region.gridPoints || 0} grid pts &middot;{' '}
                           {region.forecastDays}d forecast &middot;{' '}
                           {new Date(region.downloadedAt).toLocaleDateString()}
                         </div>
-                        <div className="text-xs text-terminal-green/40 font-mono mt-0.5">
+                        <div className="text-xs font-mono mt-0.5" style={{ color: 'var(--fg2)', opacity: 0.5 }}>
                           [{region.bounds.map(b => b.toFixed(2)).join(', ')}]
                         </div>
                       </div>
 
                       <div className="flex items-center gap-1 ml-2">
                         <button onClick={() => handleRefreshRegion(region)}
-                          className="p-2 text-terminal-green-dim hover:text-terminal-green transition-colors touch-manipulation" title="Refresh">
+                          className="p-2 transition-colors touch-manipulation" style={{ color: 'var(--fg2)' }} title="Refresh">
                           <ArrowPathIcon className="w-4 h-4" />
                         </button>
                         <button onClick={() => prefillFromRegion(region)}
-                          className="p-2 text-terminal-green-dim hover:text-terminal-green transition-colors touch-manipulation" title="Copy bounds">
+                          className="p-2 transition-colors touch-manipulation" style={{ color: 'var(--fg2)' }} title="Copy bounds">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                           </svg>
@@ -490,13 +485,15 @@ function WeatherDownloader() {
                         {deleteConfirmId === region.id ? (
                           <div className="flex gap-1">
                             <button onClick={() => handleDeleteRegion(region.id)}
-                              className="px-3 py-2 bg-red-600 hover:bg-red-500 text-white rounded text-xs font-medium touch-manipulation">Delete</button>
+                              className="px-3 py-2 rounded text-xs font-medium touch-manipulation"
+                              style={{ background: 'rgba(229,72,72,0.14)', color: '#E54848' }}>Delete</button>
                             <button onClick={() => setDeleteConfirmId(null)}
-                              className="px-3 py-2 border border-terminal-border text-terminal-green-dim rounded text-xs touch-manipulation">Cancel</button>
+                              className="px-3 py-2 rounded text-xs touch-manipulation"
+                              style={{ background: 'var(--fill-1)', color: 'var(--fg2)', border: '0.5px solid var(--bg-hairline-strong)' }}>Cancel</button>
                           </div>
                         ) : (
                           <button onClick={() => setDeleteConfirmId(region.id)}
-                            className="p-2 text-terminal-green-dim hover:text-red-400 transition-colors touch-manipulation" title="Delete">
+                            className="p-2 transition-colors touch-manipulation" style={{ color: 'var(--fg2)' }} title="Delete">
                             <TrashIcon className="w-5 h-5" />
                           </button>
                         )}
@@ -508,7 +505,7 @@ function WeatherDownloader() {
             )}
           </div>
         )}
-      </div>
+      </Glass>
     </div>
   )
 }
