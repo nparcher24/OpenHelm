@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { XCircleIcon, CheckCircleIcon, ArrowDownTrayIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { useJobProgress } from '../hooks/useJobProgress'
+import { Glass } from '../ui/primitives'
 import {
   getAvailableRegions,
   getStorageInfo,
@@ -195,24 +196,24 @@ function S57Downloader() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6" style={{ color: 'var(--fg1)' }}>
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-terminal-green text-glow mb-2 uppercase tracking-wider">
+        <h2 className="text-2xl font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--fg1)' }}>
           Vector Nautical Charts (S-57)
         </h2>
-        <p className="text-terminal-green-dim">
+        <p style={{ color: 'var(--fg2)' }}>
           Download NOAA S-57 vector ENC data with depth shading, contours, soundings, and nav aids
         </p>
       </div>
 
       {/* Error Alert */}
       {error && (
-        <div className="bg-terminal-red/10 border border-terminal-red/50 rounded-lg p-4">
+        <div className="rounded-lg p-4" style={{ background: 'rgba(229,72,72,0.1)', border: '0.5px solid rgba(229,72,72,0.5)' }}>
           <div className="flex items-center space-x-2">
-            <XCircleIcon className="h-5 w-5 text-terminal-red" />
-            <p className="text-terminal-red">{error}</p>
-            <button onClick={() => setError(null)} className="ml-auto text-terminal-red hover:text-terminal-red-bright">
+            <XCircleIcon className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--tint-red)' }} />
+            <p style={{ color: 'var(--tint-red)' }}>{error}</p>
+            <button onClick={() => setError(null)} className="ml-auto text-sm" style={{ color: 'var(--tint-red)' }}>
               Dismiss
             </button>
           </div>
@@ -221,53 +222,52 @@ function S57Downloader() {
 
       {/* Storage Info */}
       {!loadingStorage && storageInfo && (
-        <div className="bg-terminal-surface rounded-lg border border-terminal-border p-4">
-          <h3 className="text-sm font-semibold text-terminal-green mb-3 uppercase tracking-wide">
+        <Glass pad={16} radius={12}>
+          <h3 className="text-sm font-semibold mb-3 uppercase tracking-wide" style={{ color: 'var(--fg1)' }}>
             Storage Information
           </h3>
           <div className="space-y-2 mb-3">
             <div className="flex justify-between text-sm">
-              <span className="text-terminal-green-dim">Disk Usage</span>
-              <span className="text-terminal-green font-medium font-mono">
+              <span style={{ color: 'var(--fg2)' }}>Disk Usage</span>
+              <span className="font-medium font-mono" style={{ color: 'var(--fg1)' }}>
                 {storageInfo.disk.freeGB} GB free / {storageInfo.disk.totalGB} GB total
               </span>
             </div>
-            <div className="w-full bg-terminal-border rounded-full h-3 overflow-hidden">
+            <div className="w-full rounded-full overflow-hidden" style={{ height: 8, background: 'var(--fill-2)' }}>
               <div
-                className={`h-full transition-all duration-300 ${
-                  storageInfo.disk.usedPercent > 90
-                    ? 'bg-terminal-red shadow-glow-red'
+                className="h-full transition-all duration-300"
+                style={{
+                  width: `${storageInfo.disk.usedPercent}%`,
+                  borderRadius: 999,
+                  background: storageInfo.disk.usedPercent > 90
+                    ? 'var(--tint-red)'
                     : storageInfo.disk.usedPercent > 75
-                    ? 'bg-terminal-amber shadow-glow-amber'
-                    : 'bg-terminal-green shadow-glow-green-sm'
-                }`}
-                style={{ width: `${storageInfo.disk.usedPercent}%` }}
+                    ? 'var(--tint-yellow)'
+                    : 'var(--signal)',
+                  boxShadow: '0 0 8px var(--signal-glow)'
+                }}
               />
             </div>
           </div>
           {storageInfo.s57.downloadedCount > 0 && (
-            <div className="text-sm text-terminal-green-dim">
+            <div className="text-sm" style={{ color: 'var(--fg2)' }}>
               {storageInfo.s57.downloadedCount} vector chart region{storageInfo.s57.downloadedCount !== 1 ? 's' : ''} downloaded
               ({storageInfo.s57.totalSizeMB} MB)
             </div>
           )}
-        </div>
+        </Glass>
       )}
 
       {/* Martin Status */}
-      <div className="bg-terminal-surface rounded-lg border border-terminal-border p-4">
+      <Glass pad={16} radius={12}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className={`w-3 h-3 rounded-full ${
-              martinStatus?.running
-                ? 'bg-terminal-green shadow-glow-green-sm'
-                : 'bg-terminal-red shadow-glow-red'
-            }`} />
+            <div className="w-3 h-3 rounded-full" style={{ background: martinStatus?.running ? 'var(--signal)' : 'var(--tint-red)' }} />
             <div>
-              <h3 className="text-sm font-semibold text-terminal-green uppercase tracking-wide">
+              <h3 className="text-sm font-semibold uppercase tracking-wide" style={{ color: 'var(--fg1)' }}>
                 Tile Server Status
               </h3>
-              <p className="text-xs text-terminal-green-dim">
+              <p className="text-xs" style={{ color: 'var(--fg2)' }}>
                 {martinStatus?.running ? 'Martin is running and serving tiles' : 'Martin is not running'}
               </p>
             </div>
@@ -275,23 +275,24 @@ function S57Downloader() {
           <button
             onClick={handleRestartMartin}
             disabled={isRestartingMartin}
-            className="terminal-btn flex items-center space-x-2"
+            className="flex items-center space-x-2 px-3 py-2 rounded-lg text-sm touch-manipulation"
+            style={{ background: 'var(--fill-1)', border: '0.5px solid var(--bg-hairline-strong)', color: 'var(--fg1)' }}
           >
             <ArrowPathIcon className={`h-4 w-4 ${isRestartingMartin ? 'animate-spin' : ''}`} />
             <span>{isRestartingMartin ? 'Restarting...' : 'Restart'}</span>
           </button>
         </div>
-      </div>
+      </Glass>
 
       {/* Available Regions */}
-      <div className="bg-terminal-surface rounded-lg border border-terminal-border p-4">
-        <h3 className="text-lg font-semibold text-terminal-green mb-4 uppercase tracking-wide">
+      <Glass pad={16} radius={12}>
+        <h3 className="text-lg font-semibold mb-4 uppercase tracking-wide" style={{ color: 'var(--fg1)' }}>
           Available Regions
         </h3>
 
         {loadingRegions ? (
           <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-terminal-green"></div>
+            <div className="animate-spin rounded-full h-8 w-8" style={{ border: '2px solid var(--fill-2)', borderTopColor: 'var(--signal)' }} />
           </div>
         ) : (
           <div className="space-y-3">
@@ -302,32 +303,31 @@ function S57Downloader() {
               return (
                 <div
                   key={region.id}
-                  className={`p-4 rounded-lg border transition-all ${
-                    isDownloaded
-                      ? 'bg-terminal-green/5 border-terminal-green/30'
-                      : isSelected
-                      ? 'bg-terminal-cyan/10 border-terminal-cyan/50'
-                      : 'bg-terminal-bg border-terminal-border hover:border-terminal-green/50'
-                  }`}
+                  className="p-4 rounded-lg transition-all"
+                  style={{
+                    border: '0.5px solid',
+                    borderColor: isDownloaded ? 'var(--signal)' : isSelected ? 'var(--tint-teal)' : 'var(--bg-hairline-strong)',
+                    background: isDownloaded ? 'rgba(47,181,107,0.06)' : isSelected ? 'rgba(47,215,200,0.08)' : 'var(--bg)'
+                  }}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center space-x-3">
-                        <h4 className="font-semibold text-terminal-green">{region.name}</h4>
-                        <span className="text-xs px-2 py-0.5 rounded bg-terminal-border text-terminal-green-dim font-mono">
+                      <div className="flex items-center space-x-3 flex-wrap gap-1">
+                        <h4 className="font-semibold" style={{ color: 'var(--fg1)' }}>{region.name}</h4>
+                        <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: 'var(--fill-2)', color: 'var(--fg2)' }}>
                           {region.id}
                         </span>
                         {isDownloaded && (
-                          <span className="text-xs px-2 py-0.5 rounded bg-terminal-green/20 text-terminal-green flex items-center space-x-1">
+                          <span className="text-xs px-2 py-0.5 rounded flex items-center space-x-1" style={{ background: 'rgba(47,181,107,0.15)', color: 'var(--signal)' }}>
                             <CheckCircleIcon className="h-3 w-3" />
                             <span>Downloaded</span>
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-terminal-green-dim mt-1">
+                      <p className="text-sm mt-1" style={{ color: 'var(--fg2)' }}>
                         S-57 vector charts with depth shading, contours, and nav aids
                       </p>
-                      <p className="text-xs text-terminal-green-dim mt-1 font-mono">
+                      <p className="text-xs mt-1 font-mono" style={{ color: 'var(--fg2)' }}>
                         Estimated download: ~{region.sizeMB} MB (converts to vector tiles)
                       </p>
                     </div>
@@ -335,11 +335,11 @@ function S57Downloader() {
                     {!isDownloaded && !isDownloading && (
                       <button
                         onClick={() => toggleRegionSelection(region.id)}
-                        className={`ml-4 px-4 py-2 rounded-lg font-medium transition-all ${
-                          isSelected
-                            ? 'bg-terminal-cyan text-terminal-bg'
-                            : 'border border-terminal-border text-terminal-green hover:border-terminal-green hover:bg-terminal-green/10'
-                        }`}
+                        className="ml-4 px-4 py-2 rounded-lg font-medium transition-all touch-manipulation"
+                        style={isSelected
+                          ? { background: 'var(--tint-teal)', color: '#fff' }
+                          : { background: 'var(--fill-1)', border: '0.5px solid var(--bg-hairline-strong)', color: 'var(--fg1)' }
+                        }
                       >
                         {isSelected ? 'Selected' : 'Select'}
                       </button>
@@ -353,38 +353,40 @@ function S57Downloader() {
 
         {/* Download Button */}
         {selectedRegions.size > 0 && !isDownloading && (
-          <div className="mt-4 pt-4 border-t border-terminal-border">
+          <div className="mt-4 pt-4" style={{ borderTop: '0.5px solid var(--bg-hairline-strong)' }}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-terminal-green">
+                <p className="text-sm" style={{ color: 'var(--fg1)' }}>
                   {selectedRegions.size} region{selectedRegions.size !== 1 ? 's' : ''} selected
                 </p>
-                <p className="text-xs text-terminal-green-dim font-mono">
+                <p className="text-xs font-mono" style={{ color: 'var(--fg2)' }}>
                   Estimated download: ~{estimatedDownloadMB} MB + conversion time (~5-15 min/region)
                 </p>
               </div>
-              <button onClick={handleStartDownload} className="terminal-btn-primary flex items-center space-x-2">
+              <button
+                onClick={handleStartDownload}
+                className="flex items-center space-x-2 px-4 py-2 rounded-lg font-medium touch-manipulation"
+                style={{ background: 'var(--signal)', color: '#fff' }}
+              >
                 <ArrowDownTrayIcon className="h-5 w-5" />
                 <span>Download & Convert</span>
               </button>
             </div>
           </div>
         )}
-      </div>
+      </Glass>
 
       {/* Download Progress */}
       {isDownloading && jobProgress && (
-        <div className="bg-terminal-surface rounded-lg border border-terminal-border p-4">
+        <Glass pad={16} radius={12}>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-terminal-green uppercase tracking-wide">
+            <h3 className="text-lg font-semibold uppercase tracking-wide" style={{ color: 'var(--fg1)' }}>
               Conversion Progress
             </h3>
             {jobProgress.connected !== undefined && (
               <div className="flex items-center space-x-2">
-                <div className={`w-2 h-2 rounded-full ${
-                  jobProgress.connected ? 'bg-terminal-green shadow-glow-green-sm' : 'bg-terminal-amber shadow-glow-amber'
-                }`} />
-                <span className="text-xs text-terminal-green-dim">
+                <div className="w-2 h-2 rounded-full" style={{ background: jobProgress.connected ? 'var(--signal)' : 'var(--tint-yellow)' }} />
+                <span className="text-xs" style={{ color: 'var(--fg2)' }}>
                   {jobProgress.connected ? 'Connected' : 'Polling'}
                 </span>
               </div>
@@ -392,48 +394,53 @@ function S57Downloader() {
           </div>
 
           {/* Phase indicator */}
-          <div className="mb-3 text-sm text-terminal-cyan font-medium">
+          <div className="mb-3 text-sm font-medium" style={{ color: 'var(--tint-teal)' }}>
             {getPhaseLabel(jobProgress.status)}
           </div>
 
           {/* Progress Bar */}
           <div className="space-y-2 mb-4">
             <div className="flex justify-between text-sm">
-              <span className="text-terminal-green-dim">
+              <span style={{ color: 'var(--fg2)' }}>
                 {jobProgress.message || 'Processing...'}
               </span>
-              <span className="text-terminal-green font-medium font-mono">
+              <span className="font-medium font-mono" style={{ color: 'var(--fg1)' }}>
                 {jobProgress.progress || 0}%
               </span>
             </div>
-            <div className="w-full bg-terminal-border rounded-full h-4 overflow-hidden">
+            <div className="w-full rounded-full overflow-hidden" style={{ height: 8, background: 'var(--fill-2)' }}>
               <div
-                className="h-full bg-terminal-green shadow-glow-green-sm transition-all duration-300"
-                style={{ width: `${jobProgress.progress || 0}%` }}
+                className="h-full transition-all duration-300"
+                style={{ width: `${jobProgress.progress || 0}%`, borderRadius: 999, background: 'var(--signal)', boxShadow: '0 0 8px var(--signal-glow)' }}
               />
             </div>
           </div>
 
           {/* Cancel Button */}
           <div className="mt-4 flex justify-end">
-            <button onClick={handleCancelDownload} className="terminal-btn-danger">
+            <button
+              onClick={handleCancelDownload}
+              className="px-4 py-2 rounded-lg font-medium touch-manipulation"
+              style={{ background: 'rgba(229,72,72,0.14)', color: '#E54848', border: '0.5px solid rgba(229,72,72,0.4)' }}
+            >
               Cancel
             </button>
           </div>
-        </div>
+        </Glass>
       )}
 
       {/* Downloaded Regions */}
       {downloadedRegions.length > 0 && (
-        <div className="bg-terminal-surface rounded-lg border border-terminal-border p-4">
+        <Glass pad={16} radius={12}>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-terminal-green uppercase tracking-wide">
+            <h3 className="text-lg font-semibold uppercase tracking-wide" style={{ color: 'var(--fg1)' }}>
               Downloaded Regions ({downloadedRegions.length})
             </h3>
             <button
               onClick={handleCheckUpdates}
               disabled={isCheckingUpdates}
-              className="terminal-btn flex items-center space-x-2"
+              className="flex items-center space-x-2 px-3 py-2 rounded-lg text-sm touch-manipulation"
+              style={{ background: 'var(--fill-1)', border: '0.5px solid var(--bg-hairline-strong)', color: 'var(--fg1)' }}
             >
               <ArrowPathIcon className={`h-4 w-4 ${isCheckingUpdates ? 'animate-spin' : ''}`} />
               <span>{isCheckingUpdates ? 'Checking...' : 'Check for Updates'}</span>
@@ -442,14 +449,14 @@ function S57Downloader() {
 
           {/* Update Check Results */}
           {updateCheckResult && (
-            <div className="mb-4 p-3 rounded-lg bg-terminal-bg border border-terminal-border">
+            <div className="mb-4 p-3 rounded-lg" style={{ background: 'var(--bg)', border: '0.5px solid var(--bg-hairline-strong)' }}>
               <div className="flex items-center space-x-4 text-sm">
-                <span className="text-terminal-green">
+                <span style={{ color: 'var(--signal)' }}>
                   <CheckCircleIcon className="h-4 w-4 inline mr-1" />
                   {updateCheckResult.summary.upToDate} up to date
                 </span>
                 {updateCheckResult.summary.updatesAvailable > 0 && (
-                  <span className="text-terminal-amber">
+                  <span style={{ color: 'var(--tint-yellow)' }}>
                     {updateCheckResult.summary.updatesAvailable} update{updateCheckResult.summary.updatesAvailable !== 1 ? 's' : ''} available
                   </span>
                 )}
@@ -459,7 +466,7 @@ function S57Downloader() {
 
           {loadingDownloaded ? (
             <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-terminal-green"></div>
+              <div className="animate-spin rounded-full h-8 w-8" style={{ border: '2px solid var(--fill-2)', borderTopColor: 'var(--signal)' }} />
             </div>
           ) : (
             <div className="space-y-3">
@@ -469,22 +476,23 @@ function S57Downloader() {
                 return (
                   <div
                     key={region.regionId}
-                    className="p-4 rounded-lg bg-terminal-bg border border-terminal-border"
+                    className="p-4 rounded-lg"
+                    style={{ background: 'var(--bg)', border: '0.5px solid var(--bg-hairline-strong)' }}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center space-x-3">
-                          <h4 className="font-semibold text-terminal-green">{region.name}</h4>
-                          <span className="text-xs px-2 py-0.5 rounded bg-terminal-border text-terminal-green-dim font-mono">
+                        <div className="flex items-center space-x-3 flex-wrap gap-1">
+                          <h4 className="font-semibold" style={{ color: 'var(--fg1)' }}>{region.name}</h4>
+                          <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: 'var(--fill-2)', color: 'var(--fg2)' }}>
                             {region.regionId}
                           </span>
                           {updateInfo?.hasUpdate && (
-                            <span className="text-xs px-2 py-0.5 rounded bg-terminal-amber/20 text-terminal-amber">
+                            <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(255,195,58,0.15)', color: 'var(--tint-yellow)' }}>
                               Update available
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center space-x-4 mt-2 text-xs text-terminal-green-dim font-mono">
+                        <div className="flex items-center space-x-4 mt-2 text-xs font-mono" style={{ color: 'var(--fg2)' }}>
                           <span>Size: {region.sizeMB} MB</span>
                           <span>Downloaded: {new Date(region.downloadedAt).toLocaleDateString()}</span>
                           {region.fileCount > 0 && <span>Charts: {region.fileCount}</span>}
@@ -494,7 +502,8 @@ function S57Downloader() {
                       <button
                         onClick={() => handleDeleteRegion(region.regionId)}
                         disabled={isDeleting}
-                        className="ml-4 p-2 text-terminal-red hover:bg-terminal-red/10 rounded-lg transition-colors disabled:opacity-50"
+                        className="ml-4 p-2 rounded-lg transition-colors disabled:opacity-50 touch-manipulation"
+                        style={{ color: 'var(--tint-red)' }}
                         title="Delete region"
                       >
                         <TrashIcon className="h-5 w-5" />
@@ -505,15 +514,15 @@ function S57Downloader() {
               })}
             </div>
           )}
-        </div>
+        </Glass>
       )}
 
       {/* Help Text */}
-      <div className="bg-terminal-surface rounded-lg border border-terminal-border p-4">
-        <h3 className="text-sm font-semibold text-terminal-green mb-2 uppercase tracking-wide">
+      <Glass pad={16} radius={12}>
+        <h3 className="text-sm font-semibold mb-2 uppercase tracking-wide" style={{ color: 'var(--fg1)' }}>
           About S-57 Vector Charts
         </h3>
-        <div className="text-sm text-terminal-green-dim space-y-2">
+        <div className="text-sm space-y-2" style={{ color: 'var(--fg2)' }}>
           <p>
             S-57 vector charts are converted from NOAA's free Electronic Navigational Chart (ENC) data.
             Unlike raster charts, vector data enables graduated depth shading, depth soundings,
@@ -529,13 +538,13 @@ function S57Downloader() {
               href="https://charts.noaa.gov/ENCs/ENCs.shtml"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-terminal-cyan hover:underline"
+              style={{ color: 'var(--tint-teal)' }}
             >
               charts.noaa.gov/ENCs
             </a>
           </p>
         </div>
-      </div>
+      </Glass>
     </div>
   )
 }
