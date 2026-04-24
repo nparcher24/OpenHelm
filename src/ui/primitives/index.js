@@ -1,2 +1,6 @@
 export { Icon } from './Icon.jsx'
 export { Glass } from './Glass.jsx'
+export { Readout } from './Readout.jsx'
+export { Pill } from './Pill.jsx'
+export { ToolBtn } from './ToolBtn.jsx'
+export { Badge } from './Badge.jsx'
