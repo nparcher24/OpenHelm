@@ -1,5 +1,6 @@
 /* MapLibre GL CSS must be imported first */
 @import 'maplibre-gl/dist/maplibre-gl.css';
+@import './ui/styles/tokens.css';
 
 @tailwind base;
 @tailwind components;
