@@ -11,6 +11,41 @@ import {
   applyUpdate,
   getUpdateJobStatus
 } from '../services/updateService.js'
+import { Glass, Badge, Pill } from '../ui/primitives'
+
+/* ---- Local helpers ---- */
+
+function SectionLabel({ children }) {
+  return (
+    <div style={{
+      fontSize: 10, fontWeight: 700, letterSpacing: '0.12em',
+      textTransform: 'uppercase', color: 'var(--fg3)', marginBottom: 10,
+    }}>
+      {children}
+    </div>
+  )
+}
+
+function ActionBtn({ onClick, disabled, children, tone = 'primary' }) {
+  const isPrimary = tone === 'primary'
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        padding: '12px 20px', borderRadius: 10, border: 0,
+        background: isPrimary ? 'var(--signal)' : 'var(--fill-1)',
+        color: isPrimary ? '#fff' : 'var(--fg1)',
+        fontSize: 14, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer',
+        minHeight: 44, touchAction: 'manipulation',
+        opacity: disabled ? 0.5 : 1,
+        transition: 'opacity 150ms',
+      }}
+    >
+      {children}
+    </button>
+  )
+}
 
 function UpdateManager() {
   // Update check state
@@ -83,7 +118,6 @@ function UpdateManager() {
       setJobId(null)
     } else if (isComplete && !restarting) {
       // Update completed without needing restart detection
-      // (Shouldn't normally happen — restart should trigger reconnect flow)
       setJobId(null)
     }
   }, [jobId, isError, isComplete, restarting, jobMessage])
@@ -137,202 +171,174 @@ function UpdateManager() {
     })
   }
 
-  // --- Restarting state ---
+  /* --- Restarting state --- */
   if (restarting) {
     return (
-      <div className="p-6">
-        <h2 className="text-2xl font-bold text-terminal-green text-glow mb-6 uppercase tracking-wider">Software Updates</h2>
-        <div className="bg-terminal-surface p-6 rounded-lg border border-terminal-green/30">
-          <div className="flex flex-col items-center space-y-4">
-            <div className="w-4 h-4 bg-terminal-green rounded-full animate-pulse-glow"></div>
-            <h3 className="text-lg font-bold text-terminal-green uppercase tracking-wide">Restarting</h3>
-            <p className="text-terminal-green-dim text-sm text-center">
-              OpenHelm is restarting with the new version.<br />
-              This page will reload automatically.
-            </p>
+      <Glass radius={14} style={{ padding: 32 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+          <div style={{
+            width: 14, height: 14, borderRadius: 999,
+            background: 'var(--signal)', animation: 'pulse 1.5s ease-in-out infinite',
+          }} />
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--fg1)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Restarting
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--fg3)', textAlign: 'center', lineHeight: 1.6 }}>
+            OpenHelm is restarting with the new version.<br />
+            This page will reload automatically.
           </div>
         </div>
-      </div>
+      </Glass>
     )
   }
 
-  // --- Updating state (progress bar) ---
+  /* --- Updating state (progress bar) --- */
   if (jobId) {
     return (
-      <div className="p-6">
-        <h2 className="text-2xl font-bold text-terminal-green text-glow mb-6 uppercase tracking-wider">Software Updates</h2>
-        <div className="bg-terminal-surface p-6 rounded-lg border border-terminal-green/30">
-          <h3 className="text-lg font-bold text-terminal-green uppercase tracking-wide mb-4">
-            Updating to {updateInfo?.latestVersion || '...'}
-          </h3>
-
-          {/* Progress bar */}
-          <div className="w-full bg-terminal-border rounded-full h-3 mb-3">
-            <div
-              className="bg-terminal-green h-3 rounded-full transition-all duration-500 shadow-glow-green-sm"
-              style={{ width: `${Math.max(progress, 2)}%` }}
-            />
-          </div>
-
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-sm text-terminal-green-dim font-mono">{jobMessage || 'Starting...'}</span>
-            <span className="text-sm text-terminal-green font-mono">{progress}%</span>
-          </div>
-
-          <div className="flex items-center space-x-2 text-amber-400 text-sm">
-            <span className="font-mono">!</span>
-            <span>Do not power off the device during update.</span>
-          </div>
+      <Glass radius={14} style={{ padding: 24 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--fg1)', marginBottom: 20 }}>
+          Updating to {updateInfo?.latestVersion || '...'}
         </div>
-      </div>
+
+        {/* Progress bar */}
+        <div style={{ width: '100%', height: 6, background: 'var(--fill-2)', borderRadius: 999, marginBottom: 10, overflow: 'hidden' }}>
+          <div style={{
+            height: '100%', borderRadius: 999,
+            background: 'var(--signal)',
+            width: `${Math.max(progress, 2)}%`,
+            transition: 'width 500ms ease',
+          }} />
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <span style={{ fontSize: 12, color: 'var(--fg3)', fontFamily: 'var(--font-mono, monospace)' }}>
+            {jobMessage || 'Starting...'}
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--fg1)', fontWeight: 600, fontFamily: 'var(--font-mono, monospace)' }}>
+            {progress}%
+          </span>
+        </div>
+
+        <div style={{ fontSize: 12, color: 'var(--fg3)' }}>
+          Do not power off the device during update.
+        </div>
+      </Glass>
     )
   }
 
-  // --- Main view ---
+  /* --- Main view --- */
   return (
-    <div className="p-6">
-      <h2 className="text-2xl font-bold text-terminal-green text-glow mb-6 uppercase tracking-wider">Software Updates</h2>
-      <div className="space-y-4">
-
-        {/* Current version + check status */}
-        <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
-          <h3 className="font-semibold text-terminal-green mb-3 uppercase tracking-wide">Current Version</h3>
-          <div className="space-y-1 text-sm font-mono">
-            <div className="text-terminal-green">
-              v{updateInfo?.currentVersion || '...'}
-            </div>
-            {updateInfo && !updateInfo.offline && (
-              <div className="text-terminal-green-dim">
-                Last checked: {updateInfo ? formatTimeAgo(new Date().toISOString()) : 'Never'}
-              </div>
-            )}
-          </div>
+    <div style={{ display: 'grid', gap: 16 }}>
+      {/* Current version + check status */}
+      <Glass radius={14} style={{ padding: 24 }}>
+        <SectionLabel>Current Version</SectionLabel>
+        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--fg1)', fontFamily: 'var(--font-mono, monospace)', marginBottom: 4 }}>
+          v{updateInfo?.currentVersion || '...'}
         </div>
+        {updateInfo && !updateInfo.offline && (
+          <div style={{ fontSize: 12, color: 'var(--fg3)' }}>
+            Last checked: {formatTimeAgo(new Date().toISOString())}
+          </div>
+        )}
+      </Glass>
 
-        {/* Offline notice */}
-        {updateInfo?.offline && (
-          <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
-            <div className="flex items-center space-x-2 text-terminal-green-dim text-sm">
-              <span className="font-mono">--</span>
-              <span>No internet connection. Connect to check for updates.</span>
+      {/* Offline notice */}
+      {updateInfo?.offline && (
+        <Glass radius={14} style={{ padding: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--fg3)' }}>
+            <Badge tone="neutral">Offline</Badge>
+            No internet connection. Connect to check for updates.
+          </div>
+        </Glass>
+      )}
+
+      {/* Check error */}
+      {checkError && (
+        <Glass radius={14} style={{ padding: 20 }}>
+          <div style={{ fontSize: 12, color: '#FF6A45', fontFamily: 'var(--font-mono, monospace)' }}>{checkError}</div>
+        </Glass>
+      )}
+
+      {/* Update available */}
+      {updateInfo?.available && !showConfirm && (
+        <Glass radius={14} style={{ padding: 24 }}>
+          <SectionLabel>Update Available</SectionLabel>
+          <div style={{ fontSize: 14, fontFamily: 'var(--font-mono, monospace)', marginBottom: 12 }}>
+            <span style={{ color: 'var(--fg3)' }}>v{updateInfo.currentVersion}</span>
+            <span style={{ color: 'var(--fg2)', margin: '0 8px' }}>→</span>
+            <span style={{ color: 'var(--fg1)', fontWeight: 700 }}>v{updateInfo.latestVersion}</span>
+          </div>
+          {updateInfo.publishedAt && (
+            <div style={{ fontSize: 12, color: 'var(--fg3)', marginBottom: 12 }}>
+              Released: {formatDate(updateInfo.publishedAt)}
             </div>
-          </div>
-        )}
-
-        {/* Check error */}
-        {checkError && (
-          <div className="bg-terminal-surface p-4 rounded-lg border border-red-500/30">
-            <p className="text-red-400 text-sm font-mono">{checkError}</p>
-          </div>
-        )}
-
-        {/* Update available */}
-        {updateInfo?.available && !showConfirm && (
-          <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-green/50">
-            <h3 className="font-semibold text-terminal-green mb-3 uppercase tracking-wide">Update Available</h3>
-            <div className="space-y-2 mb-4">
-              <div className="text-sm font-mono">
-                <span className="text-terminal-green-dim">v{updateInfo.currentVersion}</span>
-                <span className="text-terminal-green mx-2">-&gt;</span>
-                <span className="text-terminal-green font-bold">v{updateInfo.latestVersion}</span>
+          )}
+          {updateInfo.releaseNotes && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)', marginBottom: 8 }}>
+                Release Notes
               </div>
-              {updateInfo.publishedAt && (
-                <div className="text-sm text-terminal-green-dim font-mono">
-                  Released: {formatDate(updateInfo.publishedAt)}
-                </div>
-              )}
-            </div>
-
-            {/* Release notes */}
-            {updateInfo.releaseNotes && (
-              <div className="mb-4">
-                <h4 className="text-sm font-semibold text-terminal-green mb-2 uppercase tracking-wide">Release Notes</h4>
-                <div className="text-sm text-terminal-green-dim font-mono whitespace-pre-wrap bg-terminal-bg p-3 rounded border border-terminal-border max-h-48 overflow-y-auto">
-                  {updateInfo.releaseNotes}
-                </div>
-              </div>
-            )}
-
-            <button
-              onClick={() => setShowConfirm(true)}
-              className="px-6 py-3 bg-terminal-green/20 hover:bg-terminal-green/40 text-terminal-green font-bold rounded-lg uppercase tracking-wide border border-terminal-green/30 hover:border-terminal-green/60 transition-colors touch-manipulation min-h-[44px] shadow-glow-green-sm"
-            >
-              Update Now
-            </button>
-          </div>
-        )}
-
-        {/* Up to date */}
-        {updateInfo && !updateInfo.available && !updateInfo.offline && (
-          <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-terminal-green rounded-full shadow-glow-green-sm"></div>
-              <span className="text-terminal-green text-sm">You're on the latest version.</span>
-            </div>
-          </div>
-        )}
-
-        {/* Confirmation dialog */}
-        {showConfirm && (
-          <div className="bg-terminal-surface p-4 rounded-lg border border-amber-500/30">
-            <h3 className="font-semibold text-terminal-green mb-3 uppercase tracking-wide">Confirm Update</h3>
-            <div className="space-y-3">
-              <p className="text-amber-400 text-sm">
-                OpenHelm will restart during the update. Navigation will be unavailable for approximately 2-5 minutes.
-              </p>
-              <div className="flex space-x-3">
-                <button
-                  onClick={handleApply}
-                  className="px-6 py-3 bg-terminal-green/30 hover:bg-terminal-green/50 text-terminal-green font-bold rounded-lg uppercase tracking-wide border border-terminal-green/50 hover:border-terminal-green transition-colors touch-manipulation min-h-[44px]"
-                >
-                  Confirm Update
-                </button>
-                <button
-                  onClick={() => setShowConfirm(false)}
-                  className="px-6 py-3 bg-terminal-surface hover:bg-terminal-green/10 text-terminal-green font-bold rounded-lg uppercase tracking-wide border border-terminal-border transition-colors touch-manipulation min-h-[44px]"
-                >
-                  Cancel
-                </button>
+              <div style={{
+                fontSize: 12, color: 'var(--fg2)', fontFamily: 'var(--font-mono, monospace)',
+                whiteSpace: 'pre-wrap', background: 'var(--fill-1)', padding: 12, borderRadius: 8,
+                maxHeight: 180, overflowY: 'auto', lineHeight: 1.6,
+              }}>
+                {updateInfo.releaseNotes}
               </div>
             </div>
-          </div>
-        )}
+          )}
+          <ActionBtn onClick={() => setShowConfirm(true)} tone="primary">Update Now</ActionBtn>
+        </Glass>
+      )}
 
-        {/* Apply error / rollback notice */}
-        {applyError && (
-          <div className="bg-terminal-surface p-4 rounded-lg border border-red-500/30">
-            <h3 className="font-semibold text-red-400 mb-2 uppercase tracking-wide">Update Failed</h3>
-            <p className="text-red-400 text-sm font-mono mb-3">{applyError}</p>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => { setApplyError(null); setShowConfirm(true) }}
-                className="px-6 py-3 bg-terminal-green/20 hover:bg-terminal-green/40 text-terminal-green font-bold rounded-lg uppercase tracking-wide border border-terminal-border hover:border-terminal-green transition-colors touch-manipulation min-h-[44px]"
-              >
-                Try Again
-              </button>
-              <button
-                onClick={() => setApplyError(null)}
-                className="px-6 py-3 bg-terminal-surface hover:bg-terminal-green/10 text-terminal-green-dim font-bold rounded-lg uppercase tracking-wide border border-terminal-border transition-colors touch-manipulation min-h-[44px]"
-              >
-                Dismiss
-              </button>
-            </div>
+      {/* Up to date */}
+      {updateInfo && !updateInfo.available && !updateInfo.offline && (
+        <Glass radius={14} style={{ padding: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Badge tone="safe" dot>Up to date</Badge>
+            <span style={{ fontSize: 13, color: 'var(--fg2)' }}>You're on the latest version.</span>
           </div>
-        )}
+        </Glass>
+      )}
 
-        {/* Check for updates button */}
-        {!showConfirm && (
-          <button
-            onClick={handleCheck}
-            disabled={checking}
-            className={`px-6 py-3 bg-terminal-surface hover:bg-terminal-green/10 text-terminal-green font-bold rounded-lg uppercase tracking-wide border border-terminal-border hover:border-terminal-green transition-colors touch-manipulation min-h-[44px] ${
-              checking ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-          >
-            {checking ? 'Checking...' : 'Check for Updates'}
-          </button>
-        )}
-      </div>
+      {/* Confirmation dialog */}
+      {showConfirm && (
+        <Glass radius={14} style={{ padding: 24 }}>
+          <SectionLabel>Confirm Update</SectionLabel>
+          <div style={{ fontSize: 13, color: 'var(--fg2)', marginBottom: 16, lineHeight: 1.6 }}>
+            OpenHelm will restart during the update. Navigation will be unavailable for approximately 2–5 minutes.
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <ActionBtn onClick={handleApply} tone="primary">Confirm Update</ActionBtn>
+            <ActionBtn onClick={() => setShowConfirm(false)} tone="secondary">Cancel</ActionBtn>
+          </div>
+        </Glass>
+      )}
+
+      {/* Apply error / rollback notice */}
+      {applyError && (
+        <Glass radius={14} style={{ padding: 24 }}>
+          <SectionLabel>Update Failed</SectionLabel>
+          <div style={{ fontSize: 12, color: '#FF6A45', fontFamily: 'var(--font-mono, monospace)', marginBottom: 16 }}>
+            {applyError}
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <ActionBtn onClick={() => { setApplyError(null); setShowConfirm(true) }} tone="primary">Try Again</ActionBtn>
+            <ActionBtn onClick={() => setApplyError(null)} tone="secondary">Dismiss</ActionBtn>
+          </div>
+        </Glass>
+      )}
+
+      {/* Check for updates button */}
+      {!showConfirm && (
+        <Pill
+          onClick={handleCheck}
+          active={false}
+          style={{ alignSelf: 'flex-start', opacity: checking ? 0.5 : 1, pointerEvents: checking ? 'none' : 'auto', minWidth: 180 }}
+        >
+          {checking ? 'Checking...' : 'Check for Updates'}
+        </Pill>
+      )}
     </div>
   )
 }

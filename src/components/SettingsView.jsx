@@ -11,6 +11,235 @@ import WeatherDownloader from './WeatherDownloader'
 import ErrorBoundary from './ErrorBoundary'
 import UpdateManager from './UpdateManager'
 import { version as appVersion } from '../../package.json'
+import { DisplaySettings } from './settings/DisplaySettings.jsx'
+import { TopBar, Glass, Pill, Toggle, Badge } from '../ui/primitives'
+
+/* ---------- Section label chip ---------- */
+function SectionLabel({ children }) {
+  return (
+    <div style={{
+      fontSize: 10, fontWeight: 700, letterSpacing: '0.12em',
+      textTransform: 'uppercase', color: 'var(--fg3)', marginBottom: 10,
+    }}>
+      {children}
+    </div>
+  )
+}
+
+/* ---------- Styled select ---------- */
+function StyledSelect({ value, onChange, children }) {
+  return (
+    <select
+      value={value}
+      onChange={onChange}
+      style={{
+        background: 'var(--bg-chrome)', color: 'var(--fg1)',
+        border: '0.5px solid var(--bg-hairline-strong)', borderRadius: 8,
+        padding: '8px 12px', fontSize: 13, fontWeight: 500, outline: 'none',
+        cursor: 'pointer',
+      }}
+    >
+      {children}
+    </select>
+  )
+}
+
+/* ---------- Danger button ---------- */
+function DangerBtn({ onClick, children, tone = 'warn' }) {
+  const colors = tone === 'caution'
+    ? { bg: 'rgba(232,185,58,0.12)', border: 'rgba(232,185,58,0.35)', fg: '#E8B93A', hover: 'rgba(232,185,58,0.22)' }
+    : { bg: 'rgba(229,72,72,0.12)', border: 'rgba(229,72,72,0.35)', fg: '#E54848', hover: 'rgba(229,72,72,0.22)' }
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '12px 20px', borderRadius: 10, border: `0.5px solid ${colors.border}`,
+        background: colors.bg, color: colors.fg, fontSize: 14, fontWeight: 600,
+        cursor: 'pointer', minHeight: 44, touchAction: 'manipulation',
+      }}
+      onMouseEnter={e => e.currentTarget.style.background = colors.hover}
+      onMouseLeave={e => e.currentTarget.style.background = colors.bg}
+    >
+      {children}
+    </button>
+  )
+}
+
+/* ---------- Cancel button ---------- */
+function CancelBtn({ onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '12px 20px', borderRadius: 10,
+        border: '0.5px solid var(--bg-hairline-strong)',
+        background: 'transparent', color: 'var(--fg2)', fontSize: 14, fontWeight: 600,
+        cursor: 'pointer', minHeight: 44, touchAction: 'manipulation',
+      }}
+    >
+      Cancel
+    </button>
+  )
+}
+
+/* ============================
+   SECTION RENDERERS
+   ============================ */
+
+function GeneralSection() {
+  return (
+    <div style={{ display: 'grid', gap: 16 }}>
+      <Glass radius={14} style={{ padding: 24 }}>
+        <SectionLabel>Application</SectionLabel>
+        <div style={{ fontSize: 13, color: 'var(--fg2)', lineHeight: 1.8, fontFamily: 'var(--font-mono, monospace)' }}>
+          <div>Version: {appVersion}</div>
+          <div>Build: 2024-12-28</div>
+        </div>
+      </Glass>
+      <Glass radius={14} style={{ padding: 24 }}>
+        <SectionLabel>Units</SectionLabel>
+        <div style={{ display: 'grid', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 14, color: 'var(--fg1)', fontWeight: 500 }}>Distance</span>
+            <StyledSelect>
+              <option>Nautical Miles</option>
+              <option>Kilometers</option>
+              <option>Miles</option>
+            </StyledSelect>
+          </div>
+          <div style={{ height: 0.5, background: 'var(--bg-hairline)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 14, color: 'var(--fg1)', fontWeight: 500 }}>Speed</span>
+            <StyledSelect>
+              <option>Knots</option>
+              <option>km/h</option>
+              <option>mph</option>
+            </StyledSelect>
+          </div>
+        </div>
+      </Glass>
+    </div>
+  )
+}
+
+function GPSSection() {
+  return (
+    <div style={{ display: 'grid', gap: 16 }}>
+      <Glass radius={14} style={{ padding: 24 }}>
+        <SectionLabel>Connection Status</SectionLabel>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+          <Badge tone="alarm" dot>NOT CONNECTED</Badge>
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--fg3)' }}>No GPS receiver detected</div>
+      </Glass>
+      <Glass radius={14} style={{ padding: 24 }}>
+        <SectionLabel>Receiver Settings</SectionLabel>
+        <div style={{ display: 'grid', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 14, color: 'var(--fg1)', fontWeight: 500 }}>Port</span>
+            <StyledSelect>
+              <option>/dev/ttyUSB0</option>
+              <option>/dev/ttyUSB1</option>
+              <option>/dev/ttyACM0</option>
+              <option>Auto-detect</option>
+            </StyledSelect>
+          </div>
+          <div style={{ height: 0.5, background: 'var(--bg-hairline)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 14, color: 'var(--fg1)', fontWeight: 500 }}>Baud Rate</span>
+            <StyledSelect>
+              <option>4800</option>
+              <option>9600</option>
+              <option>38400</option>
+            </StyledSelect>
+          </div>
+        </div>
+      </Glass>
+    </div>
+  )
+}
+
+function SystemSection({ simRunning, simLoading, toggleSimulator, showExitKioskConfirm, setShowExitKioskConfirm,
+                         handleExitKiosk, showQuitConfirm, setShowQuitConfirm, handleQuit }) {
+  return (
+    <div style={{ display: 'grid', gap: 16 }}>
+      <Glass radius={14} style={{ padding: 24 }}>
+        <SectionLabel>Hardware</SectionLabel>
+        <div style={{ fontSize: 13, color: 'var(--fg2)', lineHeight: 1.8, fontFamily: 'var(--font-mono, monospace)' }}>
+          <div>Platform: Raspberry Pi 5</div>
+          <div>Memory: 8GB RAM</div>
+          <div>Storage: 64GB microSD</div>
+        </div>
+      </Glass>
+
+      <Glass radius={14} style={{ padding: 24 }}>
+        <SectionLabel>Software</SectionLabel>
+        <div style={{ fontSize: 13, color: 'var(--fg2)', lineHeight: 1.8, fontFamily: 'var(--font-mono, monospace)' }}>
+          <div>OpenHelm: v{appVersion}</div>
+          <div>Martin Tiles: v0.18.1</div>
+          <div>OS: Raspberry Pi OS</div>
+        </div>
+      </Glass>
+
+      <Glass radius={14} style={{ padding: 24 }}>
+        <SectionLabel>GPS Signal Source</SectionLabel>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+          <div style={{ fontSize: 13, color: 'var(--fg2)' }}>
+            {simRunning
+              ? <Badge tone="caution">Simulator Active — looping N→E→S→W offshore VA Beach</Badge>
+              : <Badge tone="safe">Hardware GPS (USB Serial)</Badge>}
+          </div>
+          <Pill
+            onClick={toggleSimulator}
+            active={simRunning}
+            tone={simRunning ? 'beacon' : 'neutral'}
+            style={{ minWidth: 140, opacity: simLoading ? 0.5 : 1, pointerEvents: simLoading ? 'none' : 'auto' }}
+          >
+            {simLoading ? '...' : simRunning ? 'Stop Simulator' : 'Start Simulator'}
+          </Pill>
+        </div>
+      </Glass>
+
+      <Glass radius={14} style={{ padding: 24 }}>
+        <SectionLabel>Kiosk Mode</SectionLabel>
+        {showExitKioskConfirm ? (
+          <div style={{ display: 'grid', gap: 12 }}>
+            <div style={{ fontSize: 13, color: 'var(--fg2)' }}>
+              Exit fullscreen? OpenHelm services will keep running. You can relaunch from the desktop.
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <DangerBtn tone="caution" onClick={handleExitKiosk}>Confirm Exit</DangerBtn>
+              <CancelBtn onClick={() => setShowExitKioskConfirm(false)} />
+            </div>
+          </div>
+        ) : (
+          <DangerBtn tone="caution" onClick={() => setShowExitKioskConfirm(true)}>Exit to Desktop</DangerBtn>
+        )}
+      </Glass>
+
+      <Glass radius={14} style={{ padding: 24 }}>
+        <SectionLabel>Application</SectionLabel>
+        {showQuitConfirm ? (
+          <div style={{ display: 'grid', gap: 12 }}>
+            <div style={{ fontSize: 13, color: 'var(--fg2)' }}>
+              Are you sure you want to quit OpenHelm? All services will be stopped.
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <DangerBtn tone="warn" onClick={handleQuit}>Confirm Quit</DangerBtn>
+              <CancelBtn onClick={() => setShowQuitConfirm(false)} />
+            </div>
+          </div>
+        ) : (
+          <DangerBtn tone="warn" onClick={() => setShowQuitConfirm(true)}>Quit OpenHelm</DangerBtn>
+        )}
+      </Glass>
+    </div>
+  )
+}
+
+/* ============================
+   MAIN COMPONENT
+   ============================ */
 
 function SettingsView() {
   const [searchParams] = useSearchParams()
@@ -62,21 +291,6 @@ function SettingsView() {
     setSimLoading(false)
   }
 
-  const sections = [
-    { id: 'general', name: 'General', icon: '[>]' },
-    { id: 'waypoints', name: 'Waypoints', icon: '[W]' },
-    { id: 's57', name: 'Vector Charts', icon: '[V]' },
-    { id: 'enc', name: 'Raster Charts', icon: '[N]' },
-    { id: 'bluetopo', name: 'BlueTopo', icon: '[~]' },
-    { id: 'satellite', name: 'Satellite', icon: '[S]' },
-    { id: 'weather', name: 'Weather', icon: '[^]' },
-    { id: 'cusp', name: 'Coastline', icon: '[/]' },
-    { id: 'gps', name: 'GPS/AHRS', icon: '[*]' },
-    { id: 'display', name: 'Display', icon: '[#]' },
-    { id: 'update', name: 'Updates', icon: '[U]' },
-    { id: 'system', name: 'System', icon: '[S]' }
-  ]
-
   const handleExitKiosk = async () => {
     try {
       await fetch(`${API_BASE}/api/system/exit-kiosk`, { method: 'POST' })
@@ -93,8 +307,53 @@ function SettingsView() {
     }
   }
 
-  const renderContent = () => {
+  const sections = [
+    { id: 'general',   label: 'General' },
+    { id: 'display',   label: 'Display' },
+    { id: 'waypoints', label: 'Waypoints' },
+    { id: 's57',       label: 'Vector Charts' },
+    { id: 'enc',       label: 'Raster Charts' },
+    { id: 'bluetopo',  label: 'BlueTopo' },
+    { id: 'satellite', label: 'Satellite' },
+    { id: 'weather',   label: 'Weather' },
+    { id: 'cusp',      label: 'Coastline' },
+    { id: 'gps',       label: 'GPS / AHRS' },
+    { id: 'update',    label: 'Updates' },
+    { id: 'system',    label: 'System' },
+  ]
+
+  const renderSection = () => {
     switch (activeSection) {
+      case 'general':
+        return <GeneralSection />
+
+      case 'display':
+        return <DisplaySettings />
+
+      case 'gps':
+        return <GPSSection />
+
+      case 'waypoints':
+        return (
+          <ErrorBoundary>
+            <WaypointManager />
+          </ErrorBoundary>
+        )
+
+      case 's57':
+        return (
+          <ErrorBoundary>
+            <S57Downloader />
+          </ErrorBoundary>
+        )
+
+      case 'enc':
+        return (
+          <ErrorBoundary>
+            <ENCDownloader />
+          </ErrorBoundary>
+        )
+
       case 'bluetopo':
         return (
           <ErrorBoundary>
@@ -123,140 +382,6 @@ function SettingsView() {
           </ErrorBoundary>
         )
 
-      case 's57':
-        return (
-          <ErrorBoundary>
-            <S57Downloader />
-          </ErrorBoundary>
-        )
-
-      case 'enc':
-        return (
-          <ErrorBoundary>
-            <ENCDownloader />
-          </ErrorBoundary>
-        )
-
-      case 'waypoints':
-        return (
-          <ErrorBoundary>
-            <WaypointManager />
-          </ErrorBoundary>
-        )
-
-      case 'general':
-        return (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold text-terminal-green text-glow mb-6 uppercase tracking-wider">General Settings</h2>
-            <div className="space-y-6">
-              <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
-                <h3 className="font-semibold text-terminal-green mb-2 uppercase tracking-wide">Application</h3>
-                <div className="text-sm text-terminal-green-dim">Version: 1.0.0</div>
-                <div className="text-sm text-terminal-green-dim">Build: 2024-12-28</div>
-              </div>
-
-              <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
-                <h3 className="font-semibold text-terminal-green mb-2 uppercase tracking-wide">Units</h3>
-                <div className="space-y-3">
-                  <label className="flex items-center justify-between">
-                    <span className="text-terminal-green">Distance</span>
-                    <select className="bg-terminal-bg border border-terminal-border rounded px-3 py-1 text-terminal-green focus:border-terminal-green focus:shadow-glow-green-sm outline-none">
-                      <option>Nautical Miles</option>
-                      <option>Kilometers</option>
-                      <option>Miles</option>
-                    </select>
-                  </label>
-                  <label className="flex items-center justify-between">
-                    <span className="text-terminal-green">Speed</span>
-                    <select className="bg-terminal-bg border border-terminal-border rounded px-3 py-1 text-terminal-green focus:border-terminal-green focus:shadow-glow-green-sm outline-none">
-                      <option>Knots</option>
-                      <option>km/h</option>
-                      <option>mph</option>
-                    </select>
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-
-      case 'gps':
-        return (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold text-terminal-green text-glow mb-6 uppercase tracking-wider">GPS/AHRS Settings</h2>
-            <div className="space-y-4">
-              <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
-                <h3 className="font-semibold text-terminal-green mb-2 uppercase tracking-wide">Connection Status</h3>
-                <div className="flex items-center space-x-2 mb-2">
-                  <div className="w-3 h-3 bg-terminal-red rounded-full shadow-glow-red"></div>
-                  <span className="text-terminal-red">NOT CONNECTED</span>
-                </div>
-                <div className="text-sm text-terminal-green-dim">No GPS receiver detected</div>
-              </div>
-
-              <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
-                <h3 className="font-semibold text-terminal-green mb-2 uppercase tracking-wide">Receiver Settings</h3>
-                <div className="space-y-3">
-                  <label className="flex items-center justify-between">
-                    <span className="text-terminal-green">Port</span>
-                    <select className="bg-terminal-bg border border-terminal-border rounded px-3 py-1 text-terminal-green focus:border-terminal-green focus:shadow-glow-green-sm outline-none">
-                      <option>/dev/ttyUSB0</option>
-                      <option>/dev/ttyUSB1</option>
-                      <option>/dev/ttyACM0</option>
-                      <option>Auto-detect</option>
-                    </select>
-                  </label>
-                  <label className="flex items-center justify-between">
-                    <span className="text-terminal-green">Baud Rate</span>
-                    <select className="bg-terminal-bg border border-terminal-border rounded px-3 py-1 text-terminal-green focus:border-terminal-green focus:shadow-glow-green-sm outline-none">
-                      <option>4800</option>
-                      <option>9600</option>
-                      <option>38400</option>
-                    </select>
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-
-      case 'display':
-        return (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold text-terminal-green text-glow mb-6 uppercase tracking-wider">Display Settings</h2>
-            <div className="space-y-4">
-              <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
-                <h3 className="font-semibold text-terminal-green mb-2 uppercase tracking-wide">Theme</h3>
-                <div className="space-y-2">
-                  <label className="flex items-center space-x-3 cursor-pointer">
-                    <input type="radio" name="theme" value="auto" defaultChecked className="accent-terminal-green" />
-                    <span className="text-terminal-green">Auto (follows system)</span>
-                  </label>
-                  <label className="flex items-center space-x-3 cursor-pointer">
-                    <input type="radio" name="theme" value="light" className="accent-terminal-green" />
-                    <span className="text-terminal-green">Light</span>
-                  </label>
-                  <label className="flex items-center space-x-3 cursor-pointer">
-                    <input type="radio" name="theme" value="dark" className="accent-terminal-green" />
-                    <span className="text-terminal-green">Dark</span>
-                  </label>
-                </div>
-              </div>
-
-              <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
-                <h3 className="font-semibold text-terminal-green mb-2 uppercase tracking-wide">Brightness</h3>
-                <input
-                  type="range"
-                  min="10"
-                  max="100"
-                  defaultValue="80"
-                  className="w-full h-2 bg-terminal-border rounded-lg appearance-none cursor-pointer accent-terminal-green"
-                />
-              </div>
-            </div>
-          </div>
-        )
-
       case 'update':
         return (
           <ErrorBoundary>
@@ -266,161 +391,56 @@ function SettingsView() {
 
       case 'system':
         return (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold text-terminal-green text-glow mb-6 uppercase tracking-wider">System Information</h2>
-            <div className="space-y-4">
-              <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
-                <h3 className="font-semibold text-terminal-green mb-2 uppercase tracking-wide">Hardware</h3>
-                <div className="space-y-1 text-sm text-terminal-green-dim font-mono">
-                  <div>Platform: Raspberry Pi 5</div>
-                  <div>Memory: 8GB RAM</div>
-                  <div>Storage: 64GB microSD</div>
-                </div>
-              </div>
-
-              <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
-                <h3 className="font-semibold text-terminal-green mb-2 uppercase tracking-wide">Software</h3>
-                <div className="space-y-1 text-sm text-terminal-green-dim font-mono">
-                  <div>OpenHelm: v{appVersion}</div>
-                  <div>Martin Tiles: v0.18.1</div>
-                  <div>OS: Raspberry Pi OS</div>
-                </div>
-              </div>
-
-              <div className="bg-terminal-surface p-4 rounded-lg border border-terminal-border">
-                <h3 className="font-semibold text-terminal-green mb-3 uppercase tracking-wide">GPS Signal Source</h3>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm text-terminal-green-dim font-mono">
-                      {simRunning ? (
-                        <span className="text-amber-400">Simulator Active — looping N→E→S→W offshore VA Beach</span>
-                      ) : (
-                        <span className="text-terminal-green">Hardware GPS (USB Serial)</span>
-                      )}
-                    </div>
-                  </div>
-                  <button
-                    onClick={toggleSimulator}
-                    disabled={simLoading}
-                    className={`px-6 py-3 font-bold rounded-lg uppercase tracking-wide border transition-colors touch-manipulation min-h-[44px] ${
-                      simRunning
-                        ? 'bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 hover:text-amber-300 border-amber-500/30 hover:border-amber-500/60'
-                        : 'bg-terminal-green/20 hover:bg-terminal-green/40 text-terminal-green border-terminal-border hover:border-terminal-green'
-                    } ${simLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    {simLoading ? '...' : simRunning ? 'Stop Simulator' : 'Start Simulator'}
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-terminal-surface p-4 rounded-lg border border-amber-500/30">
-                <h3 className="font-semibold text-terminal-green mb-3 uppercase tracking-wide">Kiosk Mode</h3>
-                {showExitKioskConfirm ? (
-                  <div className="space-y-3">
-                    <p className="text-amber-400 text-sm">Exit fullscreen? OpenHelm services will keep running. You can relaunch from the desktop.</p>
-                    <div className="flex space-x-3">
-                      <button
-                        onClick={handleExitKiosk}
-                        className="px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg uppercase tracking-wide transition-colors touch-manipulation min-h-[44px]"
-                      >
-                        Confirm Exit
-                      </button>
-                      <button
-                        onClick={() => setShowExitKioskConfirm(false)}
-                        className="px-6 py-3 bg-terminal-surface hover:bg-terminal-green/10 text-terminal-green font-bold rounded-lg uppercase tracking-wide border border-terminal-border transition-colors touch-manipulation min-h-[44px]"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setShowExitKioskConfirm(true)}
-                    className="px-6 py-3 bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 hover:text-amber-300 font-bold rounded-lg uppercase tracking-wide border border-amber-500/30 hover:border-amber-500/60 transition-colors touch-manipulation min-h-[44px]"
-                  >
-                    Exit to Desktop
-                  </button>
-                )}
-              </div>
-
-              <div className="bg-terminal-surface p-4 rounded-lg border border-red-500/30">
-                <h3 className="font-semibold text-terminal-green mb-3 uppercase tracking-wide">Application</h3>
-                {showQuitConfirm ? (
-                  <div className="space-y-3">
-                    <p className="text-red-400 text-sm">Are you sure you want to quit OpenHelm? All services will be stopped.</p>
-                    <div className="flex space-x-3">
-                      <button
-                        onClick={handleQuit}
-                        className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg uppercase tracking-wide transition-colors touch-manipulation min-h-[44px]"
-                      >
-                        Confirm Quit
-                      </button>
-                      <button
-                        onClick={() => setShowQuitConfirm(false)}
-                        className="px-6 py-3 bg-terminal-surface hover:bg-terminal-green/10 text-terminal-green font-bold rounded-lg uppercase tracking-wide border border-terminal-border transition-colors touch-manipulation min-h-[44px]"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setShowQuitConfirm(true)}
-                    className="px-6 py-3 bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-red-300 font-bold rounded-lg uppercase tracking-wide border border-red-500/30 hover:border-red-500/60 transition-colors touch-manipulation min-h-[44px]"
-                  >
-                    Quit OpenHelm
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+          <SystemSection
+            simRunning={simRunning}
+            simLoading={simLoading}
+            toggleSimulator={toggleSimulator}
+            showExitKioskConfirm={showExitKioskConfirm}
+            setShowExitKioskConfirm={setShowExitKioskConfirm}
+            handleExitKiosk={handleExitKiosk}
+            showQuitConfirm={showQuitConfirm}
+            setShowQuitConfirm={setShowQuitConfirm}
+            handleQuit={handleQuit}
+          />
         )
 
       default:
-        return (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold text-terminal-green text-glow uppercase tracking-wider">Settings</h2>
-            <p className="text-terminal-green-dim">Select a section from the sidebar</p>
-          </div>
-        )
+        return null
     }
   }
 
   return (
-    <div className="h-full flex bg-terminal-bg overflow-hidden">
-      {/* Settings Sidebar */}
-      <div className="w-64 bg-terminal-surface border-r border-terminal-border flex-shrink-0 overflow-y-auto">
-        <div className="p-4">
-          <h2 className="text-lg font-semibold text-terminal-green text-glow mb-4 uppercase tracking-wider">Settings</h2>
-          <nav className="space-y-1">
-            {sections.map((section) => (
-              <button
-                key={section.id}
-                onClick={() => setActiveSection(section.id)}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-all touch-manipulation ${
-                  activeSection === section.id
-                    ? 'bg-terminal-green/10 text-terminal-green shadow-glow-green-sm border border-terminal-green/30'
-                    : 'text-terminal-green-dim hover:bg-terminal-green/5 hover:text-terminal-green border border-transparent'
-                }`}
-              >
-                <span className="text-sm font-mono">{section.icon}</span>
-                <span className="font-medium">{section.name}</span>
-              </button>
-            ))}
-          </nav>
-        </div>
-      </div>
+    <div style={{ height: '100%', width: '100%', overflow: 'hidden', position: 'relative', background: 'var(--bg)', color: 'var(--fg1)' }}>
+      <TopBar title="Settings" />
+      <div style={{
+        position: 'absolute', inset: '56px 0 0 0',
+        display: 'grid', gridTemplateColumns: '220px 1fr', gap: 24,
+        padding: 24, overflow: 'hidden',
+      }}>
+        {/* Left nav rail */}
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, overflowY: 'auto' }}>
+          {sections.map(s => (
+            <button
+              key={s.id}
+              onClick={() => setActiveSection(s.id)}
+              style={{
+                padding: '12px 14px', borderRadius: 10, textAlign: 'left',
+                background: activeSection === s.id ? 'var(--fill-1)' : 'transparent',
+                color: activeSection === s.id ? 'var(--fg1)' : 'var(--fg2)',
+                fontSize: 14, fontWeight: activeSection === s.id ? 600 : 500,
+                border: 0, cursor: 'pointer', transition: 'all 150ms',
+                minHeight: 44,
+              }}
+            >
+              {s.label}
+            </button>
+          ))}
+        </nav>
 
-      {/* Settings Content */}
-      <div
-        className="flex-1 overflow-y-auto"
-        style={{
-          WebkitOverflowScrolling: 'touch',
-          touchAction: 'pan-y',
-          overscrollBehavior: 'contain'
-        }}
-      >
-        {renderContent()}
+        {/* Right content pane */}
+        <main style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', overscrollBehavior: 'contain' }}>
+          {renderSection()}
+        </main>
       </div>
     </div>
   )
