@@ -8,7 +8,10 @@
 
 @layer base {
   html, body {
-    @apply h-full w-full m-0 p-0 overflow-hidden bg-terminal-bg text-terminal-green font-mono;
+    @apply h-full w-full m-0 p-0 overflow-hidden;
+    background: var(--bg);
+    color: var(--fg1);
+    font-family: var(--font-ui);
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     -khtml-user-select: none;
@@ -16,184 +19,73 @@
     -ms-user-select: none;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
-    /* Enhanced contrast for sunlight readability */
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+  * { box-sizing: border-box; }
 
-  * {
-    box-sizing: border-box;
-  }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg-elev); }
+  ::-webkit-scrollbar-thumb { background: var(--bg-elev-2); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--bg-elev-3); }
 
-  /* Terminal green scrollbar */
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: #0d0d0d;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: #1a1a1a;
-    border-radius: 4px;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: #00aa00;
-  }
-
-  /* Touch optimizations */
   button, [role="button"] {
     min-height: 44px;
     min-width: 44px;
     touch-action: manipulation;
   }
 
-  /* Prevent context menu on all touch interactions for map */
   canvas, .maplibregl-canvas, .maplibregl-map {
     -webkit-touch-callout: none !important;
     -webkit-user-select: none !important;
     touch-action: none !important;
   }
 
-  /* Specifically for map containers */
-  [class*="maplibre"] {
-    -webkit-touch-callout: none !important;
-  }
+  [class*="maplibre"] { -webkit-touch-callout: none !important; }
 
-  /* Override MapLibre controls for terminal theme */
   .maplibregl-ctrl-group {
-    background: #0d0d0d !important;
-    border: 1px solid #1a1a1a !important;
-    border-radius: 4px !important;
+    background: var(--bg-elev) !important;
+    border: 0.5px solid var(--bg-hairline-strong) !important;
+    border-radius: 10px !important;
   }
-
   .maplibregl-ctrl-group button {
     background-color: transparent !important;
-    border-color: #1a1a1a !important;
+    border-color: var(--bg-hairline) !important;
   }
-
-  .maplibregl-ctrl-group button:hover {
-    background-color: rgba(0, 255, 0, 0.1) !important;
-  }
-
-  .maplibregl-ctrl-group button span {
-    filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(86deg) brightness(118%) contrast(119%);
-  }
+  .maplibregl-ctrl-group button:hover { background-color: var(--fill-1) !important; }
+  .maplibregl-ctrl-group button span { filter: none; }
 
   .maplibregl-ctrl-attrib {
-    background-color: rgba(0, 0, 0, 0.7) !important;
-    color: #00aa00 !important;
-    font-family: ui-monospace, SFMono-Regular, Consolas, monospace !important;
+    background-color: rgba(0,0,0,0.55) !important;
+    color: var(--fg2) !important;
+    font-family: var(--font-mono) !important;
     font-size: 10px !important;
   }
-
-  .maplibregl-ctrl-attrib a {
-    color: #00ff00 !important;
-  }
+  .maplibregl-ctrl-attrib a { color: var(--fg1) !important; }
 
   .maplibregl-ctrl-scale {
-    background-color: rgba(0, 0, 0, 0.7) !important;
-    border-color: #00ff00 !important;
-    color: #00ff00 !important;
-    font-family: ui-monospace, SFMono-Regular, Consolas, monospace !important;
+    background-color: rgba(0,0,0,0.55) !important;
+    border-color: var(--fg2) !important;
+    color: var(--fg1) !important;
+    font-family: var(--font-mono) !important;
   }
 
   .maplibregl-popup-content {
-    background: #0d0d0d !important;
-    color: #00ff00 !important;
-    border: 1px solid #1a1a1a !important;
-    font-family: ui-monospace, SFMono-Regular, Consolas, monospace !important;
-    box-shadow: 0 0 10px rgba(0, 255, 0, 0.2) !important;
+    background: var(--bg-elev) !important;
+    color: var(--fg1) !important;
+    border: 0.5px solid var(--bg-hairline-strong) !important;
+    font-family: var(--font-ui) !important;
+    box-shadow: var(--shadow-md) !important;
   }
-
   .maplibregl-popup-tip {
-    border-top-color: #0d0d0d !important;
-    border-bottom-color: #0d0d0d !important;
+    border-top-color: var(--bg-elev) !important;
+    border-bottom-color: var(--bg-elev) !important;
   }
 }
 
-@layer components {
-  /* Text glow effect */
-  .text-glow {
-    text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
-  }
-
-  .text-glow-sm {
-    text-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
-  }
-
-  .text-glow-lg {
-    text-shadow: 0 0 15px rgba(0, 255, 0, 0.6), 0 0 30px rgba(0, 255, 0, 0.4);
-  }
-
-  /* Terminal-style input */
-  .terminal-input {
-    @apply bg-terminal-surface border border-terminal-border text-terminal-green font-mono rounded px-3 py-2;
-    @apply focus:outline-none focus:border-terminal-green focus:shadow-glow-green-sm;
-    @apply placeholder:text-terminal-green-dim placeholder:opacity-50;
-  }
-
-  /* Terminal-style button */
-  .terminal-btn {
-    @apply bg-terminal-surface border border-terminal-border text-terminal-green font-mono px-4 py-2 rounded;
-    @apply hover:border-terminal-green hover:shadow-glow-green-sm transition-all;
-    @apply active:bg-terminal-green active:text-terminal-bg;
-  }
-
-  .terminal-btn-primary {
-    @apply bg-terminal-green/10 border border-terminal-green text-terminal-green font-mono px-4 py-2 rounded;
-    @apply hover:bg-terminal-green/20 hover:shadow-glow-green transition-all;
-    @apply active:bg-terminal-green active:text-terminal-bg;
-  }
-
-  .terminal-btn-danger {
-    @apply bg-terminal-red/10 border border-terminal-red text-terminal-red font-mono px-4 py-2 rounded;
-    @apply hover:bg-terminal-red/20 hover:shadow-glow-red transition-all;
-    @apply active:bg-terminal-red active:text-terminal-bg;
-  }
-
-  /* Terminal card */
-  .terminal-card {
-    @apply bg-terminal-surface border border-terminal-border rounded-lg p-4;
-  }
-
-  /* Terminal checkboxes */
-  .terminal-checkbox {
-    @apply w-4 h-4 rounded cursor-pointer;
-    appearance: none;
-    background-color: #000000;
-    border: 2px solid #1a1a1a;
-    position: relative;
-  }
-
-  .terminal-checkbox:checked {
-    background-color: #00ff00;
-    border-color: #00ff00;
-  }
-
-  .terminal-checkbox:checked::after {
-    content: '';
-    position: absolute;
-    left: 3px;
-    top: 0px;
-    width: 4px;
-    height: 8px;
-    border: solid #000000;
-    border-width: 0 2px 2px 0;
-    transform: rotate(45deg);
-  }
-
-  .terminal-checkbox:hover {
-    border-color: #00ff00;
-    box-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
-  }
-
-  .terminal-checkbox:focus {
-    outline: none;
-    box-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
-  }
+@keyframes oh-slide {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
+@keyframes oh-fade { from { opacity: 0; } to { opacity: 1; } }
