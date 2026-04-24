@@ -24,6 +24,7 @@ import {
 } from '../services/waypointService'
 import { WaypointIcon, formatCoordinates } from '../utils/waypointIcons'
 import WaypointEditModal from './WaypointEditModal'
+import { Pill } from '../ui/primitives'
 
 export default function WaypointManager() {
   const [waypoints, setWaypoints] = useState([])
@@ -177,17 +178,17 @@ export default function WaypointManager() {
     <div className="p-6">
       {/* Header */}
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-terminal-green text-glow uppercase tracking-wider">
+        <h2 style={{ color: 'var(--fg1)', fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em', textTransform: 'uppercase' }}>
           Waypoint Manager
         </h2>
-        <p className="text-terminal-green-dim mt-1">
+        <p style={{ color: 'var(--fg2)', marginTop: 4 }}>
           {loading ? 'Loading...' : `${waypoints.length} waypoint${waypoints.length !== 1 ? 's' : ''} saved`}
         </p>
       </div>
 
       {/* Error message */}
       {error && (
-        <div className="mb-4 p-4 bg-terminal-red/10 border border-terminal-red/50 rounded-lg text-terminal-red">
+        <div style={{ marginBottom: 16, padding: 16, background: 'rgba(255,80,80,0.08)', border: '0.5px solid var(--tint-red)', borderRadius: 8, color: 'var(--tint-red)' }}>
           {error}
         </div>
       )}
@@ -197,89 +198,85 @@ export default function WaypointManager() {
         <div className="flex items-center gap-2">
           {/* Selection info */}
           {selectedIds.size > 0 && (
-            <span className="text-terminal-green font-mono text-sm">
+            <span style={{ color: 'var(--fg1)', fontFamily: 'monospace', fontSize: 14 }}>
               {selectedIds.size} selected
             </span>
           )}
 
           {/* Multi-delete button */}
           {selectedIds.size > 0 && (
-            <button
+            <Pill
               onClick={handleDeleteSelected}
-              disabled={isDeleting}
-              className="terminal-btn-danger flex items-center space-x-2"
+              style={{ minHeight: 44, background: 'var(--tint-red)', color: '#fff', opacity: isDeleting ? 0.5 : 1 }}
             >
-              <TrashIcon className="w-4 h-4" />
+              <TrashIcon style={{ width: 16, height: 16 }} />
               <span>Delete ({selectedIds.size})</span>
-            </button>
+            </Pill>
           )}
 
           {/* Clear selection */}
           {selectedIds.size > 0 && (
-            <button
+            <Pill
               onClick={() => setSelectedIds(new Set())}
-              className="terminal-btn text-sm"
+              style={{ minHeight: 44 }}
             >
               Clear
-            </button>
+            </Pill>
           )}
         </div>
 
         <div className="flex items-center gap-2">
           {/* Copy to clipboard */}
-          <button
+          <Pill
             onClick={handleCopyToClipboard}
-            disabled={waypoints.length === 0}
-            className="terminal-btn flex items-center space-x-2"
+            style={{ minHeight: 44, opacity: waypoints.length === 0 ? 0.35 : 1 }}
             title={selectedIds.size > 0 ? 'Copy selected to clipboard' : 'Copy all to clipboard'}
           >
             {copySuccess ? (
-              <CheckIcon className="w-4 h-4 text-terminal-green" />
+              <CheckIcon style={{ width: 16, height: 16, color: 'var(--fg1)' }} />
             ) : (
-              <ClipboardDocumentIcon className="w-4 h-4" />
+              <ClipboardDocumentIcon style={{ width: 16, height: 16 }} />
             )}
             <span>{copySuccess ? 'Copied!' : 'Copy'}</span>
-          </button>
+          </Pill>
 
           {/* Email share */}
-          <button
+          <Pill
             onClick={handleEmailShare}
-            disabled={waypoints.length === 0}
-            className="terminal-btn flex items-center space-x-2"
+            style={{ minHeight: 44, opacity: waypoints.length === 0 ? 0.35 : 1 }}
             title={selectedIds.size > 0 ? 'Email selected waypoints' : 'Email all waypoints'}
           >
-            <EnvelopeIcon className="w-4 h-4" />
+            <EnvelopeIcon style={{ width: 16, height: 16 }} />
             <span>Email</span>
-          </button>
+          </Pill>
 
           {/* Export CSV */}
-          <button
+          <Pill
             onClick={handleExportCSV}
-            disabled={waypoints.length === 0}
-            className="terminal-btn-primary flex items-center space-x-2"
+            style={{ minHeight: 44, background: 'var(--signal)', color: '#fff', opacity: waypoints.length === 0 ? 0.35 : 1 }}
           >
-            <DocumentArrowDownIcon className="w-4 h-4" />
+            <DocumentArrowDownIcon style={{ width: 16, height: 16 }} />
             <span>Export CSV</span>
-          </button>
+          </Pill>
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-terminal-surface rounded-lg border border-terminal-border overflow-hidden">
+      <div style={{ background: 'var(--bg-elev)', borderRadius: 10, border: '0.5px solid var(--bg-hairline-strong)', overflow: 'hidden' }}>
         {loading ? (
           <div className="p-8 flex items-center justify-center">
-            <div className="w-8 h-8 border-4 border-terminal-green border-t-transparent rounded-full animate-spin"></div>
+            <div style={{ width: 32, height: 32, border: '4px solid var(--fg1)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
           </div>
         ) : waypoints.length === 0 ? (
           <div className="p-8 text-center">
-            <div className="text-terminal-green-dim mb-2">No waypoints saved</div>
-            <div className="text-xs text-terminal-green-dim">
+            <div style={{ color: 'var(--fg2)', marginBottom: 8 }}>No waypoints saved</div>
+            <div style={{ color: 'var(--fg2)', fontSize: 12 }}>
               Long-press on the chart to add waypoints
             </div>
           </div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-terminal-bg text-terminal-green border-b border-terminal-border">
+            <thead style={{ background: 'var(--bg)', color: 'var(--fg1)', borderBottom: '0.5px solid var(--bg-hairline-strong)' }}>
               <tr>
                 <th className="px-4 py-3 w-12">
                   <input
@@ -289,7 +286,7 @@ export default function WaypointManager() {
                       if (el) el.indeterminate = isSomeSelected
                     }}
                     onChange={toggleAllSelection}
-                    className="accent-terminal-green cursor-pointer"
+                    className="cursor-pointer"
                   />
                 </th>
                 <th className="px-4 py-3 text-left w-12">Icon</th>
@@ -304,41 +301,40 @@ export default function WaypointManager() {
               {waypoints.map(wp => (
                 <tr
                   key={wp.id}
-                  className={`border-b border-terminal-border transition-colors ${
-                    selectedIds.has(wp.id)
-                      ? 'bg-terminal-green/10'
-                      : 'hover:bg-terminal-green/5'
-                  }`}
+                  style={{
+                    borderBottom: '0.5px solid var(--bg-hairline-strong)',
+                    background: selectedIds.has(wp.id) ? 'rgba(var(--signal-rgb,0,200,100),0.08)' : 'transparent'
+                  }}
                 >
                   <td className="px-4 py-3">
                     <input
                       type="checkbox"
                       checked={selectedIds.has(wp.id)}
                       onChange={() => toggleSelection(wp.id)}
-                      className="accent-terminal-green cursor-pointer"
+                      className="cursor-pointer"
                     />
                   </td>
                   <td className="px-4 py-3">
                     <WaypointIcon iconId={wp.icon} color={wp.color} className="w-6 h-6" />
                   </td>
                   <td className="px-4 py-3">
-                    <div className="text-terminal-green font-medium">{wp.name}</div>
-                    <div className="text-terminal-green-dim text-xs sm:hidden font-mono">
+                    <div style={{ color: 'var(--fg1)', fontWeight: 500 }}>{wp.name}</div>
+                    <div style={{ color: 'var(--fg2)', fontSize: 12, fontFamily: 'monospace' }} className="sm:hidden">
                       {formatCoordinates(wp.latitude, wp.longitude)}
                     </div>
                   </td>
                   <td className="px-4 py-3 hidden sm:table-cell">
-                    <span className="text-terminal-green-dim font-mono text-xs">
+                    <span style={{ color: 'var(--fg2)', fontFamily: 'monospace', fontSize: 12 }}>
                       {formatCoordinates(wp.latitude, wp.longitude)}
                     </span>
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell">
-                    <span className="text-terminal-green-dim text-xs truncate max-w-[200px] block">
+                    <span style={{ color: 'var(--fg2)', fontSize: 12 }} className="truncate max-w-[200px] block">
                       {wp.description || '-'}
                     </span>
                   </td>
                   <td className="px-4 py-3 hidden lg:table-cell">
-                    <span className="text-terminal-green-dim text-xs">
+                    <span style={{ color: 'var(--fg2)', fontSize: 12 }}>
                       {new Date(wp.created_at).toLocaleDateString()}
                     </span>
                   </td>
@@ -346,18 +342,18 @@ export default function WaypointManager() {
                     <div className="flex items-center justify-end space-x-2">
                       <button
                         onClick={() => setEditingWaypoint(wp)}
-                        className="p-2 hover:bg-terminal-green/10 rounded transition-colors"
+                        style={{ padding: 8, borderRadius: 6, background: 'transparent', border: 0, cursor: 'pointer', minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         title="Edit"
                       >
-                        <PencilSquareIcon className="w-4 h-4 text-terminal-cyan" />
+                        <PencilSquareIcon style={{ width: 16, height: 16, color: 'var(--tint-teal)' }} />
                       </button>
                       <button
                         onClick={() => handleDeleteSingle(wp.id)}
                         disabled={isDeleting}
-                        className="p-2 hover:bg-terminal-red/10 rounded transition-colors"
+                        style={{ padding: 8, borderRadius: 6, background: 'transparent', border: 0, cursor: 'pointer', minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isDeleting ? 0.5 : 1 }}
                         title="Delete"
                       >
-                        <TrashIcon className="w-4 h-4 text-terminal-red" />
+                        <TrashIcon style={{ width: 16, height: 16, color: 'var(--tint-red)' }} />
                       </button>
                     </div>
                   </td>
@@ -369,7 +365,7 @@ export default function WaypointManager() {
       </div>
 
       {/* Help text */}
-      <div className="mt-4 text-xs text-terminal-green-dim">
+      <div style={{ marginTop: 16, fontSize: 12, color: 'var(--fg2)' }}>
         <p>Tip: Long-press on the chart to add new waypoints. Select multiple waypoints to share or delete in bulk.</p>
       </div>
 

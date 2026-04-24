@@ -8,6 +8,7 @@ import React from 'react'
 
 import { MapPinIcon, InformationCircleIcon } from '@heroicons/react/24/outline'
 import { S57_SUBLAYER_GROUPS } from './S57SubLayerMenu'
+import { Glass } from '../ui/primitives'
 
 // Build lookup from S-57 object class to human-readable name
 const S57_NAMES = {}
@@ -76,7 +77,7 @@ const WaypointMenu = React.memo(function WaypointMenu({
 
       {/* Menu */}
       <div
-        className="absolute bg-terminal-surface rounded-lg shadow-glow-green border-2 border-terminal-green z-50 overflow-hidden"
+        className="absolute z-50"
         style={{
           left: `${left}px`,
           top: `${top}px`,
@@ -84,62 +85,64 @@ const WaypointMenu = React.memo(function WaypointMenu({
           touchAction: 'none'
         }}
       >
-        {/* Coordinates header */}
-        <div className="px-3 py-2 border-b border-terminal-border bg-terminal-bg">
-          <div className="text-xs font-mono text-terminal-green-dim">
-            {formatLat} / {formatLng}
-          </div>
-        </div>
-
-        {/* Menu options */}
-        <div className="py-1">
-          {/* Add Waypoint */}
-          <button
-            onClick={() => onAddWaypoint({ lat, lng })}
-            className="w-full px-4 py-3 flex items-center space-x-3 hover:bg-terminal-green/10 active:bg-terminal-green/20 transition-colors touch-manipulation"
-          >
-            <MapPinIcon className="w-5 h-5 text-terminal-green" />
-            <span className="text-terminal-green font-medium">Add Waypoint</span>
-          </button>
-
-          {/* Measure Depth */}
-          <button
-            onClick={() => onMeasureDepth({ screenX, screenY })}
-            className="w-full px-4 py-3 flex items-center space-x-3 hover:bg-terminal-green/10 active:bg-terminal-green/20 transition-colors touch-manipulation"
-          >
-            <svg className="w-5 h-5 text-terminal-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 2v20M2 12h20" strokeLinecap="round" />
-              <path d="M6 18c0-3.3 2.7-6 6-6s6 2.7 6 6" strokeLinecap="round" />
-            </svg>
-            <span className="text-terminal-cyan font-medium">Measure Depth</span>
-          </button>
-        </div>
-
-        {/* Nearby S-57 features */}
-        {features.length > 0 && (
-          <div className="border-t border-terminal-border">
-            <div className="px-3 py-1.5 bg-terminal-bg">
-              <span className="text-xs font-semibold text-terminal-amber uppercase tracking-wide">Nearby Features</span>
+        <Glass radius={12} style={{ padding: 0, overflow: 'hidden' }}>
+          {/* Coordinates header */}
+          <div style={{ padding: '8px 12px', borderBottom: '0.5px solid var(--bg-hairline-strong)' }}>
+            <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--fg2)' }}>
+              {formatLat} / {formatLng}
             </div>
-            {features.map((feat, i) => {
-              const name = feat.properties?.OBJNAM
-              const typeName = S57_NAMES[feat.objectClass?.toUpperCase()] || feat.objectClass
-              return (
-                <button
-                  key={`${feat.objectClass}-${feat.properties?.FIDN || i}`}
-                  onClick={() => onViewFeature && onViewFeature(feat)}
-                  className="w-full px-4 py-2.5 flex items-center space-x-3 hover:bg-terminal-amber/10 active:bg-terminal-amber/20 transition-colors touch-manipulation"
-                >
-                  <InformationCircleIcon className="w-5 h-5 text-terminal-amber flex-shrink-0" />
-                  <div className="flex-1 min-w-0 text-left">
-                    <div className="text-sm text-terminal-amber font-medium truncate">{typeName}</div>
-                    {name && <div className="text-xs text-terminal-green-dim truncate">{name}</div>}
-                  </div>
-                </button>
-              )
-            })}
           </div>
-        )}
+
+          {/* Menu options */}
+          <div style={{ padding: '4px 0' }}>
+            {/* Add Waypoint */}
+            <button
+              onClick={() => onAddWaypoint({ lat, lng })}
+              style={{ width: '100%', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, background: 'transparent', border: 0, cursor: 'pointer', touchAction: 'manipulation', textAlign: 'left' }}
+            >
+              <MapPinIcon style={{ width: 20, height: 20, color: 'var(--fg1)', flexShrink: 0 }} />
+              <span style={{ color: 'var(--fg1)', fontWeight: 500 }}>Add Waypoint</span>
+            </button>
+
+            {/* Measure Depth */}
+            <button
+              onClick={() => onMeasureDepth({ screenX, screenY })}
+              style={{ width: '100%', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, background: 'transparent', border: 0, cursor: 'pointer', touchAction: 'manipulation', textAlign: 'left' }}
+            >
+              <svg style={{ width: 20, height: 20, color: 'var(--tint-teal)', flexShrink: 0 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 2v20M2 12h20" strokeLinecap="round" />
+                <path d="M6 18c0-3.3 2.7-6 6-6s6 2.7 6 6" strokeLinecap="round" />
+              </svg>
+              <span style={{ color: 'var(--tint-teal)', fontWeight: 500 }}>Measure Depth</span>
+            </button>
+          </div>
+
+          {/* Nearby S-57 features */}
+          {features.length > 0 && (
+            <div style={{ borderTop: '0.5px solid var(--bg-hairline-strong)' }}>
+              <div style={{ padding: '6px 12px', background: 'rgba(0,0,0,0.15)' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--tint-yellow)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Nearby Features</span>
+              </div>
+              {features.map((feat, i) => {
+                const name = feat.properties?.OBJNAM
+                const typeName = S57_NAMES[feat.objectClass?.toUpperCase()] || feat.objectClass
+                return (
+                  <button
+                    key={`${feat.objectClass}-${feat.properties?.FIDN || i}`}
+                    onClick={() => onViewFeature && onViewFeature(feat)}
+                    style={{ width: '100%', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, background: 'transparent', border: 0, cursor: 'pointer', touchAction: 'manipulation', textAlign: 'left' }}
+                  >
+                    <InformationCircleIcon style={{ width: 20, height: 20, color: 'var(--tint-yellow)', flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, color: 'var(--tint-yellow)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{typeName}</div>
+                      {name && <div style={{ fontSize: 12, color: 'var(--fg2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </Glass>
       </div>
     </>
   )
