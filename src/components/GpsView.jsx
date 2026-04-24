@@ -355,7 +355,7 @@ function GpsView() {
 
   const isStale = dataAge !== null && dataAge > 2000
 
-  if (loading) {
+  if (loading || !gpsData) {
     return (
       <div className="h-full w-full" style={{ position: 'relative', background: 'var(--bg)' }}>
         <TopBar title="GPS" />
@@ -367,7 +367,9 @@ function GpsView() {
             borderRadius: '50%', margin: '0 auto 12px',
             animation: 'oh-spin 900ms linear infinite',
           }}/>
-          <div style={{ color: 'var(--fg2)', fontSize: 14 }}>Waiting for GPS…</div>
+          <div style={{ color: 'var(--fg2)', fontSize: 14 }}>
+            {error ? error : 'Waiting for GPS…'}
+          </div>
         </div>
       </div>
     )
