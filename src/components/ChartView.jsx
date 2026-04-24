@@ -13,19 +13,21 @@ import { computeDriftCorrected } from '../utils/driftCalc'
 import { getWeatherRegions, getRegionData, getTimestamps, getGridAtTime, buildStationGeoJSON } from '../services/weatherDataService'
 import ForecastTimeSlider from './ForecastTimeSlider'
 import WeatherStationPopup from './WeatherStationPopup'
-import { SettingsIcon, BoatIcon } from './Icons'
 import { createHeadingLineSVGString } from '../utils/headingLine'
 import DepthCrosshairs from './DepthCrosshairs'
 import DepthInfoCard from './DepthInfoCard'
 import WaypointMenu from './WaypointMenu'
 import WaypointEditModal from './WaypointEditModal'
-import WaypointDropdown from './WaypointDropdown'
-import LayersMenu from './LayersMenu'
 import S57SubLayerMenu, { S57_SUBLAYER_GROUPS } from './S57SubLayerMenu'
 import S57FeatureCard from './S57FeatureCard'
-import HudOverlay from './HudOverlay'
 import { createMarkerSVG } from '../utils/waypointIcons'
-import { MapPinIcon } from '@heroicons/react/24/outline'
+import {
+  ChartTopBar,
+  CompassRose,
+  FollowControls,
+  ScaleBar,
+  ChartZoomStack,
+} from './chart'
 
 function ChartView() {
   const mapContainer = useRef(null)
@@ -127,6 +129,11 @@ function ChartView() {
   })
 
   const [layersMenuOpen, setLayersMenuOpen] = useState(false)
+
+  const [chartSource, setChartSource] = useState(
+    () => localStorage.getItem('openhelm.chartSource') || 'nautical'
+  )
+  useEffect(() => { localStorage.setItem('openhelm.chartSource', chartSource) }, [chartSource])
 
   // Save layer visibility to localStorage when it changes
   useEffect(() => {
@@ -1796,28 +1803,18 @@ function ChartView() {
   }
 
   return (
-    <div className="relative h-full w-full bg-terminal-bg">
+    <div className="relative h-full w-full" style={{ background: 'var(--bg)' }}>
       {/* Map Container */}
       <div
         ref={mapContainer}
         className="h-full w-full"
         style={{
-          position: 'relative',
+          background: 'var(--bg)',
           touchAction: 'none',
           WebkitUserSelect: 'none',
           WebkitTouchCallout: 'none'
         }}
       />
-
-      {/* HUD Overlay */}
-      {hudVisible && (
-        <HudOverlay
-          heading={gpsData?.heading}
-          speedMs={gpsData?.groundSpeed}
-          depthMeters={hudDepth}
-          color={hudColor}
-        />
-      )}
 
       {/* Crosshairs during hold */}
       {touchState?.showingCrosshairs && (
@@ -1902,70 +1899,28 @@ function ChartView() {
         downloadedAt={weatherDownloadedAt}
       />
 
-      {/* Loading Indicator */}
-      {(!mapLoaded || !tilesLoaded) && (
-        <div className="absolute inset-0 flex items-center justify-center bg-terminal-bg z-10">
-          <div className="text-center space-y-4">
-            <div className="w-8 h-8 border-4 border-terminal-green border-t-transparent rounded-full animate-spin mx-auto shadow-glow-green"></div>
-            <p className="text-terminal-green-dim">
-              {!mapLoaded ? 'Loading map...' : 'Loading BlueTopo tiles...'}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Top-left control stack: layers button (top) + sublayer filter (below) */}
-      <div className="absolute left-4 top-4 z-20 flex flex-col space-y-2">
-        {/* Layers Button */}
-        <div className="relative">
-          <button
-            onClick={() => { setLayersMenuOpen(v => !v); setS57SubLayerMenuOpen(false) }}
-            className={`bg-terminal-surface hover:bg-terminal-green/10 border rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all ${
-              layersMenuOpen
-                ? 'border-terminal-green bg-terminal-green/20'
-                : 'border-terminal-border hover:border-terminal-green'
-            }`}
-            aria-label="Map layers"
-            title="Map layers"
-          >
-            <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M3 7 L12 3 L21 7 L12 11 L3 7 Z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M3 12 L12 16 L21 12" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M3 17 L12 21 L21 17" />
-            </svg>
-          </button>
-
-          {layersMenuOpen && (
-            <LayersMenu
-              layers={layers}
-              onToggleLayer={handleToggleLayer}
-              onClose={() => setLayersMenuOpen(false)}
-            />
-          )}
-        </div>
-
-        {/* S-57 Sublayer Filter Button - only shows when vector charts are visible */}
-        {s57LayersVisible && s57RegionCount > 0 && (
-          <div className="relative">
+      {/* S-57 Sublayer Filter - only shows when vector charts are visible */}
+      {s57LayersVisible && s57RegionCount > 0 && (
+        <div style={{ position: 'absolute', left: 14, top: 70, zIndex: 5 }}>
+          <div style={{ position: 'relative' }}>
             <button
-              onClick={() => { setS57SubLayerMenuOpen(v => !v); setLayersMenuOpen(false) }}
-              className={`bg-terminal-surface hover:bg-terminal-green/10 border rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all ${
-                s57SubLayerMenuOpen
-                  ? 'border-terminal-green bg-terminal-green/20'
-                  : 'border-terminal-border hover:border-terminal-green'
-              }`}
+              onClick={() => setS57SubLayerMenuOpen(v => !v)}
+              style={{
+                width: 40, height: 40, borderRadius: 10, border: 0, cursor: 'pointer',
+                background: s57SubLayerMenuOpen ? 'var(--fill-1)' : 'var(--bg-chrome)',
+                backdropFilter: s57SubLayerMenuOpen ? 'none' : 'var(--blur-chrome)',
+                WebkitBackdropFilter: s57SubLayerMenuOpen ? 'none' : 'var(--blur-chrome)',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                color: 'var(--fg1)',
+              }}
               aria-label="Vector chart filter"
               title="Filter vector chart layers"
             >
-              <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
               </svg>
             </button>
-
             {s57SubLayerMenuOpen && (
               <S57SubLayerMenu
                 sublayerVisibility={s57SubLayerVisibility}
@@ -1975,185 +1930,90 @@ function ChartView() {
               />
             )}
           </div>
-        )}
+        </div>
+      )}
+
+      {/* NEW CHROME: Top bar */}
+      <ChartTopBar
+        speed={gpsData?.speed}
+        depth={liveDepthData?.depth_ft}
+        heading={gpsData?.heading}
+        waypoints={waypoints}
+        onSelectWaypoint={(w) => {
+          if (!map.current || w?.latitude == null || w?.longitude == null) return
+          map.current.flyTo({ center: [w.longitude, w.latitude], zoom: Math.max(map.current.getZoom(), 14), duration: 1000 })
+        }}
+        onAddWaypoint={() => {
+          const c = map.current?.getCenter?.()
+          if (!c) return
+          setWaypointEditPosition({ lat: c.lat, lng: c.lng })
+          setWaypointEditModalOpen(true)
+        }}
+        layers={{
+          bluetopo: topoLayersVisible,
+          enc:      encLayersVisible,
+          s57:      s57LayersVisible,
+          satellite: satelliteLayersVisible,
+          weather:  weatherLayersVisible,
+        }}
+        onLayerChange={(id, v) => {
+          if (id === 'bluetopo') setTopoLayersVisible(v)
+          else if (id === 'enc') setEncLayersVisible(v)
+          else if (id === 's57') setS57LayersVisible(v)
+          else if (id === 'satellite') setSatelliteLayersVisible(v)
+          else if (id === 'weather') setWeatherLayersVisible(v)
+        }}
+        chartSource={chartSource}
+        onChartSourceChange={setChartSource}
+      />
+
+      {/* RIGHT: compass + zoom */}
+      <div style={{
+        position: 'absolute', top: 68, right: 12, zIndex: 5,
+        display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end',
+      }}>
+        <CompassRose
+          heading={gpsData?.heading ?? 0}
+          headingUp={!northUp}
+          size={72}
+        />
+        <ChartZoomStack
+          onZoomIn={() => map.current?.zoomIn()}
+          onZoomOut={() => map.current?.zoomOut()}
+        />
       </div>
 
+      {/* BOTTOM-LEFT: follow + heading-lock pills */}
+      <FollowControls
+        centerOn={trackingMode !== null}
+        setCenterOn={(v) => setTrackingMode(v ? 'center' : null)}
+        headingLock={!northUp}
+        setHeadingLock={(v) => setNorthUp(!v)}
+      />
 
-      {/* Top Right Controls */}
-      <div className="absolute top-4 right-4 z-20 flex items-center space-x-2">
-        {/* North Up Toggle Button */}
-        <button
-          onClick={handleToggleNorthUp}
-          className={`bg-terminal-surface hover:bg-terminal-green/10 border rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all ${
-            northUp
-              ? 'border-terminal-green bg-terminal-green/20'
-              : 'border-terminal-border hover:border-terminal-green'
-          }`}
-          aria-label={northUp ? "North up (tap for heading up)" : "Heading up (tap for north up)"}
-          title={northUp ? "North up - tap for heading up" : "Heading up - tap for north up"}
-        >
-          <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            {/* Compass N arrow */}
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={northUp ? 2 : 1.5}
-              fill={northUp ? "currentColor" : "none"}
-              d="M12 3 L8 12 L12 9 L16 12 Z"
-            />
-            {/* N letter */}
-            <text
-              x="12"
-              y="20"
-              textAnchor="middle"
-              fontSize="7"
-              fontWeight="bold"
-              fill="currentColor"
-              stroke="none"
-            >N</text>
-          </svg>
-        </button>
-
-        {/* Center on Boat Button - cycles: off → center → offset → off */}
-        <button
-          onClick={handleCycleTrackingMode}
-          className={`bg-terminal-surface hover:bg-terminal-green/10 border rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all ${
-            trackingMode
-              ? 'border-terminal-green bg-terminal-green/20'
-              : 'border-terminal-border hover:border-terminal-green'
-          }`}
-          aria-label={
-            !trackingMode ? "Center on boat" :
-            trackingMode === 'center' ? "Following (centered)" :
-            "Following (offset)"
-          }
-          title={
-            !trackingMode ? "Center on boat" :
-            trackingMode === 'center' ? "Centered - tap for offset" :
-            "Offset - tap to decouple"
-          }
-        >
-          {/* Unfilled icon when not tracking, filled when tracking */}
-          {trackingMode ? (
-            <svg className="w-6 h-6 text-terminal-green" fill="currentColor" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 3 L7 9 L7 17 L9 21 L15 21 L17 17 L17 9 Z" />
-              <path stroke="#0a3d1f" strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 11 L15 11" />
-              <path stroke="#0a3d1f" strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 6 L12 4 L14 6" />
-            </svg>
-          ) : (
-            <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3 L7 9 L7 17 L9 21 L15 21 L17 17 L17 9 Z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 11 L15 11" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 6 L12 4 L14 6" />
-            </svg>
-          )}
-        </button>
-
-        {/* Waypoints Dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => setWaypointDropdownOpen(!waypointDropdownOpen)}
-            className={`bg-terminal-surface hover:bg-terminal-green/10 border rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all ${
-              waypointDropdownOpen
-                ? 'border-terminal-green bg-terminal-green/20'
-                : 'border-terminal-border hover:border-terminal-green'
-            }`}
-            aria-label="Waypoints"
-            title="Waypoints"
-          >
-            <MapPinIcon className="w-6 h-6 text-terminal-green" />
-            {waypoints.length > 0 && (
-              <span className="absolute -top-1 -right-1 bg-terminal-green text-terminal-bg text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                {waypoints.length}
-              </span>
-            )}
-          </button>
-
-          {waypointDropdownOpen && (
-            <WaypointDropdown
-              waypoints={waypoints}
-              driftCorrections={waypointDriftCorrections}
-              onSelect={handleWaypointSelect}
-              onClose={() => setWaypointDropdownOpen(false)}
-            />
-          )}
-        </div>
-
-        {/* Settings Menu */}
-        <div className="relative">
-          {/* Popup Menu */}
-          {menuOpen && (
-            <>
-              {/* Backdrop to close menu */}
-              <div
-                className="fixed inset-0 z-30"
-                onClick={() => setMenuOpen(false)}
-              />
-
-              {/* Menu Content */}
-              <div className="absolute top-14 right-0 bg-terminal-surface rounded-lg shadow-glow-green border border-terminal-border overflow-hidden z-40 min-w-[200px]">
-                <button
-                  onClick={() => { setHudVisible(v => !v); setMenuOpen(false) }}
-                  className="w-full px-4 py-3 text-left hover:bg-terminal-green/10 transition-colors flex items-center space-x-3 text-terminal-green"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" />
-                  </svg>
-                  <span className="text-sm font-medium">{hudVisible ? 'Hide' : 'Show'} HUD</span>
-                </button>
-                {/* HUD Color Picker */}
-                <div className="px-4 py-3 border-t border-terminal-border">
-                  <span className="text-xs text-terminal-green-dim uppercase tracking-wide">HUD Color</span>
-                  <div className="flex space-x-2 mt-2">
-                    {[
-                      { color: '#22c55e', label: 'Green' },
-                      { color: '#3b82f6', label: 'Blue' },
-                      { color: '#f59e0b', label: 'Amber' },
-                      { color: '#ef4444', label: 'Red' },
-                      { color: '#ffffff', label: 'White' },
-                      { color: '#06b6d4', label: 'Cyan' },
-                    ].map(({ color, label }) => (
-                      <button
-                        key={color}
-                        onClick={() => setHudColor(color)}
-                        title={label}
-                        className="touch-manipulation"
-                        style={{
-                          width: '32px',
-                          height: '32px',
-                          borderRadius: '6px',
-                          backgroundColor: color,
-                          border: hudColor === color ? '3px solid white' : '2px solid rgba(255,255,255,0.2)',
-                          boxShadow: hudColor === color ? `0 0 8px ${color}` : 'none',
-                          cursor: 'pointer'
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <button
-                  onClick={clearCacheAndReload}
-                  className="w-full px-4 py-3 text-left hover:bg-terminal-green/10 transition-colors flex items-center space-x-3 text-terminal-green border-t border-terminal-border"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  <span className="text-sm font-medium">Clear Cache & Reload</span>
-                </button>
-              </div>
-            </>
-          )}
-
-          {/* Settings Button */}
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="bg-terminal-surface hover:bg-terminal-green/10 border border-terminal-border hover:border-terminal-green rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all"
-            aria-label="Map settings"
-          >
-            <SettingsIcon className="w-6 h-6 text-terminal-green" />
-          </button>
-        </div>
+      {/* BOTTOM-RIGHT: scale bar */}
+      <div style={{ position: 'absolute', bottom: 14, right: 12, zIndex: 5 }}>
+        <ScaleBar/>
       </div>
+
+      {/* Loading overlay */}
+      {(!mapLoaded || !tilesLoaded) && (
+        <div className="absolute inset-0 flex items-center justify-center z-10"
+             style={{ background: 'var(--bg)' }}>
+          <div className="text-center space-y-4">
+            <div style={{
+              width: 32, height: 32,
+              border: '3px solid var(--signal-soft)',
+              borderTopColor: 'var(--signal)',
+              borderRadius: '50%', margin: '0 auto',
+              animation: 'oh-spin 900ms linear infinite',
+            }}/>
+            <p style={{ color: 'var(--fg2)' }}>
+              {!mapLoaded ? 'Loading map…' : 'Loading chart data…'}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
