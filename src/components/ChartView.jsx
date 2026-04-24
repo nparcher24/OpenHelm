@@ -29,6 +29,10 @@ import {
   ChartZoomStack,
 } from './chart'
 
+// Heading line and boat marker accent color — matches GPS-fix indicator green.
+// CSS var(--signal) cannot be used in SVG stroke strings, so hex is used directly.
+const HUD_COLOR = '#22c55e'
+
 function ChartView() {
   const mapContainer = useRef(null)
   const map = useRef(null)
@@ -118,15 +122,9 @@ function ChartView() {
   const [weatherDownloadedAt, setWeatherDownloadedAt] = useState(null)
   const weatherLayersLoadedRef = useRef(false)
 
-  // HUD overlay state
-  const [hudVisible, setHudVisible] = useState(() => {
-    const saved = localStorage.getItem('chartview_hud_visible')
-    return saved !== null ? JSON.parse(saved) : true
-  })
-  const [hudDepth, setHudDepth] = useState(null)
-  const [hudColor, setHudColor] = useState(() => {
-    return localStorage.getItem('chartview_hud_color') || '#22c55e'
-  })
+  // HUD was removed in the design restyle; Speed/Depth/HDG now live in ChartTopBar.
+  // Heading line and boat marker accent color — matches the GPS-fix indicator green.
+  // (CSS var(--signal) cannot be used in SVG stroke strings, so hex is used directly.)
 
   const [layersMenuOpen, setLayersMenuOpen] = useState(false)
 
@@ -159,14 +157,6 @@ function ChartView() {
   useEffect(() => {
     localStorage.setItem('chartview_weather_visible', JSON.stringify(weatherLayersVisible))
   }, [weatherLayersVisible])
-
-  useEffect(() => {
-    localStorage.setItem('chartview_hud_visible', JSON.stringify(hudVisible))
-  }, [hudVisible])
-
-  useEffect(() => {
-    localStorage.setItem('chartview_hud_color', hudColor)
-  }, [hudColor])
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -220,25 +210,6 @@ function ChartView() {
 
     return () => clearTimeout(timeoutId)
   }, [touchState?.showingCrosshairs, touchState?.currentX, touchState?.currentY])
-
-  // HUD depth query — poll BlueTopo depth at boat position
-  useEffect(() => {
-    if (!hudVisible || !gpsData) return
-    const lat = gpsData.latitude
-    const lon = gpsData.longitude
-    if (lat == null || lon == null) return
-
-    const timeoutId = setTimeout(async () => {
-      try {
-        const result = await getDepthAtLocation(lon, lat)
-        setHudDepth(result.success ? result.depth : null)
-      } catch {
-        setHudDepth(null)
-      }
-    }, 300)
-
-    return () => clearTimeout(timeoutId)
-  }, [hudVisible, gpsData?.latitude, gpsData?.longitude])
 
   // Default position just offshore Virginia Beach oceanfront (no GPS / no satellite fix)
   const DEFAULT_NO_FIX_POSITION = { latitude: 36.853, longitude: -75.960 }
@@ -485,8 +456,8 @@ function ChartView() {
     const hasGps = gpsData && isValidCoordinate(gpsData.latitude, gpsData.longitude)
     const fix = hasGps && hasGpsFix(gpsData.latitude, gpsData.longitude)
     const displayLat = fix ? gpsData.latitude : DEFAULT_NO_FIX_POSITION.latitude
-    headingLineRef.current.innerHTML = createHeadingLineSVGString(map.current, displayLat, hudColor, gpsData?.heading, gpsData?.cog)
-  }, [gpsData, hudColor])
+    headingLineRef.current.innerHTML = createHeadingLineSVGString(map.current, displayLat, HUD_COLOR, gpsData?.heading, gpsData?.cog)
+  }, [gpsData, HUD_COLOR])
 
   useEffect(() => {
     if (!mapLoaded || !map.current) return
@@ -495,7 +466,7 @@ function ChartView() {
     const fix = hasGps && hasGpsFix(gpsData.latitude, gpsData.longitude)
     const displayLat = fix ? gpsData.latitude : DEFAULT_NO_FIX_POSITION.latitude
     const displayLng = fix ? gpsData.longitude : DEFAULT_NO_FIX_POSITION.longitude
-    const fillColor = fix ? hudColor : '#ef4444'
+    const fillColor = fix ? HUD_COLOR : '#ef4444'
     const glowColor = 'rgba(0, 0, 0, 0.6)'
 
     // Create or update marker
@@ -544,7 +515,7 @@ function ChartView() {
       el.appendChild(boatSvg)
 
       // Initial heading line render
-      lineContainer.innerHTML = createHeadingLineSVGString(map.current, displayLat, hudColor, gpsData?.heading, gpsData?.cog)
+      lineContainer.innerHTML = createHeadingLineSVGString(map.current, displayLat, HUD_COLOR, gpsData?.heading, gpsData?.cog)
 
       boatMarkerRef.current = new maplibregl.Marker({
         element: el,
@@ -1628,21 +1599,6 @@ function ChartView() {
     }
   ]
 
-  // Toggle individual layer visibility
-  const handleToggleLayer = useCallback((layerId) => {
-    if (layerId === 'bluetopo') {
-      setTopoLayersVisible(v => !v)
-    } else if (layerId === 'enc') {
-      setEncLayersVisible(v => !v)
-    } else if (layerId === 's57') {
-      setS57LayersVisible(v => !v)
-    } else if (layerId === 'satellite') {
-      setSatelliteLayersVisible(v => !v)
-    } else if (layerId === 'weather') {
-      setWeatherLayersVisible(v => !v)
-    }
-  }, [])
-
   // Toggle individual S-57 sublayer visibility
   const handleToggleSublayer = useCallback((sublayerId) => {
     setS57SubLayerVisibility(prev => ({
@@ -1965,6 +1921,7 @@ function ChartView() {
         }}
         chartSource={chartSource}
         onChartSourceChange={setChartSource}
+        onWaypointsOpenChange={setWaypointDropdownOpen}
       />
 
       {/* RIGHT: compass + zoom */}

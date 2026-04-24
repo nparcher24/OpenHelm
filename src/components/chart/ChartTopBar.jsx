@@ -28,15 +28,23 @@ export function ChartTopBar({
   waypoints, onSelectWaypoint, onAddWaypoint,
   layers, onLayerChange,
   chartSource, onChartSourceChange,
+  onWaypointsOpenChange,
 }) {
   const [pagesOpen, setPagesOpen] = useState(false)
   const [waypointsOpen, setWaypointsOpen] = useState(false)
   const [layersOpen, setLayersOpen] = useState(false)
   const [chartsOpen, setChartsOpen] = useState(false)
 
+  // Notify parent when waypoints dropdown opens/closes so parent effects can fire
+  // (e.g. refreshLatestDrift keyed on waypointDropdownOpen in ChartView).
+  const setWaypointsOpenAndNotify = (v) => {
+    setWaypointsOpen(v)
+    onWaypointsOpenChange?.(v)
+  }
+
   const closeAll = () => {
     setPagesOpen(false)
-    setWaypointsOpen(false)
+    setWaypointsOpenAndNotify(false)
     setLayersOpen(false)
     setChartsOpen(false)
   }
@@ -68,7 +76,7 @@ export function ChartTopBar({
 
         {/* Waypoints dropdown */}
         <div style={{ position: 'relative' }}>
-          <button onClick={() => { const v = !waypointsOpen; closeAll(); setWaypointsOpen(v) }} style={{
+          <button onClick={() => { const v = !waypointsOpen; closeAll(); setWaypointsOpenAndNotify(v) }} style={{
             height: 40, padding: '0 14px', borderRadius: 10,
             background: waypointsOpen ? 'var(--fill-1)' : 'transparent',
             display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -81,7 +89,7 @@ export function ChartTopBar({
           </button>
           <WaypointDropdown open={waypointsOpen} waypoints={waypoints || []}
                             onSelect={onSelectWaypoint} onAdd={onAddWaypoint}
-                            onClose={() => setWaypointsOpen(false)}/>
+                            onClose={() => setWaypointsOpenAndNotify(false)}/>
         </div>
 
         <div style={{ flex: 1 }}/>
