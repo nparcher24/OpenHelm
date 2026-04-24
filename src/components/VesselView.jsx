@@ -2,6 +2,7 @@ import useVesselData from '../hooks/useVesselData'
 import useGpsData from '../hooks/useGpsData'
 import HudOverlay from './HudOverlay'
 import RetroGauge from './RetroGauge'
+import { TopBar, Glass, Badge } from '../ui/primitives'
 
 function VesselView() {
   const { vesselData, error, loading, dataAge } = useVesselData()
@@ -9,9 +10,17 @@ function VesselView() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-terminal-green text-glow animate-pulse">
-          INITIALIZING VESSEL SYSTEMS...
+      <div className="h-full w-full" style={{ position: 'relative', background: 'var(--bg)' }}>
+        <TopBar title="Vessel" />
+        <div style={{ paddingTop: 72, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+          <div style={{
+            width: 32, height: 32,
+            border: '3px solid var(--signal-soft)',
+            borderTopColor: 'var(--signal)',
+            borderRadius: '50%', margin: '0 auto 12px',
+            animation: 'oh-spin 900ms linear infinite',
+          }}/>
+          <div style={{ color: 'var(--fg2)', fontSize: 14 }}>Initializing vessel systems…</div>
         </div>
       </div>
     )
@@ -21,6 +30,9 @@ function VesselView() {
   const statusText = vesselData?.isDemoMode ? 'DEMO MODE' :
                      vesselData?.isConnected ? 'NMEA 2000' :
                      'NO LINK'
+  const statusTone = vesselData?.isConnected ? 'safe' :
+                     vesselData?.isDemoMode ? 'caution' :
+                     'warn'
 
   // Depth from vessel data (NMEA 2000 PGN 128267) — already in feet
   const depthFt = vesselData?.waterDepth
@@ -28,158 +40,164 @@ function VesselView() {
   const depthMeters = depthFt != null ? depthFt / 3.28084 : null
 
   return (
-    <div className="h-full flex flex-col bg-terminal-bg overflow-hidden">
-
-      {/* ── Status Bar ── */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-terminal-border flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className={`w-2.5 h-2.5 rounded-full ${
-            vesselData?.isConnected ? 'bg-terminal-green animate-pulse' :
-            vesselData?.isDemoMode ? 'bg-terminal-amber animate-pulse' :
-            'bg-terminal-red'
-          }`} />
-          <span className={`text-xs font-bold uppercase font-mono ${
-            vesselData?.isConnected ? 'text-terminal-green' :
-            vesselData?.isDemoMode ? 'text-terminal-amber' :
-            'text-terminal-red'
-          }`}>
-            {statusText}
-          </span>
-          <span className="text-terminal-green-dim text-xs font-mono">
-            PGN {vesselData?.pgnCount || 0}
-          </span>
-        </div>
-        <div className="flex items-center gap-4">
-          {vesselData?.engineHours != null && (
-            <span className="text-xs text-terminal-green-dim font-mono">
-              ENG {vesselData.engineHours.toFixed(1)} HRS
-            </span>
-          )}
-          <span className={`text-xs font-mono ${isStale ? 'text-terminal-red font-bold' : 'text-terminal-green-dim'}`}>
-            {dataAge != null ? (dataAge > 2000 ? 'STALE' : `${(dataAge / 1000).toFixed(1)}s`) : '--'}
-          </span>
-        </div>
-      </div>
-
-      {error && (
-        <div className="px-3 py-1 bg-terminal-surface border-b border-terminal-red text-terminal-red text-xs font-mono">
-          {error}
-        </div>
-      )}
-
-      {/* ── HUD Section (upper portion) ── */}
-      <div className="relative flex-1 min-h-0">
-        <HudOverlay
-          heading={gpsData?.heading}
-          speedMs={gpsData?.groundSpeed}
-          depthMeters={depthMeters}
-        />
-
-        {/* Center info when no GPS */}
-        {!gpsData?.heading && !gpsData?.groundSpeed && !depthMeters && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-terminal-green-dim text-sm font-mono opacity-50">
-              AWAITING GPS SIGNAL
+    <div className="h-full w-full overflow-auto" style={{ position: 'relative', background: 'var(--bg)', color: 'var(--fg1)' }}>
+      <TopBar
+        title="Vessel"
+        center={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Badge tone={statusTone} dot>{statusText}</Badge>
+            {isStale && <Badge tone="warn">STALE</Badge>}
+          </div>
+        }
+        right={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {vesselData?.engineHours != null && (
+              <span style={{ color: 'var(--fg3)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+                ENG {vesselData.engineHours.toFixed(1)} HRS
+              </span>
+            )}
+            <span style={{ color: 'var(--fg3)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+              PGN {vesselData?.pgnCount || 0}
             </span>
           </div>
+        }
+      />
+
+      <div style={{ paddingTop: 56 }}>
+        {error && (
+          <Glass radius={12} style={{ margin: '8px 16px', padding: 12, border: '0.5px solid var(--tint-red)', color: 'var(--tint-red)', fontSize: 13 }}>
+            {error}
+          </Glass>
         )}
-      </div>
 
-      {/* ── Gauge Panel (lower portion) ── */}
-      <div className="flex-shrink-0 border-t border-terminal-border bg-terminal-surface px-3 py-2 space-y-1.5">
+        {/* ── HUD Section (upper portion) ── */}
+        <div style={{ position: 'relative', height: 220 }}>
+          <HudOverlay
+            heading={gpsData?.heading}
+            speedMs={gpsData?.groundSpeed}
+            depthMeters={depthMeters}
+          />
 
-        {/* RPM — full width, large */}
-        <RetroGauge
-          label="RPM"
-          value={vesselData?.rpm}
-          min={0}
-          max={6500}
-          majorInterval={1000}
-          minorInterval={250}
-          warnAt={4000}
-          alarmAt={5500}
-          large
-        />
-
-        {/* 2-column grid for remaining gauges */}
-        <div className="grid grid-cols-2 gap-x-6 gap-y-1">
-          <RetroGauge
-            label="ENG TMP"
-            value={vesselData?.engineTemp}
-            min={100}
-            max={260}
-            unit="°F"
-            majorInterval={40}
-            minorInterval={10}
-            warnAt={200}
-            alarmAt={220}
-          />
-          <RetroGauge
-            label="VOLTS"
-            value={vesselData?.batteryVoltage}
-            min={10}
-            max={16}
-            unit="V"
-            decimals={1}
-            majorInterval={2}
-            minorInterval={0.5}
-            warnAt={12}
-            alarmAt={11}
-            invertWarning
-          />
-          <RetroGauge
-            label="OIL PSI"
-            value={vesselData?.oilPressure}
-            min={0}
-            max={80}
-            unit="PSI"
-            majorInterval={20}
-            minorInterval={5}
-            warnAt={25}
-            alarmAt={15}
-            invertWarning
-          />
-          <RetroGauge
-            label="FUEL"
-            value={vesselData?.fuelLevel}
-            min={0}
-            max={100}
-            unit="%"
-            majorInterval={25}
-            minorInterval={5}
-            warnAt={25}
-            alarmAt={15}
-            invertWarning
-          />
-          <RetroGauge
-            label="TRIM"
-            value={vesselData?.trimPosition}
-            min={0}
-            max={100}
-            unit="%"
-            majorInterval={25}
-            minorInterval={5}
-          />
-          <RetroGauge
-            label="FUEL RT"
-            value={vesselData?.fuelRate}
-            min={0}
-            max={30}
-            unit="GPH"
-            decimals={1}
-            majorInterval={10}
-            minorInterval={2}
-          />
+          {/* Center info when no GPS */}
+          {!gpsData?.heading && !gpsData?.groundSpeed && !depthMeters && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ color: 'var(--fg3)', fontSize: 13 }}>Awaiting GPS signal</span>
+            </div>
+          )}
         </div>
 
-        {/* Small text readouts row */}
-        <div className="flex justify-between pt-1 border-t border-terminal-border">
-          <SmallReadout label="WATER TEMP" value={vesselData?.waterTemp} unit="°F" />
-          <SmallReadout label="BATT AMPS" value={vesselData?.batteryCurrent} unit="A" decimals={1} />
-          <SmallReadout label="WATER DEPTH" value={vesselData?.waterDepth} unit="ft" />
-          {vesselData?.fuelCapacity != null && (
-            <SmallReadout label="FUEL CAP" value={vesselData.fuelCapacity} unit="gal" />
-          )}
+        {/* ── Gauge Panel ── */}
+        <div style={{ padding: '8px 12px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+
+          {/* RPM — full width, large */}
+          <Glass radius={12} style={{ padding: '10px 14px' }}>
+            <RetroGauge
+              label="RPM"
+              value={vesselData?.rpm}
+              min={0}
+              max={6500}
+              majorInterval={1000}
+              minorInterval={250}
+              warnAt={4000}
+              alarmAt={5500}
+              large
+            />
+          </Glass>
+
+          {/* 2-column grid for remaining gauges */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            <Glass radius={12} style={{ padding: '8px 10px' }}>
+              <RetroGauge
+                label="ENG TMP"
+                value={vesselData?.engineTemp}
+                min={100}
+                max={260}
+                unit="°F"
+                majorInterval={40}
+                minorInterval={10}
+                warnAt={200}
+                alarmAt={220}
+              />
+            </Glass>
+            <Glass radius={12} style={{ padding: '8px 10px' }}>
+              <RetroGauge
+                label="VOLTS"
+                value={vesselData?.batteryVoltage}
+                min={10}
+                max={16}
+                unit="V"
+                decimals={1}
+                majorInterval={2}
+                minorInterval={0.5}
+                warnAt={12}
+                alarmAt={11}
+                invertWarning
+              />
+            </Glass>
+            <Glass radius={12} style={{ padding: '8px 10px' }}>
+              <RetroGauge
+                label="OIL PSI"
+                value={vesselData?.oilPressure}
+                min={0}
+                max={80}
+                unit="PSI"
+                majorInterval={20}
+                minorInterval={5}
+                warnAt={25}
+                alarmAt={15}
+                invertWarning
+              />
+            </Glass>
+            <Glass radius={12} style={{ padding: '8px 10px' }}>
+              <RetroGauge
+                label="FUEL"
+                value={vesselData?.fuelLevel}
+                min={0}
+                max={100}
+                unit="%"
+                majorInterval={25}
+                minorInterval={5}
+                warnAt={25}
+                alarmAt={15}
+                invertWarning
+              />
+            </Glass>
+            <Glass radius={12} style={{ padding: '8px 10px' }}>
+              <RetroGauge
+                label="TRIM"
+                value={vesselData?.trimPosition}
+                min={0}
+                max={100}
+                unit="%"
+                majorInterval={25}
+                minorInterval={5}
+              />
+            </Glass>
+            <Glass radius={12} style={{ padding: '8px 10px' }}>
+              <RetroGauge
+                label="FUEL RT"
+                value={vesselData?.fuelRate}
+                min={0}
+                max={30}
+                unit="GPH"
+                decimals={1}
+                majorInterval={10}
+                minorInterval={2}
+              />
+            </Glass>
+          </div>
+
+          {/* Small text readouts row */}
+          <Glass radius={12} style={{ padding: '10px 16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <SmallReadout label="WATER TEMP" value={vesselData?.waterTemp} unit="°F" />
+              <SmallReadout label="BATT AMPS" value={vesselData?.batteryCurrent} unit="A" decimals={1} />
+              <SmallReadout label="WATER DEPTH" value={vesselData?.waterDepth} unit="ft" />
+              {vesselData?.fuelCapacity != null && (
+                <SmallReadout label="FUEL CAP" value={vesselData.fuelCapacity} unit="gal" />
+              )}
+            </div>
+          </Glass>
         </div>
       </div>
     </div>
@@ -191,11 +209,11 @@ function SmallReadout({ label, value, unit, decimals = 0 }) {
     ? `${typeof value === 'number' ? value.toFixed(decimals) : value}`
     : '--'
   return (
-    <div className="text-center">
-      <div className="text-[9px] text-terminal-green-dim uppercase tracking-wider font-mono">{label}</div>
-      <div className="text-sm font-mono text-terminal-green text-glow-sm">
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ fontSize: 9, color: 'var(--fg3)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{label}</div>
+      <div style={{ fontSize: 14, fontFamily: 'var(--font-mono)', color: 'var(--fg1)', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
         {display}
-        {unit && <span className="text-[9px] text-terminal-green-dim ml-0.5">{unit}</span>}
+        {unit && <span style={{ fontSize: 9, color: 'var(--fg3)', marginLeft: 2 }}>{unit}</span>}
       </div>
     </div>
   )

@@ -2,7 +2,7 @@ import { useRef, useEffect } from 'react'
 import { buildLinearGaugeSVG } from '../utils/retroGauges'
 
 /**
- * RetroGauge — 90's truck cluster style horizontal linear gauge
+ * RetroGauge — horizontal linear gauge bar
  * Uses raw SVG injection (same pattern as HudOverlay)
  */
 function RetroGauge({ value, min, max, label, unit, decimals = 0, warnAt, alarmAt, invertWarning = false, majorInterval, minorInterval, large = false }) {
@@ -44,15 +44,15 @@ function RetroGauge({ value, min, max, label, unit, decimals = 0, warnAt, alarmA
     return () => window.removeEventListener('resize', onResize)
   }, [value, min, max, warnAt, alarmAt, invertWarning, majorInterval, minorInterval, large])
 
-  // Digital readout color
-  let readoutColor = 'text-terminal-green'
+  // Digital readout color based on alarm state
+  let readoutColor = 'var(--fg1)'
   if (value != null) {
     if (invertWarning) {
-      if (alarmAt != null && value <= alarmAt) readoutColor = 'text-terminal-red'
-      else if (warnAt != null && value <= warnAt) readoutColor = 'text-terminal-amber'
+      if (alarmAt != null && value <= alarmAt) readoutColor = 'var(--tint-red)'
+      else if (warnAt != null && value <= warnAt) readoutColor = 'var(--tint-yellow)'
     } else {
-      if (alarmAt != null && value >= alarmAt) readoutColor = 'text-terminal-red'
-      else if (warnAt != null && value >= warnAt) readoutColor = 'text-terminal-amber'
+      if (alarmAt != null && value >= alarmAt) readoutColor = 'var(--tint-red)'
+      else if (warnAt != null && value >= warnAt) readoutColor = 'var(--tint-yellow)'
     }
   }
 
@@ -61,24 +61,24 @@ function RetroGauge({ value, min, max, label, unit, decimals = 0, warnAt, alarmA
     : '--'
 
   return (
-    <div className="flex items-center gap-3">
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
       {/* Label */}
-      <div className="flex-shrink-0 w-16 text-right">
-        <span className="text-[10px] text-terminal-green-dim uppercase tracking-wider font-mono font-semibold">{label}</span>
+      <div style={{ flexShrink: 0, width: 64, textAlign: 'right' }}>
+        <span style={{ fontSize: 10, color: 'var(--fg3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{label}</span>
       </div>
 
       {/* Gauge bar */}
-      <div className="flex-1 min-w-0" ref={containerRef}>
+      <div style={{ flex: 1, minWidth: 0 }} ref={containerRef}>
         <div ref={svgRef} />
       </div>
 
       {/* Digital readout */}
-      <div className="flex-shrink-0 w-20 text-right">
-        <span className={`${large ? 'text-2xl' : 'text-lg'} font-mono font-bold text-glow-sm ${readoutColor}`}>
+      <div style={{ flexShrink: 0, width: 80, textAlign: 'right' }}>
+        <span style={{ fontSize: large ? 24 : 18, fontFamily: 'var(--font-mono)', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: readoutColor }}>
           {displayVal}
         </span>
         {unit && (
-          <span className="text-[10px] text-terminal-green-dim ml-1 font-mono">{unit}</span>
+          <span style={{ fontSize: 10, color: 'var(--fg3)', marginLeft: 4, fontFamily: 'var(--font-mono)' }}>{unit}</span>
         )}
       </div>
     </div>

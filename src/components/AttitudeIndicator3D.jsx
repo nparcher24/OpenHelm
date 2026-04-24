@@ -141,7 +141,7 @@ function ReferenceGrid() {
   return (
     <group>
       {/* Horizon plane grid - rotate to XY plane since gridHelper defaults to XZ */}
-      <gridHelper args={[8, 8, 0x00ff00, 0x004400]} rotation={[Math.PI / 2, 0, 0]} />
+      <gridHelper args={[8, 8, 0x2FB56B, 0x1a2a1f]} rotation={[Math.PI / 2, 0, 0]} />
 
       {/* Cardinal direction markers on XY plane */}
       <mesh position={[0, 4, 0]}>
@@ -183,7 +183,7 @@ export default memo(function AttitudeIndicator3D({ roll, pitch, yaw, ax, ay, az 
   })
 
   return (
-    <div className="w-full h-full bg-black rounded-lg overflow-hidden">
+    <div style={{ width: '100%', height: '100%', borderRadius: 14, overflow: 'hidden', background: '#0a0a0a' }}>
       <Canvas
         camera={{ position: [5, 2, 3], fov: 50, up: [0, 0, 1] }}
         gl={{ antialias: true, alpha: false }}
