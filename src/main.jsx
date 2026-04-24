@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
+import { ThemeProvider } from './ui/theme/ThemeProvider.jsx'
 import './index.css'
 
 // Globally prevent context menu on all touch/right-click events
@@ -12,7 +13,9 @@ document.addEventListener('contextmenu', (e) => {
 }, { capture: true })
 
 createRoot(document.getElementById('root')).render(
-  <BrowserRouter>
-    <App />
-  </BrowserRouter>
+  <ThemeProvider>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </ThemeProvider>
 )

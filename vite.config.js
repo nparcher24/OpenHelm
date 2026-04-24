@@ -4,6 +4,11 @@ import { loggingPlugin } from './vite-plugins/logging-plugin.js'
 
 export default defineConfig({
   plugins: [react(), loggingPlugin()],
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./tests/setup.js'],
+    globals: true,
+  },
   server: {
     host: '0.0.0.0',
     port: 3000
