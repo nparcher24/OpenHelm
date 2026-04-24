@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { getDownloadedTiles, getStorageInfo, quickEstimateMB } from "../services/blueTopoDownloadService";
+import { TopBar, Glass, Badge } from '../ui/primitives';
 
 function BlueTopoTilesView() {
     const location = useLocation();
@@ -604,25 +605,28 @@ function BlueTopoTilesView() {
     };
 
     return (
-        <div className="relative h-full w-full bg-terminal-bg">
+        <div className="relative h-full w-full" style={{ background: 'var(--bg)', color: 'var(--fg1)' }}>
+            <TopBar title="BlueTopo tiles" right={
+                <Badge tone="info" dot>{selectedTiles.size} selected</Badge>
+            } />
             {/* Lasso Mode Indicator Border */}
             {lassoMode && (
-                <div className="absolute inset-0 pointer-events-none z-30 border-4 border-terminal-green shadow-glow-green animate-pulse" />
+                <div className="absolute inset-0 pointer-events-none z-30 border-4 animate-pulse" style={{ borderColor: 'var(--signal)' }} />
             )}
 
             {/* Map Container */}
             <div
                 ref={mapContainer}
                 className="h-full w-full"
-                style={{ position: "relative" }}
+                style={{ position: "relative", paddingTop: 56 }}
             />
 
             {/* Loading Indicator */}
             {(loading || !mapLoaded || loadingDownloaded) && (
-                <div className="absolute inset-0 flex items-center justify-center bg-terminal-bg z-10">
+                <div className="absolute inset-0 flex items-center justify-center z-10" style={{ background: 'var(--bg)' }}>
                     <div className="text-center space-y-4">
-                        <div className="w-8 h-8 border-4 border-terminal-green border-t-transparent rounded-full animate-spin mx-auto shadow-glow-green"></div>
-                        <p className="text-terminal-green-dim">
+                        <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin mx-auto" style={{ borderColor: 'var(--signal)', borderTopColor: 'transparent' }}></div>
+                        <p style={{ color: 'var(--fg2)' }}>
                             {tileSourceStatus === "syncing"
                                 ? "Syncing with NOAA..."
                                 : loading
@@ -638,11 +642,13 @@ function BlueTopoTilesView() {
             {/* Back Button */}
             <button
                 onClick={() => navigate(location.state?.returnTo || "/settings?section=bluetopo")}
-                className="absolute top-4 left-4 z-30 bg-terminal-surface hover:bg-terminal-green/10 rounded-lg shadow-glow-green-sm p-3 border border-terminal-border hover:border-terminal-green transition-colors touch-manipulation"
+                className="absolute z-30 rounded-lg p-3 touch-manipulation"
+                style={{ top: 64, left: 16, background: 'var(--bg-elev)', border: '0.5px solid var(--bg-hairline-strong)' }}
                 title="Back"
             >
                 <svg
-                    className="w-6 h-6 text-terminal-green"
+                    className="w-6 h-6"
+                    style={{ color: 'var(--fg1)' }}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -658,19 +664,19 @@ function BlueTopoTilesView() {
 
             {/* Tile Statistics and Selection Tools Panel */}
             {!loading && !loadingDownloaded && (
-                <div className="absolute top-16 left-4 bg-terminal-surface rounded-lg shadow-glow-green-sm p-4 max-w-sm z-20 border border-terminal-border">
-                    <h3 className="font-semibold text-terminal-green mb-3 uppercase tracking-wide text-sm">
+                <Glass className="absolute z-20 p-4 max-w-sm" style={{ top: 116, left: 16 }} radius={12}>
+                    <h3 className="font-semibold mb-3 uppercase tracking-wide text-sm" style={{ color: 'var(--fg1)' }}>
                         Selection Tools
                     </h3>
 
                     {/* Lasso Mode Button */}
                     <button
                         onClick={() => setLassoMode(!lassoMode)}
-                        className={`w-full mb-3 px-4 py-3 rounded-lg font-medium transition-all touch-manipulation ${
-                            lassoMode
-                                ? "bg-terminal-green text-terminal-bg shadow-glow-green"
-                                : "bg-terminal-bg border border-terminal-border hover:border-terminal-green text-terminal-green"
-                        }`}
+                        className="w-full mb-3 px-4 py-3 rounded-lg font-medium transition-all touch-manipulation"
+                        style={lassoMode
+                            ? { background: 'var(--signal)', color: '#fff' }
+                            : { background: 'var(--bg)', border: '0.5px solid var(--bg-hairline-strong)', color: 'var(--fg1)' }
+                        }
                     >
                         <div className="flex items-center justify-center space-x-2">
                             <svg
@@ -694,20 +700,20 @@ function BlueTopoTilesView() {
                         </div>
                     </button>
 
-                    <div className="text-sm space-y-2 text-terminal-green-dim font-mono">
+                    <div className="text-sm space-y-2 font-mono" style={{ color: 'var(--fg2)' }}>
                         {/* Selection counts */}
                         <div className="space-y-1">
                             <div className="flex items-center space-x-2">
                                 <div className="w-3 h-3 rounded bg-cyan-500"></div>
                                 <span>
-                                    <span className="text-terminal-cyan">Downloaded:</span>{" "}
+                                    <span style={{ color: 'var(--tint-teal)' }}>Downloaded:</span>{" "}
                                     {Array.from(selectedTiles).filter(t => downloadedTileIds.has(t)).length} kept
                                 </span>
                             </div>
                             <div className="flex items-center space-x-2">
-                                <div className="w-3 h-3 rounded bg-terminal-green"></div>
+                                <div className="w-3 h-3 rounded" style={{ background: 'var(--signal)' }}></div>
                                 <span>
-                                    <span className="text-terminal-green">New:</span>{" "}
+                                    <span style={{ color: 'var(--fg1)' }}>New:</span>{" "}
                                     {Array.from(selectedTiles).filter(t => !downloadedTileIds.has(t)).length} to download
                                 </span>
                             </div>
@@ -715,19 +721,19 @@ function BlueTopoTilesView() {
                                 <div className="flex items-center space-x-2">
                                     <div className="w-3 h-3 rounded bg-cyan-900"></div>
                                     <span>
-                                        <span className="text-cyan-700">Deselected:</span>{" "}
+                                        <span style={{ color: 'var(--fg2)' }}>Deselected:</span>{" "}
                                         {Array.from(downloadedTileIds).filter(t => !selectedTiles.has(t)).length} to remove
                                     </span>
                                 </div>
                             )}
                         </div>
-                        <div className="pt-2 border-t border-terminal-border">
-                            <span className="text-terminal-green">Total Selected:</span> {selectedTiles.size} /{" "}
+                        <div className="pt-2" style={{ borderTop: '0.5px solid var(--bg-hairline-strong)' }}>
+                            <span style={{ color: 'var(--fg1)' }}>Total Selected:</span> {selectedTiles.size} /{" "}
                             {stats.total} tiles
                         </div>
                         <div className="space-y-1">
                             <div>
-                                <span className="text-terminal-green">Resolution:</span>
+                                <span style={{ color: 'var(--fg1)' }}>Resolution:</span>
                             </div>
                             {Object.entries(stats.resolutions).map(
                                 ([res, count]) => (
@@ -736,17 +742,18 @@ function BlueTopoTilesView() {
                                         className="flex items-center space-x-2 ml-4"
                                     >
                                         <div
-                                            className={`w-3 h-3 rounded ${
-                                                res === "2m"
-                                                    ? "bg-terminal-red"
+                                            className="w-3 h-3 rounded"
+                                            style={{
+                                                background: res === "2m"
+                                                    ? 'var(--tint-red)'
                                                     : res === "4m"
-                                                      ? "bg-terminal-cyan"
+                                                      ? 'var(--tint-teal)'
                                                       : res === "8m"
-                                                        ? "bg-terminal-green"
+                                                        ? 'var(--signal)'
                                                         : res === "16m"
-                                                          ? "bg-terminal-amber"
-                                                          : "bg-terminal-border"
-                                            }`}
+                                                          ? 'var(--tint-yellow)'
+                                                          : 'var(--fill-2)'
+                                            }}
                                         ></div>
                                         <span>
                                             {res}: {count} tiles
@@ -755,10 +762,10 @@ function BlueTopoTilesView() {
                                 ),
                             )}
                         </div>
-                        <div className="text-xs text-terminal-green-dim mt-3 pt-3 border-t border-terminal-border">
+                        <div className="text-xs mt-3 pt-3" style={{ color: 'var(--fg2)', borderTop: '0.5px solid var(--bg-hairline-strong)' }}>
                             {lassoMode ? (
                                 <>
-                                    <div className="flex items-center space-x-1 text-terminal-green font-medium mb-1">
+                                    <div className="flex items-center space-x-1 font-medium mb-1" style={{ color: 'var(--fg1)' }}>
                                         <svg
                                             className="w-4 h-4"
                                             fill="currentColor"
@@ -785,40 +792,40 @@ function BlueTopoTilesView() {
                             )}
                         </div>
                     </div>
-                </div>
+                </Glass>
             )}
 
             {/* Highlighted Tiles Banner */}
             {highlightedTiles.length > 0 && (
-                <div className="absolute top-4 right-4 bg-terminal-amber/10 border-2 border-terminal-amber rounded-lg shadow-glow-amber p-4 max-w-sm z-20">
+                <Glass className="absolute max-w-sm z-20 p-4" style={{ top: 64, right: 16 }} radius={12}>
                     <div className="flex items-center space-x-3">
-                        <div className="flex items-center justify-center w-10 h-10 bg-terminal-amber rounded-full">
-                            <span className="text-lg font-bold text-terminal-bg">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full" style={{ background: 'var(--tint-yellow)', color: 'var(--bg)' }}>
+                            <span className="text-lg font-bold">
                                 {highlightedTiles.length}
                             </span>
                         </div>
                         <div>
-                            <h3 className="font-semibold text-terminal-amber">
+                            <h3 className="font-semibold" style={{ color: 'var(--tint-yellow)' }}>
                                 Selected Tiles Highlighted
                             </h3>
-                            <p className="text-xs text-terminal-green-dim">
+                            <p className="text-xs" style={{ color: 'var(--fg2)' }}>
                                 Shown with gold outline
                             </p>
                         </div>
                     </div>
-                </div>
+                </Glass>
             )}
 
             {/* Selected Tile Info Panel */}
             {selectedTile && (
-                <div className="absolute bottom-4 left-4 bg-terminal-surface rounded-lg shadow-glow-green-sm p-4 max-w-md z-20 border border-terminal-border">
+                <Glass className="absolute bottom-4 left-4 p-4 max-w-md z-20" radius={12}>
                     <div className="flex justify-between items-start mb-2">
-                        <h3 className="font-semibold text-terminal-green font-mono">
+                        <h3 className="font-semibold font-mono" style={{ color: 'var(--fg1)' }}>
                             Tile: {selectedTile.tile}
                         </h3>
                         <button
                             onClick={() => setSelectedTile(null)}
-                            className="text-terminal-green-dim hover:text-terminal-green"
+                            style={{ color: 'var(--fg2)' }}
                         >
                             <svg
                                 className="w-5 h-5"
@@ -835,42 +842,43 @@ function BlueTopoTilesView() {
                             </svg>
                         </button>
                     </div>
-                    <div className="text-sm space-y-2 text-terminal-green-dim font-mono">
+                    <div className="text-sm space-y-2 font-mono" style={{ color: 'var(--fg2)' }}>
                         <div>
-                            <span className="text-terminal-green">Resolution:</span>{" "}
+                            <span style={{ color: 'var(--fg1)' }}>Resolution:</span>{" "}
                             {selectedTile.resolution}
                         </div>
                         <div>
-                            <span className="text-terminal-green">Delivery Date:</span>{" "}
+                            <span style={{ color: 'var(--fg1)' }}>Delivery Date:</span>{" "}
                             {new Date(selectedTile.date).toLocaleDateString()}
                         </div>
                         <div>
-                            <span className="text-terminal-green">UTM Zone:</span> {selectedTile.utm}
+                            <span style={{ color: 'var(--fg1)' }}>UTM Zone:</span> {selectedTile.utm}
                         </div>
                         <div className="pt-2">
                             <a
                                 href={selectedTile.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-terminal-cyan hover:underline text-xs break-all"
+                                className="hover:underline text-xs break-all"
+                                style={{ color: 'var(--tint-teal)' }}
                             >
                                 Download URL →
                             </a>
                         </div>
                     </div>
-                </div>
+                </Glass>
             )}
 
             {/* Selection Action Panel */}
             {(selectedTiles.size > 0 || downloadedTileIds.size > 0) && (
-                <div className="absolute bottom-4 right-4 bg-terminal-surface rounded-lg shadow-glow-green p-4 z-20 border border-terminal-green max-w-md">
+                <Glass className="absolute bottom-4 right-4 p-4 z-20 max-w-md" radius={12}>
                     <div className="space-y-3">
                         {/* Summary counts */}
                         <div className="flex items-center space-x-4 text-sm font-mono">
                             {Array.from(selectedTiles).filter(t => !downloadedTileIds.has(t)).length > 0 && (
                                 <div className="flex items-center space-x-2">
-                                    <div className="w-3 h-3 rounded bg-terminal-green"></div>
-                                    <span className="text-terminal-green">
+                                    <div className="w-3 h-3 rounded" style={{ background: 'var(--signal)' }}></div>
+                                    <span style={{ color: 'var(--fg1)' }}>
                                         +{Array.from(selectedTiles).filter(t => !downloadedTileIds.has(t)).length} new
                                     </span>
                                 </div>
@@ -878,7 +886,7 @@ function BlueTopoTilesView() {
                             {Array.from(selectedTiles).filter(t => downloadedTileIds.has(t)).length > 0 && (
                                 <div className="flex items-center space-x-2">
                                     <div className="w-3 h-3 rounded bg-cyan-500"></div>
-                                    <span className="text-terminal-cyan">
+                                    <span style={{ color: 'var(--tint-teal)' }}>
                                         {Array.from(selectedTiles).filter(t => downloadedTileIds.has(t)).length} keeping
                                     </span>
                                 </div>
@@ -886,7 +894,7 @@ function BlueTopoTilesView() {
                             {Array.from(downloadedTileIds).filter(t => !selectedTiles.has(t)).length > 0 && (
                                 <div className="flex items-center space-x-2">
                                     <div className="w-3 h-3 rounded bg-cyan-900"></div>
-                                    <span className="text-cyan-600">
+                                    <span style={{ color: 'var(--fg2)' }}>
                                         -{Array.from(downloadedTileIds).filter(t => !selectedTiles.has(t)).length} removing
                                     </span>
                                 </div>
@@ -902,17 +910,17 @@ function BlueTopoTilesView() {
                             const exceedsFree = freeGB != null && estMB / 1024 > freeGB;
 
                             return newTiles.length > 0 ? (
-                                <div className="text-xs font-mono space-y-1 border-t border-terminal-border pt-2">
-                                    <div className="text-terminal-green-dim">
-                                        Est. download: <span className="text-terminal-green">{estMB >= 1024 ? `${estGB} GB` : `${estMB} MB`}</span>
+                                <div className="text-xs font-mono space-y-1 pt-2" style={{ borderTop: '0.5px solid var(--bg-hairline-strong)' }}>
+                                    <div style={{ color: 'var(--fg2)' }}>
+                                        Est. download: <span style={{ color: 'var(--fg1)' }}>{estMB >= 1024 ? `${estGB} GB` : `${estMB} MB`}</span>
                                     </div>
                                     {freeGB != null && (
-                                        <div className="text-terminal-green-dim">
-                                            Free space: <span className="text-terminal-green">{freeGB} GB</span>
+                                        <div style={{ color: 'var(--fg2)' }}>
+                                            Free space: <span style={{ color: 'var(--fg1)' }}>{freeGB} GB</span>
                                         </div>
                                     )}
                                     {exceedsFree && (
-                                        <div className="text-terminal-red font-medium">
+                                        <div className="font-medium" style={{ color: 'var(--tint-red)' }}>
                                             Warning: estimated size exceeds free disk space
                                         </div>
                                     )}
@@ -922,26 +930,28 @@ function BlueTopoTilesView() {
 
                         {/* Actions */}
                         <div className="flex items-center justify-between">
-                            <div className="text-sm text-terminal-green-dim font-mono">
+                            <div className="text-sm font-mono" style={{ color: 'var(--fg2)' }}>
                                 {selectedTiles.size} tile{selectedTiles.size !== 1 ? "s" : ""} total
                             </div>
                             <div className="flex space-x-2">
                                 <button
                                     onClick={handleClearSelection}
-                                    className="terminal-btn"
+                                    className="px-3 py-2 rounded-lg text-sm font-medium"
+                                    style={{ background: 'var(--fill-1)', color: 'var(--fg1)', border: '0.5px solid var(--bg-hairline-strong)' }}
                                 >
                                     Clear All
                                 </button>
                                 <button
                                     onClick={handleViewSelected}
-                                    className="terminal-btn-primary"
+                                    className="px-3 py-2 rounded-lg text-sm font-medium"
+                                    style={{ background: 'var(--signal)', color: '#fff' }}
                                 >
                                     Done
                                 </button>
                             </div>
                         </div>
                     </div>
-                </div>
+                </Glass>
             )}
         </div>
     );
