@@ -12,7 +12,7 @@ export function ThemeCycleButton() {
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       border: 0, cursor: 'pointer',
     }}>
-      <Icon name={ICON[theme] || 'info'} size={18} />
+      <Icon name={ICON[theme] || 'info'} size={25} />
     </button>
   )
 }

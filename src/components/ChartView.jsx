@@ -18,7 +18,7 @@ import DepthCrosshairs from './DepthCrosshairs'
 import DepthInfoCard from './DepthInfoCard'
 import WaypointMenu from './WaypointMenu'
 import WaypointEditModal from './WaypointEditModal'
-import S57SubLayerMenu, { S57_SUBLAYER_GROUPS } from './S57SubLayerMenu'
+import { S57_SUBLAYER_GROUPS } from './S57SubLayerMenu'
 import S57FeatureCard from './S57FeatureCard'
 import { createMarkerSVG } from '../utils/waypointIcons'
 import {
@@ -98,7 +98,6 @@ function ChartView() {
   })
   const [s57RegionCount, setS57RegionCount] = useState(0)
   const [s57LayersLoaded, setS57LayersLoaded] = useState(0)
-  const [s57SubLayerMenuOpen, setS57SubLayerMenuOpen] = useState(false)
   const [s57SubLayerVisibility, setS57SubLayerVisibility] = useState(() => {
     try {
       const saved = localStorage.getItem('chartview_s57_sublayers')
@@ -127,11 +126,6 @@ function ChartView() {
   // (CSS var(--signal) cannot be used in SVG stroke strings, so hex is used directly.)
 
   const [layersMenuOpen, setLayersMenuOpen] = useState(false)
-
-  const [chartSource, setChartSource] = useState(
-    () => localStorage.getItem('openhelm.chartSource') || 'nautical'
-  )
-  useEffect(() => { localStorage.setItem('openhelm.chartSource', chartSource) }, [chartSource])
 
   // Save layer visibility to localStorage when it changes
   useEffect(() => {
@@ -1855,40 +1849,6 @@ function ChartView() {
         downloadedAt={weatherDownloadedAt}
       />
 
-      {/* S-57 Sublayer Filter - only shows when vector charts are visible */}
-      {s57LayersVisible && s57RegionCount > 0 && (
-        <div style={{ position: 'absolute', left: 14, top: 70, zIndex: 5 }}>
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setS57SubLayerMenuOpen(v => !v)}
-              style={{
-                width: 40, height: 40, borderRadius: 10, border: 0, cursor: 'pointer',
-                background: s57SubLayerMenuOpen ? 'var(--fill-1)' : 'var(--bg-chrome)',
-                backdropFilter: s57SubLayerMenuOpen ? 'none' : 'var(--blur-chrome)',
-                WebkitBackdropFilter: s57SubLayerMenuOpen ? 'none' : 'var(--blur-chrome)',
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                color: 'var(--fg1)',
-              }}
-              aria-label="Vector chart filter"
-              title="Filter vector chart layers"
-            >
-              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
-              </svg>
-            </button>
-            {s57SubLayerMenuOpen && (
-              <S57SubLayerMenu
-                sublayerVisibility={s57SubLayerVisibility}
-                onToggleSublayer={handleToggleSublayer}
-                onToggleGroup={handleToggleGroup}
-                onClose={() => setS57SubLayerMenuOpen(false)}
-              />
-            )}
-          </div>
-        </div>
-      )}
-
       {/* NEW CHROME: Top bar */}
       <ChartTopBar
         speed={gpsData?.speed}
@@ -1919,20 +1879,22 @@ function ChartView() {
           else if (id === 'satellite') setSatelliteLayersVisible(v)
           else if (id === 'weather') setWeatherLayersVisible(v)
         }}
-        chartSource={chartSource}
-        onChartSourceChange={setChartSource}
         onWaypointsOpenChange={setWaypointDropdownOpen}
+        s57FilterVisible={s57LayersVisible && s57RegionCount > 0}
+        s57SubLayerVisibility={s57SubLayerVisibility}
+        onToggleSublayer={handleToggleSublayer}
+        onToggleGroup={handleToggleGroup}
       />
 
       {/* RIGHT: compass + zoom */}
       <div style={{
-        position: 'absolute', top: 68, right: 12, zIndex: 5,
-        display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end',
+        position: 'absolute', top: 88, right: 14, zIndex: 5,
+        display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end',
       }}>
         <CompassRose
           heading={gpsData?.heading ?? 0}
           headingUp={!northUp}
-          size={72}
+          size={96}
         />
         <ChartZoomStack
           onZoomIn={() => map.current?.zoomIn()}
@@ -1949,7 +1911,7 @@ function ChartView() {
       />
 
       {/* BOTTOM-RIGHT: scale bar */}
-      <div style={{ position: 'absolute', bottom: 14, right: 12, zIndex: 5 }}>
+      <div style={{ position: 'absolute', bottom: 16, right: 14, zIndex: 5 }}>
         <ScaleBar/>
       </div>
 

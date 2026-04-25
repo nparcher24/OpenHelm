@@ -94,7 +94,7 @@ const S57SubLayerMenu = React.memo(function S57SubLayerMenu({ sublayerVisibility
 
       {/* Menu Content */}
       <div
-        className="absolute top-14 left-0 z-40"
+        className="absolute top-14 right-0 z-40"
         style={{ minWidth: 280, maxHeight: '70vh', overflow: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
       >
         <Glass radius={12} style={{ padding: 0, overflow: 'hidden', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
