@@ -21,6 +21,7 @@ import WaypointEditModal from './WaypointEditModal'
 import { S57_SUBLAYER_GROUPS } from './S57SubLayerMenu'
 import S57FeatureCard from './S57FeatureCard'
 import { createMarkerSVG } from '../utils/waypointIcons'
+import useVesselData from '../hooks/useVesselData'
 import {
   ChartTopBar,
   CompassRose,
@@ -55,16 +56,25 @@ function ChartView() {
   // Live depth/position display during crosshairs hold
   const [liveDepthData, setLiveDepthData] = useState(null)
 
+  // Top-bar Depth metric source:
+  //   1) NMEA 2000 water depth (PGN 128267) when a real bus is connected.
+  //   2) BlueTopo bathymetry sampled at the vessel's GPS position.
+  //   3) `null` (renders as `—`) when neither is available — e.g. on land or
+  //      outside downloaded BlueTopo coverage.
+  const { vesselData } = useVesselData()
+  const [vesselBlueTopoDepthFt, setVesselBlueTopoDepthFt] = useState(null)
+
   // GPS tracking state
   // trackingMode: null = not tracking, 'center' = boat centered, 'offset' = boat 1/3 from bottom
   const [trackingMode, setTrackingMode] = useState('center')  // Start tracking by default
-  const [northUp, setNorthUp] = useState(false)  // true = north up, false = heading up
+  // 'north' = north up, 'heading' = bow up, 'track' = ground-track (COG) up
+  const [orientationMode, setOrientationMode] = useState('heading')
   const initialGpsCenterDone = useRef(false)  // Track if we've done initial GPS center
   const [gpsData, setGpsData] = useState(null)
   const boatMarkerRef = useRef(null)
   const headingLineRef = useRef(null)
   const trackingModeRef = useRef(null)
-  const northUpRef = useRef(false)
+  const orientationModeRef = useRef('heading')
   const bearingFrozenRef = useRef(false)  // True when bearing is frozen after pan decouple
 
   // Waypoint state
@@ -166,8 +176,17 @@ function ChartView() {
   }, [trackingMode])
 
   useEffect(() => {
-    northUpRef.current = northUp
-  }, [northUp])
+    orientationModeRef.current = orientationMode
+  }, [orientationMode])
+
+  // Compute the desired map bearing for the current orientation mode.
+  // Track-up uses COG, falling back to heading when COG is unavailable
+  // (e.g. boat is stopped or COG hasn't been reported yet).
+  const bearingForMode = useCallback((mode, gps) => {
+    if (mode === 'north') return 0
+    if (mode === 'track') return gps?.cog ?? gps?.heading ?? 0
+    return gps?.heading ?? 0
+  }, [])
 
   // Query live depth when crosshairs appear
   useEffect(() => {
@@ -204,6 +223,56 @@ function ChartView() {
 
     return () => clearTimeout(timeoutId)
   }, [touchState?.showingCrosshairs, touchState?.currentX, touchState?.currentY])
+
+  // BlueTopo depth at the vessel's GPS position — fallback for the top-bar
+  // Depth metric when NMEA 2000 sounder data isn't available. Throttled by
+  // rounding the position to ~11 m (4 decimal places) so the effect doesn't
+  // refire on every GPS jitter, and skipped entirely when a real NMEA bus is
+  // already supplying depth.
+  const nmeaDepthLive =
+    vesselData?.isConnected && !vesselData?.isDemoMode && vesselData?.waterDepth != null
+      ? vesselData.waterDepth
+      : null
+  const vlat = gpsData?.latitude
+  const vlng = gpsData?.longitude
+  const vlatKey = vlat != null ? Math.round(vlat * 1e4) / 1e4 : null
+  const vlngKey = vlng != null ? Math.round(vlng * 1e4) / 1e4 : null
+  useEffect(() => {
+    if (nmeaDepthLive != null) {
+      setVesselBlueTopoDepthFt(null)
+      return
+    }
+    // Inline GPS-fix validation; the shared helpers (`isValidCoordinate`,
+    // `hasGpsFix`) are defined further down in this component.
+    const validCoord =
+      typeof vlat === 'number' && typeof vlng === 'number' &&
+      !Number.isNaN(vlat) && !Number.isNaN(vlng) &&
+      vlat >= -90 && vlat <= 90 && vlng >= -180 && vlng <= 180
+    const hasFix = !(vlat === 0 && vlng === 0)
+    if (!validCoord || !hasFix) {
+      setVesselBlueTopoDepthFt(null)
+      return
+    }
+    let cancelled = false
+    const timeoutId = setTimeout(async () => {
+      try {
+        const result = await getDepthAtLocation(vlng, vlat)
+        if (cancelled) return
+        // depthQueryService returns elevation in meters: negative below sea
+        // level, ≥ 0 means on land / out of water → leave the metric blank.
+        if (!result?.success || result.depth == null || result.depth >= 0) {
+          setVesselBlueTopoDepthFt(null)
+          return
+        }
+        setVesselBlueTopoDepthFt(Math.round(-result.depth * 3.28084 * 10) / 10)
+      } catch {
+        if (!cancelled) setVesselBlueTopoDepthFt(null)
+      }
+    }, 500)
+    return () => { cancelled = true; clearTimeout(timeoutId) }
+  }, [nmeaDepthLive, vlatKey, vlngKey])
+
+  const topBarDepthFt = nmeaDepthLive ?? vesselBlueTopoDepthFt
 
   // Default position just offshore Virginia Beach oceanfront (no GPS / no satellite fix)
   const DEFAULT_NO_FIX_POSITION = { latitude: 36.853, longitude: -75.960 }
@@ -296,14 +365,14 @@ function ChartView() {
     const centerLat = fix ? gpsData.latitude : DEFAULT_NO_FIX_POSITION.latitude
     const centerLng = fix ? gpsData.longitude : DEFAULT_NO_FIX_POSITION.longitude
 
-    // Fly to GPS position at default zoom with heading-up bearing
+    // Fly to GPS position at default zoom with the orientation-appropriate bearing
     map.current.flyTo({
       center: [centerLng, centerLat],
       zoom: defaultZoom,
-      bearing: northUp ? 0 : (gpsData.heading || 0),
+      bearing: bearingForMode(orientationMode, gpsData),
       duration: 1000
     })
-  }, [mapLoaded, gpsData, northUp])
+  }, [mapLoaded, gpsData, orientationMode, bearingForMode])
 
   // Load waypoints when map is ready
   const loadWaypoints = async () => {
@@ -558,24 +627,24 @@ function ChartView() {
     }
   }, [mapLoaded, updateHeadingLine])
 
-  // Update map bearing when north-up toggle changes (only when NOT tracking - tracking handles its own bearing)
+  // Update map bearing when orientation mode changes (only when NOT tracking - tracking handles its own bearing)
   useEffect(() => {
     if (!map.current || !mapLoaded || trackingMode) return
 
-    if (northUp) {
+    if (orientationMode === 'north') {
       // Bearing frozen by pan decouple - don't snap to 0, just leave map as-is
       if (bearingFrozenRef.current) return
       map.current.easeTo({ bearing: 0, duration: 200 })
       return
     }
 
-    // Heading-up mode: follow GPS heading
+    // Heading-up / track-up: slave bearing to live source
     bearingFrozenRef.current = false
     map.current.easeTo({
-      bearing: gpsData?.heading || 0,
+      bearing: bearingForMode(orientationMode, gpsData),
       duration: 200
     })
-  }, [northUp, gpsData?.heading, mapLoaded, trackingMode])
+  }, [orientationMode, gpsData?.heading, gpsData?.cog, mapLoaded, trackingMode, bearingForMode])
 
   // Tracking mode - follow boat position with bearing rotation
   // Only depends on position + heading fields, not entire gpsData object
@@ -587,7 +656,7 @@ function ChartView() {
     const trackLat = fix ? gpsData.latitude : DEFAULT_NO_FIX_POSITION.latitude
     const trackLng = fix ? gpsData.longitude : DEFAULT_NO_FIX_POSITION.longitude
     const mapHeight = map.current.getContainer().clientHeight
-    const bearing = northUp ? 0 : (gpsData.heading || 0)
+    const bearing = bearingForMode(orientationMode, gpsData)
 
     if (trackingMode === 'center') {
       // Mode 1: Boat centered in middle of screen
@@ -607,7 +676,7 @@ function ChartView() {
         duration: 200  // Match 5 Hz update interval for smooth motion
       })
     }
-  }, [trackingMode, gpsData?.latitude, gpsData?.longitude, gpsData?.heading, northUp])
+  }, [trackingMode, gpsData?.latitude, gpsData?.longitude, gpsData?.heading, gpsData?.cog, orientationMode, bearingForMode])
 
   // Decouple from tracking on user pan
   useEffect(() => {
@@ -619,10 +688,10 @@ function ChartView() {
         if (trackingModeRef.current) {
           setTrackingMode(null)
         }
-        // Also exit heading-follow mode, freezing the current bearing
-        if (!northUpRef.current) {
+        // Also exit any orientation lock (heading/track), freezing the current bearing
+        if (orientationModeRef.current !== 'north') {
           bearingFrozenRef.current = true
-          setNorthUp(true)
+          setOrientationMode('north')
         }
       }
     }
@@ -1613,9 +1682,10 @@ function ChartView() {
   }, [])
 
   // Memoized button handlers to prevent unnecessary re-renders
-  const handleToggleNorthUp = useCallback(() => {
-    bearingFrozenRef.current = false  // Manual toggle always resets frozen state
-    setNorthUp(n => !n)
+  // Cycle: north → heading → track → north
+  const handleCycleOrientation = useCallback(() => {
+    bearingFrozenRef.current = false  // Manual cycle always resets frozen state
+    setOrientationMode(m => (m === 'north' ? 'heading' : m === 'heading' ? 'track' : 'north'))
   }, [])
   const handleCycleTrackingMode = useCallback(() => {
     setTrackingMode(mode => {
@@ -1852,7 +1922,7 @@ function ChartView() {
       {/* NEW CHROME: Top bar */}
       <ChartTopBar
         speed={gpsData?.speed}
-        depth={liveDepthData?.depth_ft}
+        depth={topBarDepthFt}
         heading={gpsData?.heading}
         waypoints={waypoints}
         onSelectWaypoint={(w) => {
@@ -1892,8 +1962,8 @@ function ChartView() {
         display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end',
       }}>
         <CompassRose
-          heading={gpsData?.heading ?? 0}
-          headingUp={!northUp}
+          heading={orientationMode === 'track' ? (gpsData?.cog ?? gpsData?.heading ?? 0) : (gpsData?.heading ?? 0)}
+          headingUp={orientationMode !== 'north'}
           size={96}
         />
         <ChartZoomStack
@@ -1902,12 +1972,12 @@ function ChartView() {
         />
       </div>
 
-      {/* BOTTOM-LEFT: follow + heading-lock pills */}
+      {/* BOTTOM-LEFT: follow + orientation pills */}
       <FollowControls
         centerOn={trackingMode !== null}
         setCenterOn={(v) => setTrackingMode(v ? 'center' : null)}
-        headingLock={!northUp}
-        setHeadingLock={(v) => setNorthUp(!v)}
+        orientationMode={orientationMode}
+        onCycleOrientation={handleCycleOrientation}
       />
 
       {/* BOTTOM-RIGHT: scale bar */}
