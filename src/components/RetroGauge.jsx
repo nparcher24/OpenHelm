@@ -61,10 +61,10 @@ function RetroGauge({ value, min, max, label, unit, decimals = 0, warnAt, alarmA
     : '--'
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
       {/* Label */}
-      <div style={{ flexShrink: 0, width: 64, textAlign: 'right' }}>
-        <span style={{ fontSize: 10, color: 'var(--fg3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{label}</span>
+      <div style={{ flexShrink: 0, width: 88, textAlign: 'right' }}>
+        <span style={{ fontSize: 14, color: 'var(--fg3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{label}</span>
       </div>
 
       {/* Gauge bar */}
@@ -73,12 +73,12 @@ function RetroGauge({ value, min, max, label, unit, decimals = 0, warnAt, alarmA
       </div>
 
       {/* Digital readout */}
-      <div style={{ flexShrink: 0, width: 80, textAlign: 'right' }}>
-        <span style={{ fontSize: large ? 24 : 18, fontFamily: 'var(--font-mono)', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: readoutColor }}>
+      <div style={{ flexShrink: 0, width: 110, textAlign: 'right' }}>
+        <span style={{ fontSize: large ? 32 : 24, fontFamily: 'var(--font-mono)', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: readoutColor }}>
           {displayVal}
         </span>
         {unit && (
-          <span style={{ fontSize: 10, color: 'var(--fg3)', marginLeft: 4, fontFamily: 'var(--font-mono)' }}>{unit}</span>
+          <span style={{ fontSize: 14, color: 'var(--fg3)', marginLeft: 6, fontFamily: 'var(--font-mono)' }}>{unit}</span>
         )}
       </div>
     </div>

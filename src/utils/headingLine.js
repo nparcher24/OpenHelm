@@ -1,26 +1,25 @@
-// Heading line with distance tick marks
-// Renders an SVG line from the boat icon extending in the heading direction
-// Length is always 1/3 of viewport height; tick marks show statute distances
+// Heading line — Apple-Maps-style forward cone with a thin gradient centerline
+// and tabular-numeric distance ticks. Length is half the viewport height.
+// `color` is a CSS color string (hex or `var(--*)`) — passed through into SVG
+// attributes so theme changes recolor the line automatically.
 
 const METERS_PER_FOOT = 0.3048
 const FEET_PER_MILE = 5280
 
-// "Nice" distance intervals in feet, from small to large
 const NICE_INTERVALS_FT = [
   5, 10, 25, 50, 100, 250, 500,
   1000, 2000, 2500,
-  FEET_PER_MILE * 0.25,   // 0.25 mi
-  FEET_PER_MILE * 0.5,    // 0.5 mi
-  FEET_PER_MILE,           // 1 mi
-  FEET_PER_MILE * 2,       // 2 mi
-  FEET_PER_MILE * 5,       // 5 mi
-  FEET_PER_MILE * 10,      // 10 mi
-  FEET_PER_MILE * 25,      // 25 mi
-  FEET_PER_MILE * 50,      // 50 mi
-  FEET_PER_MILE * 100,     // 100 mi
+  FEET_PER_MILE * 0.25,
+  FEET_PER_MILE * 0.5,
+  FEET_PER_MILE,
+  FEET_PER_MILE * 2,
+  FEET_PER_MILE * 5,
+  FEET_PER_MILE * 10,
+  FEET_PER_MILE * 25,
+  FEET_PER_MILE * 50,
+  FEET_PER_MILE * 100,
 ]
 
-// Format a distance in feet to a readable label
 function formatDistance(feet) {
   if (feet >= FEET_PER_MILE) {
     const miles = feet / FEET_PER_MILE
@@ -32,7 +31,6 @@ function formatDistance(feet) {
   return `${Math.round(feet)} ft`
 }
 
-// Pick a nice tick interval that gives ~4-6 ticks for the given total distance in feet
 function pickTickInterval(totalFeet) {
   const targetTicks = 3
   const idealInterval = totalFeet / targetTicks
@@ -41,29 +39,25 @@ function pickTickInterval(totalFeet) {
     const ticks = Math.floor(totalFeet / interval)
     if (ticks >= 2 && ticks <= 4 && interval >= idealInterval * 0.5) return interval
   }
-  // Fallback: find closest to giving 3 ticks
   for (const interval of NICE_INTERVALS_FT) {
     if (interval >= idealInterval * 0.5) return interval
   }
   return NICE_INTERVALS_FT[NICE_INTERVALS_FT.length - 1]
 }
 
-// Calculate meters-per-pixel at a given latitude and zoom level
 function metersPerPixel(latitude, zoom) {
   return (Math.cos(latitude * Math.PI / 180) * 2 * Math.PI * 6378137) / (256 * Math.pow(2, zoom))
 }
 
-// Build the heading line SVG content (everything above the boat icon)
-// color = boat fill color (green for fix, red for no fix)
-// heading/cog in degrees; ground track line shown when difference > 20°
-export function buildHeadingLineSVG(map, boatLat, color = '#22c55e', heading = null, cog = null) {
+const DRIFT_COLOR = 'var(--beacon)'
+
+export function buildHeadingLineSVG(map, boatLat, color = 'var(--signal)', heading = null, cog = null) {
   if (!map) return null
 
   const viewportHeight = map.getCanvas().clientHeight
   const linePixelLength = Math.floor(viewportHeight / 2)
   const zoom = map.getZoom()
 
-  // Real-world distance the line represents
   const mpp = metersPerPixel(boatLat, zoom)
   const lineMeters = linePixelLength * mpp
   const lineFeet = lineMeters / METERS_PER_FOOT
@@ -71,88 +65,91 @@ export function buildHeadingLineSVG(map, boatLat, color = '#22c55e', heading = n
   const tickInterval = pickTickInterval(lineFeet)
   const pixelsPerFoot = linePixelLength / lineFeet
 
-  // SVG dimensions — line goes straight up from center bottom
-  const svgWidth = 200
-  const svgHeight = linePixelLength + 10  // small padding at top
+  const svgWidth = 220
+  const svgHeight = linePixelLength + 12
   const centerX = svgWidth / 2
   const bottomY = svgHeight
-  const tickWidth = 10
-  const labelOffset = tickWidth + 4
+  const tipY = bottomY - linePixelLength
+
+  // Forward cone: narrow at base (vessel), wider at the tip — opposite of a
+  // beam, more like a soft directional fan. ~14px each side at the tip.
+  const coneTipHalfW = 14
+
+  const defs = `
+    <linearGradient id="hl-line" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%"   stop-color="${color}" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="${color}" stop-opacity="0.30"/>
+    </linearGradient>
+    <linearGradient id="hl-cone" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%"   stop-color="${color}" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+    </linearGradient>
+  `
 
   let paths = ''
   let labels = ''
 
-  // Main heading line (boat color with dark outline for contrast)
-  paths += `<line x1="${centerX}" y1="${bottomY}" x2="${centerX}" y2="${bottomY - linePixelLength}" stroke="rgba(0,0,0,0.5)" stroke-width="3" stroke-linecap="round"/>`
-  paths += `<line x1="${centerX}" y1="${bottomY}" x2="${centerX}" y2="${bottomY - linePixelLength}" stroke="${color}" stroke-width="1.75" stroke-linecap="round"/>`
+  // Translucent forward cone
+  paths += `<path d="M${centerX} ${bottomY} L${centerX - coneTipHalfW} ${tipY} L${centerX + coneTipHalfW} ${tipY} Z" fill="url(#hl-cone)"/>`
 
-  // Arrow at tip (shifted up slightly so the line doesn't poke through)
-  const tipY = bottomY - linePixelLength - 4
-  const arrowSize = 6
-  paths += `<path d="M${centerX} ${tipY} L${centerX - arrowSize} ${tipY + arrowSize * 1.5} L${centerX + arrowSize} ${tipY + arrowSize * 1.5} Z" fill="${color}" stroke="rgba(0,0,0,0.5)" stroke-width="0.5"/>`
+  // Centerline — soft dark backing for legibility on bright tiles, thin
+  // gradient foreground that fades toward the tip.
+  paths += `<line x1="${centerX}" y1="${bottomY}" x2="${centerX}" y2="${tipY}" stroke="rgba(0,0,0,0.32)" stroke-width="2.25" stroke-linecap="round"/>`
+  paths += `<line x1="${centerX}" y1="${bottomY}" x2="${centerX}" y2="${tipY}" stroke="url(#hl-line)" stroke-width="1.25" stroke-linecap="round"/>`
 
-  // Tick marks (right side only)
+  // Symmetrical thin tick marks with mono-numeric labels
+  const tickHalf = 5
   let dist = tickInterval
   while (dist < lineFeet) {
     const tickY = bottomY - (dist * pixelsPerFoot)
-    if (tickY < tipY + 10) break  // don't overlap arrow
+    if (tickY < tipY + 8) break
 
-    // Dark outline tick
-    paths += `<line x1="${centerX}" y1="${tickY}" x2="${centerX + tickWidth}" y2="${tickY}" stroke="rgba(0,0,0,0.5)" stroke-width="3.5" stroke-linecap="round"/>`
-    // Colored tick
-    paths += `<line x1="${centerX}" y1="${tickY}" x2="${centerX + tickWidth}" y2="${tickY}" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`
+    paths += `<line x1="${centerX - tickHalf}" y1="${tickY}" x2="${centerX + tickHalf}" y2="${tickY}" stroke="rgba(0,0,0,0.32)" stroke-width="2.25" stroke-linecap="round"/>`
+    paths += `<line x1="${centerX - tickHalf}" y1="${tickY}" x2="${centerX + tickHalf}" y2="${tickY}" stroke="${color}" stroke-width="1" stroke-linecap="round" opacity="0.8"/>`
 
-    // Label (right side of tick)
     const label = formatDistance(dist)
-    labels += `<text x="${centerX + labelOffset}" y="${tickY + 5}" font-family="system-ui, sans-serif" font-size="15" font-weight="600" fill="${color}" stroke="rgba(0,0,0,0.6)" stroke-width="1.5" paint-order="stroke fill">${label}</text>`
+    labels += `<text x="${centerX + tickHalf + 6}" y="${tickY + 4}" font-family="JetBrains Mono, ui-monospace, SFMono-Regular, monospace" font-size="11" font-weight="500" fill="#FFFFFF" stroke="rgba(0,0,0,0.65)" stroke-width="2.25" paint-order="stroke fill" style="font-variant-numeric: tabular-nums; letter-spacing: 0.02em;">${label}</text>`
 
     dist += tickInterval
   }
 
-  // Ground track line — shown when heading and COG differ by more than 20°
+  // Drift / ground-track vector — Beacon Blue when COG diverges from heading
+  // by more than 20°. Thin line + small chevron tip, no tick ladder.
   if (heading != null && cog != null) {
     let drift = cog - heading
     while (drift > 180) drift -= 360
     while (drift < -180) drift += 360
 
     if (Math.abs(drift) > 20) {
-    const gtLength = Math.floor(linePixelLength / 3)
-    const gtEndX = centerX + Math.sin(drift * Math.PI / 180) * gtLength
-    const gtEndY = bottomY - Math.cos(drift * Math.PI / 180) * gtLength
-    const gtColor = '#facc15' // yellow
+      const gtLength = Math.floor(linePixelLength / 3)
+      const gtEndX = centerX + Math.sin(drift * Math.PI / 180) * gtLength
+      const gtEndY = bottomY - Math.cos(drift * Math.PI / 180) * gtLength
 
-    // Arrow at tip — rotated to match the line direction
-    const driftRad = drift * Math.PI / 180
-    const arrowSz = 6
-    // Tip is slightly past the line end
-    const gtTipX = gtEndX + Math.sin(driftRad) * 4
-    const gtTipY = gtEndY - Math.cos(driftRad) * 4
-    // Two base points perpendicular to the line direction
-    const perpX = Math.cos(driftRad)
-    const perpY = Math.sin(driftRad)
-    const gtBaseX1 = gtTipX - Math.sin(driftRad) * arrowSz * 1.5 + perpX * arrowSz
-    const gtBaseY1 = gtTipY + Math.cos(driftRad) * arrowSz * 1.5 + perpY * arrowSz
-    const gtBaseX2 = gtTipX - Math.sin(driftRad) * arrowSz * 1.5 - perpX * arrowSz
-    const gtBaseY2 = gtTipY + Math.cos(driftRad) * arrowSz * 1.5 - perpY * arrowSz
+      const driftRad = drift * Math.PI / 180
+      const arrowSz = 5
+      const gtTipX = gtEndX + Math.sin(driftRad) * 3
+      const gtTipY = gtEndY - Math.cos(driftRad) * 3
+      const perpX = Math.cos(driftRad)
+      const perpY = Math.sin(driftRad)
+      const gtBaseX1 = gtTipX - Math.sin(driftRad) * arrowSz * 1.6 + perpX * arrowSz
+      const gtBaseY1 = gtTipY + Math.cos(driftRad) * arrowSz * 1.6 + perpY * arrowSz
+      const gtBaseX2 = gtTipX - Math.sin(driftRad) * arrowSz * 1.6 - perpX * arrowSz
+      const gtBaseY2 = gtTipY + Math.cos(driftRad) * arrowSz * 1.6 - perpY * arrowSz
 
-    // Black shadow line
-    paths += `<line x1="${centerX}" y1="${bottomY}" x2="${gtEndX}" y2="${gtEndY}" stroke="rgba(0,0,0,0.5)" stroke-width="3" stroke-linecap="round"/>`
-    // Yellow foreground line
-    paths += `<line x1="${centerX}" y1="${bottomY}" x2="${gtEndX}" y2="${gtEndY}" stroke="${gtColor}" stroke-width="1.75" stroke-linecap="round"/>`
-    // Arrow
-    paths += `<path d="M${gtTipX} ${gtTipY} L${gtBaseX1} ${gtBaseY1} L${gtBaseX2} ${gtBaseY2} Z" fill="${gtColor}" stroke="rgba(0,0,0,0.5)" stroke-width="0.5"/>`
+      paths += `<line x1="${centerX}" y1="${bottomY}" x2="${gtEndX}" y2="${gtEndY}" stroke="rgba(0,0,0,0.32)" stroke-width="2.25" stroke-linecap="round"/>`
+      paths += `<line x1="${centerX}" y1="${bottomY}" x2="${gtEndX}" y2="${gtEndY}" stroke="${DRIFT_COLOR}" stroke-width="1.4" stroke-linecap="round" opacity="0.9"/>`
+      paths += `<path d="M${gtTipX} ${gtTipY} L${gtBaseX1} ${gtBaseY1} L${gtBaseX2} ${gtBaseY2} Z" fill="${DRIFT_COLOR}" stroke="rgba(0,0,0,0.32)" stroke-width="0.5" stroke-linejoin="round"/>`
     }
   }
 
-  return { svgWidth, svgHeight, paths, labels }
+  return { svgWidth, svgHeight, defs, paths, labels }
 }
 
-// Create the full heading line SVG element string
 export function createHeadingLineSVGString(map, boatLat, color, heading, cog) {
   const result = buildHeadingLineSVG(map, boatLat, color, heading, cog)
   if (!result) return ''
 
-  const { svgWidth, svgHeight, paths, labels } = result
+  const { svgWidth, svgHeight, defs, paths, labels } = result
 
-  return `<svg width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" style="display:block; pointer-events:none; overflow:visible; filter:drop-shadow(0 1px 3px rgba(0,0,0,0.5));">${paths}${labels}</svg>`
+  return `<svg width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" style="display:block; pointer-events:none; overflow:visible; filter:drop-shadow(0 1px 2px rgba(0,0,0,0.45));"><defs>${defs}</defs>${paths}${labels}</svg>`
 }

@@ -72,3 +72,6 @@ mbtiles
 .env
 .env.local
 .env.production
+
+# Local-only Claude notes
+CLAUDE.local.md

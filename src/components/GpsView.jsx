@@ -359,15 +359,15 @@ function GpsView() {
     return (
       <div className="h-full w-full" style={{ position: 'relative', background: 'var(--bg)' }}>
         <TopBar title="GPS" />
-        <div style={{ paddingTop: 72, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+        <div style={{ paddingTop: 130, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
           <div style={{
-            width: 32, height: 32,
-            border: '3px solid var(--signal-soft)',
+            width: 56, height: 56,
+            border: '4px solid var(--signal-soft)',
             borderTopColor: 'var(--signal)',
-            borderRadius: '50%', margin: '0 auto 12px',
+            borderRadius: '50%', margin: '0 auto 20px',
             animation: 'oh-spin 900ms linear infinite',
           }}/>
-          <div style={{ color: 'var(--fg2)', fontSize: 14 }}>
+          <div style={{ color: 'var(--fg2)', fontSize: 22 }}>
             {error ? error : 'Waiting for GPS…'}
           </div>
         </div>
@@ -383,29 +383,29 @@ function GpsView() {
       <TopBar
         title="GPS"
         center={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <Badge tone={hasFix ? 'safe' : 'warn'} dot>{hasFix ? 'GPS FIX' : 'NO FIX'}</Badge>
             <Badge tone={isStale ? 'warn' : 'neutral'}>{formatAge(dataAge)}</Badge>
           </div>
         }
         right={
-          <span style={{ color: 'var(--fg3)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+          <span style={{ color: 'var(--fg3)', fontSize: 18, fontFamily: 'var(--font-mono)' }}>
             {updateHz !== null ? `${updateHz.toFixed(1)} Hz` : '-- Hz'}
           </span>
         }
       />
 
-      <div style={{ padding: '72px 16px 24px' }}>
+      <div style={{ padding: '130px 20px 28px' }}>
         {/* Device / satellite info row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <span style={{ color: 'var(--fg3)', fontSize: 12 }}>{hasDevice ? gpsData.device : 'No device'}</span>
-          <span style={{ color: 'var(--fg3)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+          <span style={{ color: 'var(--fg3)', fontSize: 16 }}>{hasDevice ? gpsData.device : 'No device'}</span>
+          <span style={{ color: 'var(--fg3)', fontSize: 16, fontFamily: 'var(--font-mono)' }}>
             {gpsData?.satellites || 0} satellites
           </span>
         </div>
 
         {error && (
-          <Glass radius={12} style={{ padding: 16, border: '0.5px solid var(--tint-red)', color: 'var(--tint-red)', marginBottom: 16, fontSize: 13 }}>
+          <Glass radius={12} style={{ padding: 18, border: '0.5px solid var(--tint-red)', color: 'var(--tint-red)', marginBottom: 18, fontSize: 17 }}>
             {error}
           </Glass>
         )}
@@ -416,13 +416,13 @@ function GpsView() {
           {/* Left column - 3D Attitude Indicator */}
           <div style={{ flex: '0 0 33%', display: 'flex', flexDirection: 'column', gap: 12 }}>
             <Glass radius={14} style={{ padding: 16, display: 'flex', flexDirection: 'column', minHeight: 360 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)', textAlign: 'center', marginBottom: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)', textAlign: 'center', marginBottom: 8 }}>
                 Attitude
               </div>
               <div style={{ flex: 1, minHeight: 0 }}>
                 <Suspense fallback={
                   <div style={{ width: '100%', height: '100%', background: 'rgba(0,0,0,0.4)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ color: 'var(--fg2)', fontSize: 12 }}>Loading 3D…</span>
+                    <span style={{ color: 'var(--fg2)', fontSize: 16 }}>Loading 3D…</span>
                   </div>
                 }>
                   <AttitudeIndicator3D
@@ -435,7 +435,7 @@ function GpsView() {
                   />
                 </Suspense>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 8, fontSize: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 12, fontSize: 18, fontWeight: 700 }}>
                 <span style={{ color: '#f87171' }}>X</span>
                 <span style={{ color: '#4ade80' }}>Y</span>
                 <span style={{ color: '#60a5fa' }}>Z</span>
@@ -515,20 +515,20 @@ function GpsView() {
           <div style={{ flex: '0 0 33%', display: 'flex', flexDirection: 'column', gap: 12 }}>
             {/* Compass */}
             <Glass radius={14} style={{ padding: 16, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)', marginBottom: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)', marginBottom: 8 }}>
                 Compass
               </div>
-              <div style={{ position: 'relative', width: 128, height: 128 }}>
+              <div style={{ position: 'relative', width: 168, height: 168 }}>
                 <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid var(--signal)', opacity: 0.7 }} />
-                <div style={{ position: 'absolute', top: 4, left: '50%', transform: 'translateX(-50%)', color: 'var(--signal)', fontWeight: 700, fontSize: 11 }}>N</div>
-                <div style={{ position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)', color: 'var(--fg3)', fontSize: 11 }}>S</div>
-                <div style={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)', color: 'var(--fg3)', fontSize: 11 }}>W</div>
-                <div style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', color: 'var(--fg3)', fontSize: 11 }}>E</div>
+                <div style={{ position: 'absolute', top: 6, left: '50%', transform: 'translateX(-50%)', color: 'var(--signal)', fontWeight: 700, fontSize: 16 }}>N</div>
+                <div style={{ position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)', color: 'var(--fg3)', fontSize: 16 }}>S</div>
+                <div style={{ position: 'absolute', left: 6, top: '50%', transform: 'translateY(-50%)', color: 'var(--fg3)', fontSize: 16 }}>W</div>
+                <div style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', color: 'var(--fg3)', fontSize: 16 }}>E</div>
                 {gpsData?.heading != null && (
                   <div
                     style={{
                       position: 'absolute', top: '50%', left: '50%',
-                      width: 2, height: 48,
+                      width: 3, height: 64,
                       background: 'var(--signal)',
                       transformOrigin: 'bottom center',
                       transform: `translate(-50%, -100%) rotate(${gpsData.heading}deg)`,
@@ -537,9 +537,9 @@ function GpsView() {
                     }}
                   />
                 )}
-                <div style={{ position: 'absolute', top: '50%', left: '50%', width: 8, height: 8, background: 'var(--signal)', borderRadius: '50%', transform: 'translate(-50%, -50%)' }} />
+                <div style={{ position: 'absolute', top: '50%', left: '50%', width: 10, height: 10, background: 'var(--signal)', borderRadius: '50%', transform: 'translate(-50%, -50%)' }} />
               </div>
-              <div style={{ marginTop: 8, fontFamily: 'var(--font-mono)', fontSize: 16, color: 'var(--fg1)' }}>
+              <div style={{ marginTop: 12, fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 600, color: 'var(--fg1)' }}>
                 {gpsData?.heading != null ? `${gpsData.heading.toFixed(0)}° ${getCompassDirection(gpsData.heading)}` : '--'}
               </div>
             </Glass>
@@ -547,7 +547,7 @@ function GpsView() {
             {/* Heading Calibration (Collapsible) */}
             <Glass radius={14} style={{ padding: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showCalibration ? 12 : 0 }}>
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)' }}>
+                <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)' }}>
                   Heading Cal{gpsData?.headingOffset ? ` (${gpsData.headingOffset > 0 ? '+' : ''}${gpsData.headingOffset.toFixed(1)}°)` : ''}
                 </span>
                 <Toggle on={showCalibration} onChange={setShowCalibration} />
@@ -556,8 +556,8 @@ function GpsView() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {/* Current offset */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--fg3)', fontSize: 12 }}>Current Offset</span>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--fg1)' }}>
+                    <span style={{ color: 'var(--fg3)', fontSize: 16 }}>Current Offset</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 18, color: 'var(--fg1)' }}>
                       {gpsData?.headingOffset != null
                         ? `${gpsData.headingOffset > 0 ? '+' : ''}${gpsData.headingOffset.toFixed(1)}°`
                         : '0.0°'}
@@ -574,8 +574,8 @@ function GpsView() {
                       placeholder="0.0"
                       style={{
                         flex: 1, background: 'var(--bg)', border: '0.5px solid var(--bg-hairline-strong)',
-                        borderRadius: 8, padding: '8px 12px', fontSize: 14,
-                        fontFamily: 'var(--font-mono)', color: 'var(--fg1)', outline: 'none', minHeight: 44,
+                        borderRadius: 10, padding: '12px 16px', fontSize: 18,
+                        fontFamily: 'var(--font-mono)', color: 'var(--fg1)', outline: 'none', minHeight: 56,
                       }}
                     />
                     <Pill
@@ -583,13 +583,13 @@ function GpsView() {
                         const val = parseFloat(offsetInput)
                         if (isFinite(val)) saveOffset(val)
                       }}
-                      style={{ minHeight: 44, opacity: isFinite(parseFloat(offsetInput)) ? 1 : 0.35 }}
+                      style={{ minHeight: 56, opacity: isFinite(parseFloat(offsetInput)) ? 1 : 0.35 }}
                     >
                       Set
                     </Pill>
                     <Pill
                       onClick={() => { setOffsetInput('0'); saveOffset(0) }}
-                      style={{ minHeight: 44 }}
+                      style={{ minHeight: 56 }}
                     >
                       Reset
                     </Pill>
@@ -599,19 +599,19 @@ function GpsView() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {autoCalPreview != null ? (
                       <>
-                        <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--fg1)', textAlign: 'center' }}>
+                        <div style={{ fontSize: 16, fontFamily: 'var(--font-mono)', color: 'var(--fg1)', textAlign: 'center' }}>
                           Apply {autoCalPreview > 0 ? '+' : ''}{autoCalPreview.toFixed(1)}° correction?
                         </div>
                         <div style={{ display: 'flex', gap: 8 }}>
                           <Pill
                             onClick={() => saveOffset(autoCalPreview)}
-                            style={{ flex: 1, minHeight: 44, background: 'var(--signal)', color: '#fff' }}
+                            style={{ flex: 1, minHeight: 56, background: 'var(--signal)', color: '#fff' }}
                           >
                             Confirm
                           </Pill>
                           <Pill
                             onClick={() => setAutoCalPreview(null)}
-                            style={{ flex: 1, minHeight: 44 }}
+                            style={{ flex: 1, minHeight: 56 }}
                           >
                             Cancel
                           </Pill>
@@ -627,13 +627,13 @@ function GpsView() {
                           while (correction < -180) correction += 360
                           setAutoCalPreview(parseFloat(correction.toFixed(1)))
                         }}
-                        style={{ minHeight: 44, width: '100%', opacity: canAutoCal ? 1 : 0.35 }}
+                        style={{ minHeight: 56, width: '100%', opacity: canAutoCal ? 1 : 0.35 }}
                       >
                         Auto Calibrate
                       </Pill>
                     )}
                     {!speedAboveThreshold && (
-                      <div style={{ color: 'var(--fg3)', fontSize: 11, textAlign: 'center' }}>
+                      <div style={{ color: 'var(--fg3)', fontSize: 15, textAlign: 'center' }}>
                         Need &gt;5 mph for auto-cal
                       </div>
                     )}
@@ -644,7 +644,7 @@ function GpsView() {
                     <Badge tone="safe" style={{ alignSelf: 'center' }}>Saved</Badge>
                   )}
                   {calibrationStatus === 'saving' && (
-                    <span style={{ color: 'var(--fg3)', fontSize: 12, textAlign: 'center' }}>Saving…</span>
+                    <span style={{ color: 'var(--fg3)', fontSize: 16, textAlign: 'center' }}>Saving…</span>
                   )}
                   {calibrationStatus === 'error' && (
                     <Badge tone="alarm" style={{ alignSelf: 'center' }}>Save failed</Badge>
@@ -655,14 +655,14 @@ function GpsView() {
 
             {/* Drift Calculation */}
             <Glass radius={14} style={{ padding: 16 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)', marginBottom: 12 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)', marginBottom: 12 }}>
                 Drift Calibration
               </div>
 
               {driftPhase === 'idle' && (
                 <Pill
                   onClick={startDriftCalculation}
-                  style={{ width: '100%', minHeight: 44, opacity: (!hasFix || gpsData?.latitude == null) ? 0.35 : 1 }}
+                  style={{ width: '100%', minHeight: 56, opacity: (!hasFix || gpsData?.latitude == null) ? 0.35 : 1 }}
                 >
                   Calculate Drift
                 </Pill>
@@ -670,24 +670,24 @@ function GpsView() {
 
               {driftPhase === 'sampling' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <Pill style={{ width: '100%', minHeight: 44, opacity: 0.6 }}>
+                  <Pill style={{ width: '100%', minHeight: 56, opacity: 0.6 }}>
                     Sampling… {driftCountdown}s
                   </Pill>
-                  <div style={{ color: 'var(--fg3)', fontSize: 11, textAlign: 'center', fontFamily: 'var(--font-mono)' }}>
+                  <div style={{ color: 'var(--fg3)', fontSize: 15, textAlign: 'center', fontFamily: 'var(--font-mono)' }}>
                     {driftSamplesRef.current.length} samples collected
                   </div>
                 </div>
               )}
 
               {driftPhase === 'saving' && (
-                <div style={{ color: 'var(--fg3)', fontSize: 13, textAlign: 'center', padding: '8px 0' }}>
+                <div style={{ color: 'var(--fg3)', fontSize: 17, textAlign: 'center', padding: '8px 0' }}>
                   Saving…
                 </div>
               )}
 
               {driftPhase === 'done' && driftResult && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 16, fontFamily: 'var(--font-mono)' }}>
                     <div style={{ color: 'var(--fg3)' }}>Speed</div>
                     <div style={{ color: 'var(--fg1)', textAlign: 'right' }}>
                       {(driftResult.driftSpeedMps ?? driftResult.drift_speed_mps ?? 0).toFixed(2)} m/s
@@ -703,7 +703,7 @@ function GpsView() {
                       {driftResult.sampleCount ?? driftResult.sample_count ?? 0}
                     </div>
                   </div>
-                  <Pill onClick={resetDriftCalculation} style={{ width: '100%', minHeight: 44 }}>
+                  <Pill onClick={resetDriftCalculation} style={{ width: '100%', minHeight: 56 }}>
                     Recalculate
                   </Pill>
                 </div>
@@ -714,7 +714,7 @@ function GpsView() {
                   <Glass radius={8} style={{ padding: 12, border: '0.5px solid var(--tint-red)', color: 'var(--tint-red)', fontSize: 12 }}>
                     {driftError || 'Drift measurement failed'}
                   </Glass>
-                  <Pill onClick={resetDriftCalculation} style={{ width: '100%', minHeight: 44 }}>
+                  <Pill onClick={resetDriftCalculation} style={{ width: '100%', minHeight: 56 }}>
                     Try Again
                   </Pill>
                 </div>
@@ -723,28 +723,28 @@ function GpsView() {
 
             {/* GPS Quality */}
             <Glass radius={14} style={{ padding: 16 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)', marginBottom: 12 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)', marginBottom: 12 }}>
                 GPS Quality
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, textAlign: 'center' }}>
                 <div>
-                  <div style={{ fontSize: 10, color: 'var(--fg3)', textTransform: 'uppercase', marginBottom: 4 }}>Sats</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--fg1)' }}>{gpsData?.satellites || 0}</div>
+                  <div style={{ fontSize: 14, color: 'var(--fg3)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.08em', fontWeight: 700 }}>Sats</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, color: 'var(--fg1)' }}>{gpsData?.satellites || 0}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 10, color: 'var(--fg3)', textTransform: 'uppercase', marginBottom: 4 }}>PDOP</div>
+                  <div style={{ fontSize: 14, color: 'var(--fg3)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.08em', fontWeight: 700 }}>PDOP</div>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: getDopTokenColor(gpsData?.pdop) }}>
                     {formatDecimal(gpsData?.pdop, 1)}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 10, color: 'var(--fg3)', textTransform: 'uppercase', marginBottom: 4 }}>HDOP</div>
+                  <div style={{ fontSize: 14, color: 'var(--fg3)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.08em', fontWeight: 700 }}>HDOP</div>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: getDopTokenColor(gpsData?.hdop) }}>
                     {formatDecimal(gpsData?.hdop, 1)}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 10, color: 'var(--fg3)', textTransform: 'uppercase', marginBottom: 4 }}>VDOP</div>
+                  <div style={{ fontSize: 14, color: 'var(--fg3)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.08em', fontWeight: 700 }}>VDOP</div>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: getDopTokenColor(gpsData?.vdop) }}>
                     {formatDecimal(gpsData?.vdop, 1)}
                   </div>
@@ -754,12 +754,12 @@ function GpsView() {
 
             {/* Environment */}
             <Glass radius={14} style={{ padding: 16 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)', marginBottom: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)', marginBottom: 8 }}>
                 Environment
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--fg3)', fontSize: 12 }}>Pressure</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--fg1)' }}>
+                <span style={{ color: 'var(--fg3)', fontSize: 16 }}>Pressure</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 18, color: 'var(--fg1)' }}>
                   {gpsData?.pressure != null ? (
                     <>
                       {gpsData.pressure.toFixed(1)} hPa{' '}
@@ -778,7 +778,7 @@ function GpsView() {
 
             {/* Sea State */}
             <Glass radius={14} style={{ padding: 16 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)', marginBottom: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)', marginBottom: 8 }}>
                 Sea State
               </div>
               {gpsData?.seaStateDesc === 'Collecting data...' ? (
@@ -788,19 +788,19 @@ function GpsView() {
               ) : gpsData?.waveHeight != null ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--fg3)', fontSize: 12 }}>Wave Ht</span>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--fg1)' }}>
+                    <span style={{ color: 'var(--fg3)', fontSize: 16 }}>Wave Ht</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 17, color: 'var(--fg1)' }}>
                       {gpsData.waveHeight.toFixed(2)} m / {(gpsData.waveHeight * 3.28084).toFixed(1)} ft
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--fg3)', fontSize: 12 }}>Period</span>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--fg1)' }}>
+                    <span style={{ color: 'var(--fg3)', fontSize: 16 }}>Period</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 17, color: 'var(--fg1)' }}>
                       {gpsData?.wavePeriod != null ? `${gpsData.wavePeriod.toFixed(1)} s` : '--'}
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--fg3)', fontSize: 12 }}>State</span>
+                    <span style={{ color: 'var(--fg3)', fontSize: 16 }}>State</span>
                     <span style={{
                       fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700,
                       color: gpsData.seaState <= 2 ? 'var(--tint-green)' :
@@ -819,13 +819,13 @@ function GpsView() {
 
             {/* Motion Data */}
             <Glass radius={14} style={{ padding: 16 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)', marginBottom: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)', marginBottom: 8 }}>
                 Motion
               </div>
               {/* Rate of Turn */}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ color: 'var(--fg3)', fontSize: 12 }}>Rate of Turn</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--fg1)' }}>
+                <span style={{ color: 'var(--fg3)', fontSize: 16 }}>Rate of Turn</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 17, color: 'var(--fg1)' }}>
                   {gpsData?.wz != null ? (
                     <>
                       {Math.abs(gpsData.wz).toFixed(1)}°/s{' '}
@@ -837,7 +837,7 @@ function GpsView() {
                 </span>
               </div>
               {/* Accelerations */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, textAlign: 'center', fontSize: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, textAlign: 'center', fontSize: 16 }}>
                 <div>
                   <span style={{ color: 'var(--fg3)' }}>aX</span>
                   <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--fg1)', marginLeft: 4 }}>
@@ -862,14 +862,14 @@ function GpsView() {
             {/* Debug Section (Collapsible) */}
             <Glass radius={14} style={{ padding: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showDebug ? 12 : 0 }}>
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)' }}>Debug</span>
+                <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)' }}>Debug</span>
                 <Toggle on={showDebug} onChange={setShowDebug} />
               </div>
               {showDebug && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {/* Magnetometer */}
-                  <div style={{ color: 'var(--fg3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Magnetometer</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, textAlign: 'center', fontSize: 12 }}>
+                  <div style={{ color: 'var(--fg3)', fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Magnetometer</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, textAlign: 'center', fontSize: 16 }}>
                     <div>
                       <span style={{ color: 'var(--fg3)' }}>hX</span>
                       <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--fg1)', marginLeft: 4 }}>
@@ -890,8 +890,8 @@ function GpsView() {
                     </div>
                   </div>
                   {/* Angular velocities */}
-                  <div style={{ color: 'var(--fg3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 4 }}>Angular Velocity</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, textAlign: 'center', fontSize: 12 }}>
+                  <div style={{ color: 'var(--fg3)', fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginTop: 4 }}>Angular Velocity</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, textAlign: 'center', fontSize: 16 }}>
                     <div>
                       <span style={{ color: 'var(--fg3)' }}>wX</span>
                       <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--fg1)', marginLeft: 4 }}>

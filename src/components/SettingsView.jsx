@@ -18,8 +18,8 @@ import { TopBar, Glass, Pill, Toggle, Badge } from '../ui/primitives'
 function SectionLabel({ children }) {
   return (
     <div style={{
-      fontSize: 10, fontWeight: 700, letterSpacing: '0.12em',
-      textTransform: 'uppercase', color: 'var(--fg3)', marginBottom: 10,
+      fontSize: 14, fontWeight: 700, letterSpacing: '0.12em',
+      textTransform: 'uppercase', color: 'var(--fg3)', marginBottom: 14,
     }}>
       {children}
     </div>
@@ -34,9 +34,9 @@ function StyledSelect({ value, onChange, children }) {
       onChange={onChange}
       style={{
         background: 'var(--bg-chrome)', color: 'var(--fg1)',
-        border: '0.5px solid var(--bg-hairline-strong)', borderRadius: 8,
-        padding: '8px 12px', fontSize: 13, fontWeight: 500, outline: 'none',
-        cursor: 'pointer',
+        border: '0.5px solid var(--bg-hairline-strong)', borderRadius: 10,
+        padding: '12px 16px', fontSize: 18, fontWeight: 500, outline: 'none',
+        cursor: 'pointer', minHeight: 56,
       }}
     >
       {children}
@@ -53,9 +53,9 @@ function DangerBtn({ onClick, children, tone = 'warn' }) {
     <button
       onClick={onClick}
       style={{
-        padding: '12px 20px', borderRadius: 10, border: `0.5px solid ${colors.border}`,
-        background: colors.bg, color: colors.fg, fontSize: 14, fontWeight: 600,
-        cursor: 'pointer', minHeight: 44, touchAction: 'manipulation',
+        padding: '16px 28px', borderRadius: 12, border: `0.5px solid ${colors.border}`,
+        background: colors.bg, color: colors.fg, fontSize: 18, fontWeight: 600,
+        cursor: 'pointer', minHeight: 56, touchAction: 'manipulation',
       }}
       onMouseEnter={e => e.currentTarget.style.background = colors.hover}
       onMouseLeave={e => e.currentTarget.style.background = colors.bg}
@@ -71,10 +71,10 @@ function CancelBtn({ onClick }) {
     <button
       onClick={onClick}
       style={{
-        padding: '12px 20px', borderRadius: 10,
+        padding: '16px 28px', borderRadius: 12,
         border: '0.5px solid var(--bg-hairline-strong)',
-        background: 'transparent', color: 'var(--fg2)', fontSize: 14, fontWeight: 600,
-        cursor: 'pointer', minHeight: 44, touchAction: 'manipulation',
+        background: 'transparent', color: 'var(--fg2)', fontSize: 18, fontWeight: 600,
+        cursor: 'pointer', minHeight: 56, touchAction: 'manipulation',
       }}
     >
       Cancel
@@ -91,7 +91,7 @@ function GeneralSection() {
     <div style={{ display: 'grid', gap: 16 }}>
       <Glass radius={14} style={{ padding: 24 }}>
         <SectionLabel>Application</SectionLabel>
-        <div style={{ fontSize: 13, color: 'var(--fg2)', lineHeight: 1.8, fontFamily: 'var(--font-mono, monospace)' }}>
+        <div style={{ fontSize: 17, color: 'var(--fg2)', lineHeight: 1.7, fontFamily: 'var(--font-mono, monospace)' }}>
           <div>Version: {appVersion}</div>
           <div>Build: 2024-12-28</div>
         </div>
@@ -100,7 +100,7 @@ function GeneralSection() {
         <SectionLabel>Units</SectionLabel>
         <div style={{ display: 'grid', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 14, color: 'var(--fg1)', fontWeight: 500 }}>Distance</span>
+            <span style={{ fontSize: 18, color: 'var(--fg1)', fontWeight: 500 }}>Distance</span>
             <StyledSelect>
               <option>Nautical Miles</option>
               <option>Kilometers</option>
@@ -109,7 +109,7 @@ function GeneralSection() {
           </div>
           <div style={{ height: 0.5, background: 'var(--bg-hairline)' }} />
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 14, color: 'var(--fg1)', fontWeight: 500 }}>Speed</span>
+            <span style={{ fontSize: 18, color: 'var(--fg1)', fontWeight: 500 }}>Speed</span>
             <StyledSelect>
               <option>Knots</option>
               <option>km/h</option>
@@ -130,13 +130,13 @@ function GPSSection() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
           <Badge tone="alarm" dot>NOT CONNECTED</Badge>
         </div>
-        <div style={{ fontSize: 13, color: 'var(--fg3)' }}>No GPS receiver detected</div>
+        <div style={{ fontSize: 17, color: 'var(--fg3)' }}>No GPS receiver detected</div>
       </Glass>
       <Glass radius={14} style={{ padding: 24 }}>
         <SectionLabel>Receiver Settings</SectionLabel>
         <div style={{ display: 'grid', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 14, color: 'var(--fg1)', fontWeight: 500 }}>Port</span>
+            <span style={{ fontSize: 18, color: 'var(--fg1)', fontWeight: 500 }}>Port</span>
             <StyledSelect>
               <option>/dev/ttyUSB0</option>
               <option>/dev/ttyUSB1</option>
@@ -146,7 +146,7 @@ function GPSSection() {
           </div>
           <div style={{ height: 0.5, background: 'var(--bg-hairline)' }} />
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 14, color: 'var(--fg1)', fontWeight: 500 }}>Baud Rate</span>
+            <span style={{ fontSize: 18, color: 'var(--fg1)', fontWeight: 500 }}>Baud Rate</span>
             <StyledSelect>
               <option>4800</option>
               <option>9600</option>
@@ -165,7 +165,7 @@ function SystemSection({ simRunning, simLoading, toggleSimulator, showExitKioskC
     <div style={{ display: 'grid', gap: 16 }}>
       <Glass radius={14} style={{ padding: 24 }}>
         <SectionLabel>Hardware</SectionLabel>
-        <div style={{ fontSize: 13, color: 'var(--fg2)', lineHeight: 1.8, fontFamily: 'var(--font-mono, monospace)' }}>
+        <div style={{ fontSize: 17, color: 'var(--fg2)', lineHeight: 1.7, fontFamily: 'var(--font-mono, monospace)' }}>
           <div>Platform: Raspberry Pi 5</div>
           <div>Memory: 8GB RAM</div>
           <div>Storage: 64GB microSD</div>
@@ -174,7 +174,7 @@ function SystemSection({ simRunning, simLoading, toggleSimulator, showExitKioskC
 
       <Glass radius={14} style={{ padding: 24 }}>
         <SectionLabel>Software</SectionLabel>
-        <div style={{ fontSize: 13, color: 'var(--fg2)', lineHeight: 1.8, fontFamily: 'var(--font-mono, monospace)' }}>
+        <div style={{ fontSize: 17, color: 'var(--fg2)', lineHeight: 1.7, fontFamily: 'var(--font-mono, monospace)' }}>
           <div>OpenHelm: v{appVersion}</div>
           <div>Martin Tiles: v0.18.1</div>
           <div>OS: Raspberry Pi OS</div>
@@ -184,7 +184,7 @@ function SystemSection({ simRunning, simLoading, toggleSimulator, showExitKioskC
       <Glass radius={14} style={{ padding: 24 }}>
         <SectionLabel>GPS Signal Source</SectionLabel>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-          <div style={{ fontSize: 13, color: 'var(--fg2)' }}>
+          <div style={{ fontSize: 17, color: 'var(--fg2)' }}>
             {simRunning
               ? <Badge tone="caution">Simulator Active — looping N→E→S→W offshore VA Beach</Badge>
               : <Badge tone="safe">Hardware GPS (USB Serial)</Badge>}
@@ -204,7 +204,7 @@ function SystemSection({ simRunning, simLoading, toggleSimulator, showExitKioskC
         <SectionLabel>Kiosk Mode</SectionLabel>
         {showExitKioskConfirm ? (
           <div style={{ display: 'grid', gap: 12 }}>
-            <div style={{ fontSize: 13, color: 'var(--fg2)' }}>
+            <div style={{ fontSize: 17, color: 'var(--fg2)' }}>
               Exit fullscreen? OpenHelm services will keep running. You can relaunch from the desktop.
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
@@ -221,7 +221,7 @@ function SystemSection({ simRunning, simLoading, toggleSimulator, showExitKioskC
         <SectionLabel>Application</SectionLabel>
         {showQuitConfirm ? (
           <div style={{ display: 'grid', gap: 12 }}>
-            <div style={{ fontSize: 13, color: 'var(--fg2)' }}>
+            <div style={{ fontSize: 17, color: 'var(--fg2)' }}>
               Are you sure you want to quit OpenHelm? All services will be stopped.
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
@@ -413,23 +413,23 @@ function SettingsView() {
     <div style={{ height: '100%', width: '100%', overflow: 'hidden', position: 'relative', background: 'var(--bg)', color: 'var(--fg1)' }}>
       <TopBar title="Settings" />
       <div style={{
-        position: 'absolute', inset: '56px 0 0 0',
-        display: 'grid', gridTemplateColumns: '220px 1fr', gap: 24,
+        position: 'absolute', inset: '114px 0 0 0',
+        display: 'grid', gridTemplateColumns: '260px 1fr', gap: 24,
         padding: 24, overflow: 'hidden',
       }}>
         {/* Left nav rail */}
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, overflowY: 'auto' }}>
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto' }}>
           {sections.map(s => (
             <button
               key={s.id}
               onClick={() => setActiveSection(s.id)}
               style={{
-                padding: '12px 14px', borderRadius: 10, textAlign: 'left',
+                padding: '16px 18px', borderRadius: 12, textAlign: 'left',
                 background: activeSection === s.id ? 'var(--fill-1)' : 'transparent',
                 color: activeSection === s.id ? 'var(--fg1)' : 'var(--fg2)',
-                fontSize: 14, fontWeight: activeSection === s.id ? 600 : 500,
+                fontSize: 18, fontWeight: activeSection === s.id ? 600 : 500,
                 border: 0, cursor: 'pointer', transition: 'all 150ms',
-                minHeight: 44,
+                minHeight: 56,
               }}
             >
               {s.label}

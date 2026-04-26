@@ -12,15 +12,15 @@ function VesselView() {
     return (
       <div className="h-full w-full" style={{ position: 'relative', background: 'var(--bg)' }}>
         <TopBar title="Vessel" />
-        <div style={{ paddingTop: 72, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+        <div style={{ paddingTop: 130, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
           <div style={{
-            width: 32, height: 32,
-            border: '3px solid var(--signal-soft)',
+            width: 56, height: 56,
+            border: '4px solid var(--signal-soft)',
             borderTopColor: 'var(--signal)',
-            borderRadius: '50%', margin: '0 auto 12px',
+            borderRadius: '50%', margin: '0 auto 20px',
             animation: 'oh-spin 900ms linear infinite',
           }}/>
-          <div style={{ color: 'var(--fg2)', fontSize: 14 }}>Initializing vessel systems…</div>
+          <div style={{ color: 'var(--fg2)', fontSize: 22 }}>Initializing vessel systems…</div>
         </div>
       </div>
     )
@@ -44,34 +44,34 @@ function VesselView() {
       <TopBar
         title="Vessel"
         center={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <Badge tone={statusTone} dot>{statusText}</Badge>
             {isStale && <Badge tone="warn">STALE</Badge>}
           </div>
         }
         right={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             {vesselData?.engineHours != null && (
-              <span style={{ color: 'var(--fg3)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+              <span style={{ color: 'var(--fg3)', fontSize: 18, fontFamily: 'var(--font-mono)' }}>
                 ENG {vesselData.engineHours.toFixed(1)} HRS
               </span>
             )}
-            <span style={{ color: 'var(--fg3)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+            <span style={{ color: 'var(--fg3)', fontSize: 18, fontFamily: 'var(--font-mono)' }}>
               PGN {vesselData?.pgnCount || 0}
             </span>
           </div>
         }
       />
 
-      <div style={{ paddingTop: 56 }}>
+      <div style={{ paddingTop: 114 }}>
         {error && (
-          <Glass radius={12} style={{ margin: '8px 16px', padding: 12, border: '0.5px solid var(--tint-red)', color: 'var(--tint-red)', fontSize: 13 }}>
+          <Glass radius={12} style={{ margin: '12px 20px', padding: 16, border: '0.5px solid var(--tint-red)', color: 'var(--tint-red)', fontSize: 17 }}>
             {error}
           </Glass>
         )}
 
         {/* ── HUD Section (upper portion) ── */}
-        <div style={{ position: 'relative', height: 220 }}>
+        <div style={{ position: 'relative', height: 240 }}>
           <HudOverlay
             heading={gpsData?.heading}
             speedMs={gpsData?.groundSpeed}
@@ -81,7 +81,7 @@ function VesselView() {
           {/* Center info when no GPS */}
           {!gpsData?.heading && !gpsData?.groundSpeed && !depthMeters && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: 'var(--fg3)', fontSize: 13 }}>Awaiting GPS signal</span>
+              <span style={{ color: 'var(--fg3)', fontSize: 18 }}>Awaiting GPS signal</span>
             </div>
           )}
         </div>
@@ -210,10 +210,10 @@ function SmallReadout({ label, value, unit, decimals = 0 }) {
     : '--'
   return (
     <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: 9, color: 'var(--fg3)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{label}</div>
-      <div style={{ fontSize: 14, fontFamily: 'var(--font-mono)', color: 'var(--fg1)', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+      <div style={{ fontSize: 13, color: 'var(--fg3)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{label}</div>
+      <div style={{ fontSize: 22, fontFamily: 'var(--font-mono)', color: 'var(--fg1)', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
         {display}
-        {unit && <span style={{ fontSize: 9, color: 'var(--fg3)', marginLeft: 2 }}>{unit}</span>}
+        {unit && <span style={{ fontSize: 13, color: 'var(--fg3)', marginLeft: 4 }}>{unit}</span>}
       </div>
     </div>
   )

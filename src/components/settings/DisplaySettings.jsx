@@ -9,24 +9,25 @@ export function DisplaySettings() {
     <Glass radius={14} style={{ padding: 24, display: 'grid', gap: 20 }}>
       <div>
         <div style={{
-          fontSize: 10, fontWeight: 700, letterSpacing: '0.12em',
+          fontSize: 14, fontWeight: 700, letterSpacing: '0.12em',
           textTransform: 'uppercase', color: 'var(--fg3)',
-          marginBottom: 10,
+          marginBottom: 14,
         }}>Theme</div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           {['day', 'dark', 'night'].map(t => (
             <Pill
               key={t}
               active={theme === t && !auto}
               onClick={() => { setAuto(false); setTheme(t) }}
               tone={t === 'day' ? 'beacon' : 'signal'}
-              style={{ minWidth: 96 }}
+              size="lg"
+              style={{ minWidth: 128, fontSize: 18 }}
             >
               {THEME_LABELS[t]}
             </Pill>
           ))}
         </div>
-        <div style={{ fontSize: 12, color: 'var(--fg3)', marginTop: 8 }}>
+        <div style={{ fontSize: 16, color: 'var(--fg3)', marginTop: 12 }}>
           Currently active:{' '}
           <span style={{ color: 'var(--fg1)', fontWeight: 600 }}>
             {THEME_LABELS[theme]}
@@ -37,12 +38,12 @@ export function DisplaySettings() {
 
       <div style={{ height: 0.5, background: 'var(--bg-hairline)' }} />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--fg1)' }}>
+          <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--fg1)' }}>
             Auto-switch by daylight
           </div>
-          <div style={{ fontSize: 12, color: 'var(--fg3)', marginTop: 2 }}>
+          <div style={{ fontSize: 15, color: 'var(--fg3)', marginTop: 4 }}>
             Day during daylight · Dark after sunset · Red-night 2h later
           </div>
         </div>

@@ -239,29 +239,29 @@ function SatelliteRegionSelector() {
     <div className="h-screen w-screen relative" style={{ background: 'var(--bg)', color: 'var(--fg1)' }}>
       <TopBar title="Satellite region" />
       {/* Full-screen map */}
-      <div ref={mapContainer} className="absolute inset-0" style={{ top: 56 }} />
+      <div ref={mapContainer} className="absolute inset-0" style={{ top: 114 }} />
 
       {/* Back Button */}
       <button
         onClick={handleBack}
-        className="absolute z-30 rounded-lg p-3 touch-manipulation"
-        style={{ top: 64, left: 16, background: 'var(--bg-elev)', border: '0.5px solid var(--bg-hairline-strong)' }}
+        className="absolute z-30 rounded-2xl touch-manipulation"
+        style={{ top: 130, left: 20, padding: 16, background: 'var(--bg-elev)', border: '0.5px solid var(--bg-hairline-strong)' }}
         title="Back"
       >
-        <svg className="w-6 h-6" style={{ color: 'var(--fg1)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg style={{ color: 'var(--fg1)', width: 32, height: 32 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
       </button>
 
       {/* Controls overlay */}
-      <div className="absolute z-30 flex flex-col gap-2" style={{ top: 64, right: 16 }}>
+      <div className="absolute z-30 flex flex-col gap-3" style={{ top: 130, right: 20 }}>
         {/* Draw mode button */}
         <button
           onClick={toggleDrawMode}
-          className="px-4 py-3 rounded-lg font-medium text-sm transition-all touch-manipulation"
+          className="rounded-xl font-semibold transition-all touch-manipulation"
           style={drawMode
-            ? { background: 'rgba(47,181,107,0.15)', border: '0.5px solid var(--signal)', color: 'var(--signal)' }
-            : { background: 'var(--bg-elev)', border: '0.5px solid var(--bg-hairline-strong)', color: 'var(--fg2)' }
+            ? { background: 'rgba(47,181,107,0.15)', border: '0.5px solid var(--signal)', color: 'var(--signal)', padding: '16px 22px', fontSize: 18, minHeight: 56 }
+            : { background: 'var(--bg-elev)', border: '0.5px solid var(--bg-hairline-strong)', color: 'var(--fg2)', padding: '16px 22px', fontSize: 18, minHeight: 56 }
           }
         >
           {drawMode ? 'Drawing... (drag to select)' : 'Draw Region'}
@@ -271,8 +271,8 @@ function SatelliteRegionSelector() {
         {bounds && !drawMode && (
           <button
             onClick={() => { setBounds(null); updateBboxOnMap(null) }}
-            className="px-4 py-3 rounded-lg text-sm transition-all touch-manipulation"
-            style={{ background: 'var(--bg-elev)', border: '0.5px solid var(--bg-hairline-strong)', color: 'var(--fg2)' }}
+            className="rounded-xl transition-all touch-manipulation"
+            style={{ background: 'var(--bg-elev)', border: '0.5px solid var(--bg-hairline-strong)', color: 'var(--fg2)', padding: '16px 22px', fontSize: 18, minHeight: 56 }}
           >
             Clear Selection
           </button>
@@ -280,15 +280,15 @@ function SatelliteRegionSelector() {
       </div>
 
       {/* Bottom info bar */}
-      <div className="absolute bottom-0 left-0 right-0 z-30 backdrop-blur px-4 py-3" style={{ background: 'var(--bg-chrome)', borderTop: '0.5px solid var(--bg-hairline)' }}>
-        <div className="flex items-center justify-between">
+      <div className="absolute bottom-0 left-0 right-0 z-30 backdrop-blur" style={{ background: 'var(--bg-chrome)', borderTop: '0.5px solid var(--bg-hairline)', padding: '16px 20px' }}>
+        <div className="flex items-center justify-between gap-4">
           <div className="flex-1">
             {bounds ? (
-              <div className="text-sm font-mono" style={{ color: 'var(--fg1)' }}>
+              <div className="font-mono" style={{ color: 'var(--fg1)', fontSize: 17 }}>
                 {bounds[0].toFixed(4)}°W, {bounds[1].toFixed(4)}°S → {bounds[2].toFixed(4)}°E, {bounds[3].toFixed(4)}°N
               </div>
             ) : (
-              <div className="text-sm" style={{ color: 'var(--fg2)' }}>
+              <div style={{ color: 'var(--fg2)', fontSize: 17 }}>
                 {drawMode
                   ? 'Click/touch and drag to draw a rectangle'
                   : 'Tap "Draw Region" then drag to select an area'}
@@ -299,8 +299,8 @@ function SatelliteRegionSelector() {
           {bounds && (
             <button
               onClick={handleConfirm}
-              className="ml-4 px-6 py-3 rounded-lg font-medium text-sm transition-all touch-manipulation min-h-[44px]"
-              style={{ background: 'var(--signal)', color: '#fff' }}
+              className="rounded-xl font-semibold transition-all touch-manipulation"
+              style={{ background: 'var(--signal)', color: '#fff', padding: '16px 28px', fontSize: 18, minHeight: 56 }}
             >
               Use This Region
             </button>

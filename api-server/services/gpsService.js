@@ -604,7 +604,7 @@ export async function startGpsService() {
   try {
     serialPort = new SerialPort({
       path: device,
-      baudRate: 115200,
+      baudRate: 9600,
       dataBits: 8,
       parity: 'none',
       stopBits: 1,

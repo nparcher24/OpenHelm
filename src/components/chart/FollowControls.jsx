@@ -24,29 +24,36 @@ const ORIENTATION_VISUALS = {
   },
 }
 
-export function FollowControls({ centerOn, setCenterOn, orientationMode = 'north', onCycleOrientation }) {
+export function FollowControls({ trackingMode = null, onCycleTrackingMode, orientationMode = 'north', onCycleOrientation }) {
   const v = ORIENTATION_VISUALS[orientationMode] || ORIENTATION_VISUALS.north
+  const active = trackingMode !== null
+  const isLookAhead = trackingMode === 'offset'
+  const eyebrow = trackingMode === 'offset' ? 'Look ahead'
+                : trackingMode === 'center' ? 'Locked'
+                : 'Center'
+  const accentBg = isLookAhead ? 'var(--beacon)' : 'var(--signal)'
+  const accentGlow = isLookAhead ? '0 6px 18px rgba(74,144,226,0.35)' : '0 6px 18px rgba(232,80,45,0.35)'
   return (
     <div style={{ position: 'absolute', bottom: 16, left: 16, zIndex: 5,
                   display: 'flex', gap: 12 }}>
-      <button onClick={() => setCenterOn(!centerOn)} style={{
+      <button onClick={onCycleTrackingMode} style={{
         height: 80, padding: '0 28px', borderRadius: 16,
-        background: centerOn ? 'var(--signal)' : 'var(--bg-chrome)',
-        backdropFilter: centerOn ? 'none' : 'var(--blur-chrome)',
-        WebkitBackdropFilter: centerOn ? 'none' : 'var(--blur-chrome)',
-        border: centerOn ? '0.5px solid transparent' : '0.5px solid var(--bg-hairline-strong)',
-        color: centerOn ? '#fff' : 'var(--fg1)',
+        background: active ? accentBg : 'var(--bg-chrome)',
+        backdropFilter: active ? 'none' : 'var(--blur-chrome)',
+        WebkitBackdropFilter: active ? 'none' : 'var(--blur-chrome)',
+        border: active ? '0.5px solid transparent' : '0.5px solid var(--bg-hairline-strong)',
+        color: active ? '#fff' : 'var(--fg1)',
         fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em',
         display: 'inline-flex', alignItems: 'center', gap: 12,
-        boxShadow: centerOn ? '0 6px 18px rgba(232,80,45,0.35)' : '0 6px 18px rgba(0,0,0,0.4)',
+        boxShadow: active ? accentGlow : '0 6px 18px rgba(0,0,0,0.4)',
         transition: 'all 180ms var(--ease-standard)',
         cursor: 'pointer',
       }}>
         <Icon name="crosshair" size={28} stroke={2}/>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.1 }}>
           <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em',
-                         textTransform: 'uppercase', opacity: centerOn ? 0.85 : 0.6 }}>
-            {centerOn ? 'Locked' : 'Center'}
+                         textTransform: 'uppercase', opacity: active ? 0.85 : 0.6 }}>
+            {eyebrow}
           </span>
           <span>Follow boat</span>
         </div>

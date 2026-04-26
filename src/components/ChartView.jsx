@@ -30,9 +30,37 @@ import {
   ChartZoomStack,
 } from './chart'
 
-// Heading line and boat marker accent color — matches GPS-fix indicator green.
-// CSS var(--signal) cannot be used in SVG stroke strings, so hex is used directly.
-const HUD_COLOR = '#22c55e'
+// Boat marker + heading-line accent. CSS vars resolve inside SVG attributes
+// in modern Chromium, so they cascade through theme changes automatically.
+const ACCENT_FIX    = 'var(--signal)'
+const ACCENT_NO_FIX = 'var(--tint-red)'
+
+// Apple-Maps-style vessel marker: pointed kite silhouette with a soft radial
+// halo and a subtle bow gloss. Re-rendered on fix-state change so gradient
+// stops adopt the current accent color.
+function buildBoatMarkerSVG(color) {
+  return `
+    <svg width="60" height="60" viewBox="0 0 60 60" style="overflow:visible; display:block;">
+      <defs>
+        <radialGradient id="bm-halo" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"  stop-color="${color}" stop-opacity="0.34"/>
+          <stop offset="55%" stop-color="${color}" stop-opacity="0.10"/>
+          <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="bm-gloss" x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%"   stop-color="rgba(255,255,255,0.55)"/>
+          <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+        </linearGradient>
+      </defs>
+      <circle cx="30" cy="30" r="28" fill="url(#bm-halo)"/>
+      <path d="M30 16 L38.5 38.5 L30 34 L21.5 38.5 Z"
+            fill="${color}"
+            stroke="rgba(0,0,0,0.42)" stroke-width="0.6" stroke-linejoin="round"/>
+      <path d="M30 18.5 L34 28.5 L30 27 L26 28.5 Z" fill="url(#bm-gloss)"/>
+      <circle cx="30" cy="29.5" r="1.4" fill="rgba(255,255,255,0.92)"/>
+    </svg>
+  `
+}
 
 function ChartView() {
   const mapContainer = useRef(null)
@@ -65,7 +93,7 @@ function ChartView() {
   const [vesselBlueTopoDepthFt, setVesselBlueTopoDepthFt] = useState(null)
 
   // GPS tracking state
-  // trackingMode: null = not tracking, 'center' = boat centered, 'offset' = boat 1/3 from bottom
+  // trackingMode: null = not tracking, 'center' = boat centered, 'offset' = boat 1/4 from bottom
   const [trackingMode, setTrackingMode] = useState('center')  // Start tracking by default
   // 'north' = north up, 'heading' = bow up, 'track' = ground-track (COG) up
   const [orientationMode, setOrientationMode] = useState('heading')
@@ -132,8 +160,6 @@ function ChartView() {
   const weatherLayersLoadedRef = useRef(false)
 
   // HUD was removed in the design restyle; Speed/Depth/HDG now live in ChartTopBar.
-  // Heading line and boat marker accent color — matches the GPS-fix indicator green.
-  // (CSS var(--signal) cannot be used in SVG stroke strings, so hex is used directly.)
 
   const [layersMenuOpen, setLayersMenuOpen] = useState(false)
 
@@ -519,8 +545,9 @@ function ChartView() {
     const hasGps = gpsData && isValidCoordinate(gpsData.latitude, gpsData.longitude)
     const fix = hasGps && hasGpsFix(gpsData.latitude, gpsData.longitude)
     const displayLat = fix ? gpsData.latitude : DEFAULT_NO_FIX_POSITION.latitude
-    headingLineRef.current.innerHTML = createHeadingLineSVGString(map.current, displayLat, HUD_COLOR, gpsData?.heading, gpsData?.cog)
-  }, [gpsData, HUD_COLOR])
+    const accent = fix ? ACCENT_FIX : ACCENT_NO_FIX
+    headingLineRef.current.innerHTML = createHeadingLineSVGString(map.current, displayLat, accent, gpsData?.heading, gpsData?.cog)
+  }, [gpsData])
 
   useEffect(() => {
     if (!mapLoaded || !map.current) return
@@ -529,56 +556,34 @@ function ChartView() {
     const fix = hasGps && hasGpsFix(gpsData.latitude, gpsData.longitude)
     const displayLat = fix ? gpsData.latitude : DEFAULT_NO_FIX_POSITION.latitude
     const displayLng = fix ? gpsData.longitude : DEFAULT_NO_FIX_POSITION.longitude
-    const fillColor = fix ? HUD_COLOR : '#ef4444'
-    const glowColor = 'rgba(0, 0, 0, 0.6)'
+    const accent = fix ? ACCENT_FIX : ACCENT_NO_FIX
 
     // Create or update marker
     if (!boatMarkerRef.current) {
-      // Wrapper — 38x38 centered on the map point, overflow visible for heading line
+      // Wrapper — small bounding box centered on the GPS point. The vessel SVG
+      // and heading line are absolutely positioned siblings that share the
+      // wrapper's center as their anchor. overflow:visible lets the halo and
+      // heading line extend past the wrapper.
       const el = document.createElement('div')
       el.className = 'boat-marker'
-      el.style.cssText = 'width:38px; height:38px; position:relative; overflow:visible;'
+      el.style.cssText = 'width:24px; height:24px; position:relative; overflow:visible; pointer-events:none;'
 
-      // Heading line container — anchored to the center of the boat icon (GPS position)
+      // Heading line container — anchored to the center of the wrapper (GPS position)
       const lineContainer = document.createElement('div')
       lineContainer.className = 'heading-line-container'
       lineContainer.style.cssText = 'position:absolute; bottom:50%; left:50%; transform:translateX(-50%); pointer-events:none; overflow:visible;'
       headingLineRef.current = lineContainer
       el.appendChild(lineContainer)
 
-      // Boat icon — 38px (20% larger than 32), detailed boat shape
+      // Vessel: 60×60 SVG centered on the wrapper center via top/left + transform.
       const boatSvg = document.createElement('div')
       boatSvg.className = 'boat-icon'
-      boatSvg.style.cssText = `position:relative; z-index:1; filter: drop-shadow(0 0 5px ${glowColor});`
-      boatSvg.innerHTML = `
-        <svg width="38" height="38" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <!-- Hull -->
-          <path d="M16 2 L10 10 L9 22 L11 27 L16 29 L21 27 L23 22 L22 10 Z"
-                fill="${fillColor}" stroke="${fillColor}" stroke-width="0.5" stroke-linejoin="round"/>
-          <!-- Hull highlight (port side) -->
-          <path d="M16 3 L11 10 L10 21 L12 26 L16 28"
-                fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1" stroke-linecap="round"/>
-          <!-- Gunwale line -->
-          <path d="M11.5 11 L20.5 11" stroke="rgba(0,0,0,0.25)" stroke-width="0.8" stroke-linecap="round"/>
-          <!-- Cabin / wheelhouse -->
-          <rect x="12.5" y="12" width="7" height="5" rx="1.2"
-                fill="rgba(0,0,0,0.2)" stroke="rgba(0,0,0,0.15)" stroke-width="0.5"/>
-          <!-- Windshield -->
-          <rect x="13.2" y="12.6" width="5.6" height="2" rx="0.6"
-                fill="rgba(180,230,255,0.45)" stroke="rgba(255,255,255,0.3)" stroke-width="0.3"/>
-          <!-- Bow detail -->
-          <path d="M13 7 L16 3.5 L19 7" fill="none"
-                stroke="rgba(255,255,255,0.35)" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
-          <!-- Stern transom -->
-          <path d="M12 25 L20 25" stroke="rgba(0,0,0,0.2)" stroke-width="0.8" stroke-linecap="round"/>
-          <!-- Center keel line -->
-          <path d="M16 4 L16 28" stroke="rgba(0,0,0,0.1)" stroke-width="0.4"/>
-        </svg>
-      `
+      boatSvg.style.cssText = 'position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:none;'
+      boatSvg.innerHTML = buildBoatMarkerSVG(accent)
       el.appendChild(boatSvg)
 
       // Initial heading line render
-      lineContainer.innerHTML = createHeadingLineSVGString(map.current, displayLat, HUD_COLOR, gpsData?.heading, gpsData?.cog)
+      lineContainer.innerHTML = createHeadingLineSVGString(map.current, displayLat, accent, gpsData?.heading, gpsData?.cog)
 
       boatMarkerRef.current = new maplibregl.Marker({
         element: el,
@@ -589,17 +594,8 @@ function ChartView() {
         .addTo(map.current)
     } else {
       boatMarkerRef.current.setLngLat([displayLng, displayLat])
-      // Update boat icon color when fix status changes
       const boatIcon = boatMarkerRef.current.getElement().querySelector('.boat-icon')
-      if (boatIcon) {
-        boatIcon.style.filter = `drop-shadow(0 0 5px ${glowColor})`
-        const hull = boatIcon.querySelector('svg path')
-        if (hull) {
-          hull.setAttribute('fill', fillColor)
-          hull.setAttribute('stroke', fillColor)
-        }
-      }
-      // Update heading line
+      if (boatIcon) boatIcon.innerHTML = buildBoatMarkerSVG(accent)
       updateHeadingLine()
     }
 
@@ -667,12 +663,13 @@ function ChartView() {
         duration: 200  // Match 5 Hz update interval for smooth motion
       })
     } else if (trackingMode === 'offset') {
-      // Mode 2: Boat 1/3 from bottom, centered laterally
-      // To place center at 2/3 from top, we need top padding of 1/3 height
+      // Mode 2: Boat 1/4 from bottom, centered laterally — see more chart ahead.
+      // Top padding T pushes the visual center to (height + T) / 2 from the top.
+      // For boat at y = 3h/4, solve T = h/2.
       map.current.easeTo({
         center: [trackLng, trackLat],
         bearing: bearing,
-        padding: { top: mapHeight / 3, bottom: 0, left: 0, right: 0 },
+        padding: { top: mapHeight / 2, bottom: 0, left: 0, right: 0 },
         duration: 200  // Match 5 Hz update interval for smooth motion
       })
     }
@@ -1824,11 +1821,15 @@ function ChartView() {
 
   return (
     <div className="relative h-full w-full" style={{ background: 'var(--bg)' }}>
-      {/* Map Container */}
+      {/* Map Container — inset top to clear the 114px top bar */}
       <div
         ref={mapContainer}
-        className="h-full w-full"
         style={{
+          position: 'absolute',
+          top: 114,
+          left: 0,
+          right: 0,
+          bottom: 0,
           background: 'var(--bg)',
           touchAction: 'none',
           WebkitUserSelect: 'none',
@@ -1974,8 +1975,8 @@ function ChartView() {
 
       {/* BOTTOM-LEFT: follow + orientation pills */}
       <FollowControls
-        centerOn={trackingMode !== null}
-        setCenterOn={(v) => setTrackingMode(v ? 'center' : null)}
+        trackingMode={trackingMode}
+        onCycleTrackingMode={handleCycleTrackingMode}
         orientationMode={orientationMode}
         onCycleOrientation={handleCycleOrientation}
       />
