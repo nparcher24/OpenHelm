@@ -4,6 +4,7 @@ const DEFS = [
   { id: 'bluetopo',  label: 'BlueTopo depth' },
   { id: 'enc',       label: 'NOAA ENC' },
   { id: 's57',       label: 'S-57 features' },
+  { id: 'satellite', label: 'Satellite imagery' },
   { id: 'waypoints', label: 'Waypoints' },
   { id: 'weather',   label: 'Weather' },
   { id: 'trail',     label: 'Track' },

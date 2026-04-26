@@ -65,16 +65,6 @@ const WaypointMenu = React.memo(function WaypointMenu({
 
   return (
     <>
-      {/* Backdrop for dismissing */}
-      <div
-        className="absolute inset-0 z-40"
-        onClick={onClose}
-        style={{
-          background: 'transparent',
-          touchAction: 'none'
-        }}
-      />
-
       {/* Menu */}
       <div
         className="absolute z-50"

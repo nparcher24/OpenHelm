@@ -40,9 +40,15 @@ const ACCENT_NO_FIX = 'var(--tint-red)'
 // Apple-Maps-style vessel marker: pointed kite silhouette with a soft radial
 // halo and a subtle bow gloss. Re-rendered on fix-state change so gradient
 // stops adopt the current accent color.
-function buildBoatMarkerSVG(color) {
+function buildBoatMarkerSVG(color, palette) {
+  // 2× size — 120×120 render, viewBox stays at 60×60 so the existing path
+  // coordinates simply scale up. Stroke + gloss come from the palette so the
+  // marker recolors with the chart theme.
+  const stroke = palette?.markerStroke ?? 'rgba(0,0,0,0.42)'
+  const gloss  = palette?.markerGloss  ?? 'rgba(255,255,255,0.55)'
+  const dot    = palette?.markerDot    ?? 'rgba(255,255,255,0.92)'
   return `
-    <svg width="60" height="60" viewBox="0 0 60 60" style="overflow:visible; display:block;">
+    <svg width="120" height="120" viewBox="0 0 60 60" style="overflow:visible; display:block;">
       <defs>
         <radialGradient id="bm-halo" cx="50%" cy="50%" r="50%">
           <stop offset="0%"  stop-color="${color}" stop-opacity="0.34"/>
@@ -50,16 +56,16 @@ function buildBoatMarkerSVG(color) {
           <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
         </radialGradient>
         <linearGradient id="bm-gloss" x1="50%" y1="0%" x2="50%" y2="100%">
-          <stop offset="0%"   stop-color="rgba(255,255,255,0.55)"/>
+          <stop offset="0%"   stop-color="${gloss}"/>
           <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
         </linearGradient>
       </defs>
       <circle cx="30" cy="30" r="28" fill="url(#bm-halo)"/>
       <path d="M30 16 L38.5 38.5 L30 34 L21.5 38.5 Z"
             fill="${color}"
-            stroke="rgba(0,0,0,0.42)" stroke-width="0.6" stroke-linejoin="round"/>
+            stroke="${stroke}" stroke-width="0.6" stroke-linejoin="round"/>
       <path d="M30 18.5 L34 28.5 L30 27 L26 28.5 Z" fill="url(#bm-gloss)"/>
-      <circle cx="30" cy="29.5" r="1.4" fill="rgba(255,255,255,0.92)"/>
+      <circle cx="30" cy="29.5" r="1.4" fill="${dot}"/>
     </svg>
   `
 }
@@ -184,23 +190,6 @@ function ChartView() {
   useEffect(() => {
     localStorage.setItem('chartview_s57_visible', JSON.stringify(s57LayersVisible))
   }, [s57LayersVisible])
-
-  // Repaint S-57 layers + basemap when the chart palette theme changes.
-  useEffect(() => {
-    if (!map.current || !mapLoaded) return
-    const palette = getChartPalette(theme)
-    try {
-      if (map.current.getLayer('background')) {
-        map.current.setPaintProperty('background', 'background-color', palette.background)
-      }
-      if (map.current.getLayer('coastline-outline')) {
-        map.current.setPaintProperty('coastline-outline', 'line-color', palette.coastline)
-      }
-      applyChartPalette(map.current, theme)
-    } catch (err) {
-      console.warn('[ChartView] theme repaint failed:', err)
-    }
-  }, [theme, mapLoaded, s57LayersLoaded])
 
   useEffect(() => {
     localStorage.setItem('chartview_s57_sublayers', JSON.stringify(s57SubLayerVisibility))
@@ -568,8 +557,43 @@ function ChartView() {
     const fix = hasGps && hasGpsFix(gpsData.latitude, gpsData.longitude)
     const displayLat = fix ? gpsData.latitude : DEFAULT_NO_FIX_POSITION.latitude
     const accent = fix ? ACCENT_FIX : ACCENT_NO_FIX
-    headingLineRef.current.innerHTML = createHeadingLineSVGString(map.current, displayLat, accent, gpsData?.heading, gpsData?.cog)
+    headingLineRef.current.innerHTML = createHeadingLineSVGString(
+      map.current, displayLat, accent, gpsData?.heading, gpsData?.cog,
+      getChartPalette(themeRef.current)
+    )
   }, [gpsData])
+
+  // Repaint S-57 layers + basemap when the chart palette theme changes.
+  // Also re-render the boat marker and heading-line range labels so the
+  // vessel symbol and tick text track the new theme colors.
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return
+    const palette = getChartPalette(theme)
+    try {
+      if (map.current.getLayer('background')) {
+        map.current.setPaintProperty('background', 'background-color', palette.background)
+      }
+      if (map.current.getLayer('coastline-outline')) {
+        map.current.setPaintProperty('coastline-outline', 'line-color', palette.coastline)
+      }
+      applyChartPalette(map.current, theme)
+
+      // Refresh boat marker SVG (stroke / gloss / dot are palette-driven).
+      if (boatMarkerRef.current) {
+        const boatIcon = boatMarkerRef.current.getElement().querySelector('.boat-icon')
+        if (boatIcon) {
+          const hasGps = gpsData && isValidCoordinate(gpsData.latitude, gpsData.longitude)
+          const fix = hasGps && hasGpsFix(gpsData.latitude, gpsData.longitude)
+          const accent = fix ? ACCENT_FIX : ACCENT_NO_FIX
+          boatIcon.innerHTML = buildBoatMarkerSVG(accent, palette)
+        }
+      }
+      // Heading-line tick labels use palette text/halo — refresh.
+      updateHeadingLine()
+    } catch (err) {
+      console.warn('[ChartView] theme repaint failed:', err)
+    }
+  }, [theme, mapLoaded, s57LayersLoaded, updateHeadingLine, gpsData])
 
   useEffect(() => {
     if (!mapLoaded || !map.current) return
@@ -597,15 +621,18 @@ function ChartView() {
       headingLineRef.current = lineContainer
       el.appendChild(lineContainer)
 
-      // Vessel: 60×60 SVG centered on the wrapper center via top/left + transform.
+      // Vessel: 120×120 SVG centered on the wrapper center via top/left + transform.
       const boatSvg = document.createElement('div')
       boatSvg.className = 'boat-icon'
       boatSvg.style.cssText = 'position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:none;'
-      boatSvg.innerHTML = buildBoatMarkerSVG(accent)
+      boatSvg.innerHTML = buildBoatMarkerSVG(accent, getChartPalette(themeRef.current))
       el.appendChild(boatSvg)
 
       // Initial heading line render
-      lineContainer.innerHTML = createHeadingLineSVGString(map.current, displayLat, accent, gpsData?.heading, gpsData?.cog)
+      lineContainer.innerHTML = createHeadingLineSVGString(
+        map.current, displayLat, accent, gpsData?.heading, gpsData?.cog,
+        getChartPalette(themeRef.current)
+      )
 
       boatMarkerRef.current = new maplibregl.Marker({
         element: el,
@@ -617,7 +644,7 @@ function ChartView() {
     } else {
       boatMarkerRef.current.setLngLat([displayLng, displayLat])
       const boatIcon = boatMarkerRef.current.getElement().querySelector('.boat-icon')
-      if (boatIcon) boatIcon.innerHTML = buildBoatMarkerSVG(accent)
+      if (boatIcon) boatIcon.innerHTML = buildBoatMarkerSVG(accent, getChartPalette(themeRef.current))
       updateHeadingLine()
     }
 

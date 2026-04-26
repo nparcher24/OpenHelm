@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import { Icon, PagesMenu, ThemeCycleButton } from '../../ui/primitives'
 import { TopMetric } from './TopMetric.jsx'
 import { WaypointDropdown } from './WaypointDropdown.jsx'
@@ -23,13 +23,13 @@ function Divider() {
   return <div style={{ width: 0.5, height: 60, background: 'var(--bg-hairline)' }}/>
 }
 
-export function ChartTopBar({
+export const ChartTopBar = forwardRef(function ChartTopBar({
   speed, depth, heading,
   waypoints, onSelectWaypoint, onAddWaypoint,
   layers, onLayerChange,
   onWaypointsOpenChange,
   s57FilterVisible, s57SubLayerVisibility, onToggleSublayer, onToggleGroup,
-}) {
+}, ref) {
   const [pagesOpen, setPagesOpen] = useState(false)
   const [waypointsOpen, setWaypointsOpen] = useState(false)
   const [layersOpen, setLayersOpen] = useState(false)
@@ -48,7 +48,8 @@ export function ChartTopBar({
     setLayersOpen(false)
     setS57FilterOpen(false)
   }
-  const anyOpen = pagesOpen || waypointsOpen || layersOpen || s57FilterOpen
+
+  useImperativeHandle(ref, () => ({ closeAll }))
 
   return (
     <>
@@ -144,9 +145,6 @@ export function ChartTopBar({
 
         <ThemeCycleButton size={84} iconSize={42} radius={18}/>
       </div>
-
-      {/* Click-to-close scrim — behind dropdowns (zIndex 4), above map (zIndex 0) */}
-      {anyOpen && <div onClick={closeAll} style={{ position: 'absolute', inset: 0, zIndex: 4 }}/>}
     </>
   )
-}
+})

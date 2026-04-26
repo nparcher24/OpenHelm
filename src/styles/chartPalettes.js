@@ -57,6 +57,9 @@ const PALETTES = {
     bridge:          '#555555',
     restricted:      '#D04A1E',
     anchorage:       '#7A4FB0',
+    markerStroke:    'rgba(0,0,0,0.50)',
+    markerGloss:     'rgba(255,255,255,0.55)',
+    markerDot:       'rgba(255,255,255,0.95)',
   },
 
   dark: {
@@ -102,6 +105,9 @@ const PALETTES = {
     bridge:          '#888888',
     restricted:      '#E8502D',
     anchorage:       '#9060C0',
+    markerStroke:    'rgba(0,0,0,0.65)',
+    markerGloss:     'rgba(255,255,255,0.42)',
+    markerDot:       'rgba(255,255,255,0.92)',
   },
 
   night: {
@@ -147,6 +153,9 @@ const PALETTES = {
     bridge:          '#7A2020',
     restricted:      '#FF6060',
     anchorage:       '#A53030',
+    markerStroke:    'rgba(0,0,0,0.85)',
+    markerGloss:     'rgba(229,72,72,0.30)',
+    markerDot:       '#FFAFAF',
   },
 }
 

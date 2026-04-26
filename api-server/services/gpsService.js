@@ -321,18 +321,48 @@ export function setGpsUpdateCallback(callback) {
 }
 
 /**
- * Find GPS device - checks Linux and macOS serial device paths
+ * Find GPS device.
+ *
+ * Lookup order:
+ *  1. /dev/witmotion (stable symlink installed by setup/udev/99-witmotion.rules)
+ *  2. $OPENHELM_GPS_DEVICE override
+ *  3. Glob scan of /dev/ttyUSB*, /dev/ttyACM*, and macOS /dev/cu.usb*
+ *
+ * The symlink path makes the service port-agnostic: plug the WitMotion
+ * into any USB port and udev re-points /dev/witmotion → the new ttyUSB*.
  */
 async function findGpsDevice() {
+  // 1. Stable udev symlink (preferred)
   try {
-    // Check both Linux and macOS serial device paths
+    const link = '/dev/witmotion'
+    fs.accessSync(link, fs.constants.R_OK | fs.constants.W_OK)
+    console.log(`GPS: Found device via udev symlink: ${link}`)
+    return link
+  } catch (e) {
+    // Symlink missing → fall through
+  }
+
+  // 2. Explicit override
+  if (process.env.OPENHELM_GPS_DEVICE) {
+    const dev = process.env.OPENHELM_GPS_DEVICE
+    try {
+      fs.accessSync(dev, fs.constants.R_OK | fs.constants.W_OK)
+      console.log(`GPS: Using OPENHELM_GPS_DEVICE override: ${dev}`)
+      return dev
+    } catch (e) {
+      console.log(`GPS: OPENHELM_GPS_DEVICE=${dev} not accessible: ${e.message}`)
+    }
+  }
+
+  // 3. Glob fallback
+  try {
     const { stdout } = await execAsync('ls /dev/ttyUSB* /dev/ttyACM* /dev/cu.usbserial-* /dev/cu.usbmodem* 2>/dev/null || true')
     const devices = stdout.trim().split('\n').filter(d => d.length > 0)
 
     for (const device of devices) {
       try {
         fs.accessSync(device, fs.constants.R_OK | fs.constants.W_OK)
-        console.log(`GPS: Found device ${device}`)
+        console.log(`GPS: Found device via glob scan: ${device}`)
         return device
       } catch (e) {
         console.log(`GPS: Device ${device} not accessible`)

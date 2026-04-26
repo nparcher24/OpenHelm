@@ -4,21 +4,38 @@
 
 import { Router } from 'express'
 import { startGpsService, stopGpsService, getGpsData, isGpsRunning, getHeadingOffset, setHeadingOffset } from '../services/gpsService.js'
+import { getActiveGps } from '../services/gpsArbiter.js'
 
 const router = Router()
 
 /**
- * GET /api/gps - Get current GPS data
+ * GET /api/gps - Arbitrated GPS snapshot (WitMotion primary, N2K fallback).
+ * Frontend reads this; it transparently swaps source if WitMotion goes stale.
  */
 router.get('/', async (req, res) => {
   try {
-    // Auto-start service if not running
     if (!isGpsRunning()) {
       await startGpsService()
     }
+    res.json(getActiveGps())
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to get GPS data',
+      message: error.message
+    })
+  }
+})
 
-    const data = getGpsData()
-    res.json(data)
+/**
+ * GET /api/gps/raw - Raw WitMotion-only snapshot (no N2K fallback).
+ * Useful for debugging the WitMotion in isolation.
+ */
+router.get('/raw', async (req, res) => {
+  try {
+    if (!isGpsRunning()) {
+      await startGpsService()
+    }
+    res.json(getGpsData())
   } catch (error) {
     res.status(500).json({
       error: 'Failed to get GPS data',

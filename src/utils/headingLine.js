@@ -51,7 +51,7 @@ function metersPerPixel(latitude, zoom) {
 
 const DRIFT_COLOR = 'var(--beacon)'
 
-export function buildHeadingLineSVG(map, boatLat, color = 'var(--signal)', heading = null, cog = null) {
+export function buildHeadingLineSVG(map, boatLat, color = 'var(--signal)', heading = null, cog = null, palette = null) {
   if (!map) return null
 
   const viewportHeight = map.getCanvas().clientHeight
@@ -65,15 +65,20 @@ export function buildHeadingLineSVG(map, boatLat, color = 'var(--signal)', headi
   const tickInterval = pickTickInterval(lineFeet)
   const pixelsPerFoot = linePixelLength / lineFeet
 
-  const svgWidth = 220
+  const svgWidth = 360
   const svgHeight = linePixelLength + 12
   const centerX = svgWidth / 2
   const bottomY = svgHeight
   const tipY = bottomY - linePixelLength
 
   // Forward cone: narrow at base (vessel), wider at the tip — opposite of a
-  // beam, more like a soft directional fan. ~14px each side at the tip.
-  const coneTipHalfW = 14
+  // beam, more like a soft directional fan. ~28px each side at the tip (2×).
+  const coneTipHalfW = 28
+
+  // Theme-aware label/halo. Falls back to the original white-on-black look.
+  const labelFill = palette?.text     ?? '#FFFFFF'
+  const labelHalo = palette?.textHalo ?? 'rgba(0,0,0,0.65)'
+  const lineHalo  = palette?.textHalo ?? 'rgba(0,0,0,0.32)'
 
   const defs = `
     <linearGradient id="hl-line" x1="50%" y1="100%" x2="50%" y2="0%">
@@ -94,21 +99,21 @@ export function buildHeadingLineSVG(map, boatLat, color = 'var(--signal)', headi
 
   // Centerline — soft dark backing for legibility on bright tiles, thin
   // gradient foreground that fades toward the tip.
-  paths += `<line x1="${centerX}" y1="${bottomY}" x2="${centerX}" y2="${tipY}" stroke="rgba(0,0,0,0.32)" stroke-width="2.25" stroke-linecap="round"/>`
-  paths += `<line x1="${centerX}" y1="${bottomY}" x2="${centerX}" y2="${tipY}" stroke="url(#hl-line)" stroke-width="1.25" stroke-linecap="round"/>`
+  paths += `<line x1="${centerX}" y1="${bottomY}" x2="${centerX}" y2="${tipY}" stroke="${lineHalo}" stroke-width="4.5" stroke-linecap="round"/>`
+  paths += `<line x1="${centerX}" y1="${bottomY}" x2="${centerX}" y2="${tipY}" stroke="url(#hl-line)" stroke-width="2.5" stroke-linecap="round"/>`
 
-  // Symmetrical thin tick marks with mono-numeric labels
-  const tickHalf = 5
+  // Symmetrical thin tick marks with mono-numeric labels (2× sized).
+  const tickHalf = 10
   let dist = tickInterval
   while (dist < lineFeet) {
     const tickY = bottomY - (dist * pixelsPerFoot)
-    if (tickY < tipY + 8) break
+    if (tickY < tipY + 16) break
 
-    paths += `<line x1="${centerX - tickHalf}" y1="${tickY}" x2="${centerX + tickHalf}" y2="${tickY}" stroke="rgba(0,0,0,0.32)" stroke-width="2.25" stroke-linecap="round"/>`
-    paths += `<line x1="${centerX - tickHalf}" y1="${tickY}" x2="${centerX + tickHalf}" y2="${tickY}" stroke="${color}" stroke-width="1" stroke-linecap="round" opacity="0.8"/>`
+    paths += `<line x1="${centerX - tickHalf}" y1="${tickY}" x2="${centerX + tickHalf}" y2="${tickY}" stroke="${lineHalo}" stroke-width="4.5" stroke-linecap="round"/>`
+    paths += `<line x1="${centerX - tickHalf}" y1="${tickY}" x2="${centerX + tickHalf}" y2="${tickY}" stroke="${color}" stroke-width="2" stroke-linecap="round" opacity="0.85"/>`
 
     const label = formatDistance(dist)
-    labels += `<text x="${centerX + tickHalf + 6}" y="${tickY + 4}" font-family="JetBrains Mono, ui-monospace, SFMono-Regular, monospace" font-size="11" font-weight="500" fill="#FFFFFF" stroke="rgba(0,0,0,0.65)" stroke-width="2.25" paint-order="stroke fill" style="font-variant-numeric: tabular-nums; letter-spacing: 0.02em;">${label}</text>`
+    labels += `<text x="${centerX + tickHalf + 12}" y="${tickY + 8}" font-family="JetBrains Mono, ui-monospace, SFMono-Regular, monospace" font-size="22" font-weight="600" fill="${labelFill}" stroke="${labelHalo}" stroke-width="4.5" paint-order="stroke fill" style="font-variant-numeric: tabular-nums; letter-spacing: 0.02em;">${label}</text>`
 
     dist += tickInterval
   }
@@ -126,9 +131,9 @@ export function buildHeadingLineSVG(map, boatLat, color = 'var(--signal)', headi
       const gtEndY = bottomY - Math.cos(drift * Math.PI / 180) * gtLength
 
       const driftRad = drift * Math.PI / 180
-      const arrowSz = 5
-      const gtTipX = gtEndX + Math.sin(driftRad) * 3
-      const gtTipY = gtEndY - Math.cos(driftRad) * 3
+      const arrowSz = 10
+      const gtTipX = gtEndX + Math.sin(driftRad) * 6
+      const gtTipY = gtEndY - Math.cos(driftRad) * 6
       const perpX = Math.cos(driftRad)
       const perpY = Math.sin(driftRad)
       const gtBaseX1 = gtTipX - Math.sin(driftRad) * arrowSz * 1.6 + perpX * arrowSz
@@ -136,17 +141,17 @@ export function buildHeadingLineSVG(map, boatLat, color = 'var(--signal)', headi
       const gtBaseX2 = gtTipX - Math.sin(driftRad) * arrowSz * 1.6 - perpX * arrowSz
       const gtBaseY2 = gtTipY + Math.cos(driftRad) * arrowSz * 1.6 - perpY * arrowSz
 
-      paths += `<line x1="${centerX}" y1="${bottomY}" x2="${gtEndX}" y2="${gtEndY}" stroke="rgba(0,0,0,0.32)" stroke-width="2.25" stroke-linecap="round"/>`
-      paths += `<line x1="${centerX}" y1="${bottomY}" x2="${gtEndX}" y2="${gtEndY}" stroke="${DRIFT_COLOR}" stroke-width="1.4" stroke-linecap="round" opacity="0.9"/>`
-      paths += `<path d="M${gtTipX} ${gtTipY} L${gtBaseX1} ${gtBaseY1} L${gtBaseX2} ${gtBaseY2} Z" fill="${DRIFT_COLOR}" stroke="rgba(0,0,0,0.32)" stroke-width="0.5" stroke-linejoin="round"/>`
+      paths += `<line x1="${centerX}" y1="${bottomY}" x2="${gtEndX}" y2="${gtEndY}" stroke="${lineHalo}" stroke-width="4.5" stroke-linecap="round"/>`
+      paths += `<line x1="${centerX}" y1="${bottomY}" x2="${gtEndX}" y2="${gtEndY}" stroke="${DRIFT_COLOR}" stroke-width="2.8" stroke-linecap="round" opacity="0.9"/>`
+      paths += `<path d="M${gtTipX} ${gtTipY} L${gtBaseX1} ${gtBaseY1} L${gtBaseX2} ${gtBaseY2} Z" fill="${DRIFT_COLOR}" stroke="${lineHalo}" stroke-width="1" stroke-linejoin="round"/>`
     }
   }
 
   return { svgWidth, svgHeight, defs, paths, labels }
 }
 
-export function createHeadingLineSVGString(map, boatLat, color, heading, cog) {
-  const result = buildHeadingLineSVG(map, boatLat, color, heading, cog)
+export function createHeadingLineSVGString(map, boatLat, color, heading, cog, palette = null) {
+  const result = buildHeadingLineSVG(map, boatLat, color, heading, cog, palette)
   if (!result) return ''
 
   const { svgWidth, svgHeight, defs, paths, labels } = result

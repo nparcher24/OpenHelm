@@ -20,6 +20,7 @@ import { setGpsUpdateCallback, startGpsService } from './services/gpsService.js'
 import { startSimulator, stopSimulator, isSimulatorRunning } from './services/gpsSimulator.js'
 import vesselRoutes from './routes/vessel.js'
 import { setVesselUpdateCallback, startNmea2000Service } from './services/nmea2000Service.js'
+import { getActiveGps } from './services/gpsArbiter.js'
 import waypointRoutes from './routes/waypoints.js'
 import driftRoutes from './routes/drift.js'
 import ncdsRoutes from './routes/ncds.js'
@@ -205,9 +206,11 @@ const gpsSubscribers = new Set()
 // Vessel WebSocket subscribers
 const vesselSubscribers = new Set()
 
-// Set up GPS real-time streaming (throttled to 5 Hz)
+// Set up GPS real-time streaming (throttled to 5 Hz).
+// We push the *arbitrated* snapshot, not raw WitMotion, so subscribers
+// transparently see a fallback to N2K GPS when WitMotion goes stale.
 let lastGpsBroadcast = 0
-setGpsUpdateCallback((gpsData) => {
+function broadcastActiveGps() {
   if (gpsSubscribers.size === 0) return
 
   const now = Date.now()
@@ -216,7 +219,7 @@ setGpsUpdateCallback((gpsData) => {
 
   const message = JSON.stringify({
     type: 'gps',
-    data: gpsData,
+    data: getActiveGps(),
     timestamp: Date.now()
   })
 
@@ -231,7 +234,14 @@ setGpsUpdateCallback((gpsData) => {
       gpsSubscribers.delete(ws)
     }
   })
-})
+}
+
+setGpsUpdateCallback(() => broadcastActiveGps())
+
+// Heartbeat broadcast: even when WitMotion is silent (unplugged / fault),
+// we want subscribers to learn that the active source flipped to N2K (or to
+// 'none'). Without this they'd see the last WitMotion frame forever.
+setInterval(broadcastActiveGps, 1000).unref()
 
 // GPS Simulator broadcast — uses the same gpsSubscribers channel
 function broadcastSimGps(gpsData) {
