@@ -6,7 +6,9 @@ import { getDownloadedTileMetadata, getTileUrl, getDepthAtLocation } from '../se
 import { getSatelliteRegions, getSatelliteTileUrl } from '../services/satelliteTileService'
 import { getDownloadedRegions as getDownloadedENCRegions } from '../services/encDownloadService'
 import { getDownloadedRegions as getDownloadedS57Regions } from '../services/s57DownloadService'
-import { createNauticalStyle, S57_LAYER_PREFIX } from '../styles/nauticalChartStyle'
+import { createNauticalStyle, applyChartPalette, S57_LAYER_PREFIX } from '../styles/nauticalChartStyle'
+import { getChartPalette } from '../styles/chartPalettes'
+import { useTheme } from '../ui/theme/useTheme.js'
 import { getAllWaypoints, createWaypoint } from '../services/waypointService'
 import { getLatestDrift } from '../services/driftService'
 import { computeDriftCorrected } from '../utils/driftCalc'
@@ -63,6 +65,9 @@ function buildBoatMarkerSVG(color) {
 }
 
 function ChartView() {
+  const { theme } = useTheme()
+  const themeRef = useRef(theme)
+  useEffect(() => { themeRef.current = theme }, [theme])
   const mapContainer = useRef(null)
   const map = useRef(null)
   const [mapLoaded, setMapLoaded] = useState(false)
@@ -179,6 +184,23 @@ function ChartView() {
   useEffect(() => {
     localStorage.setItem('chartview_s57_visible', JSON.stringify(s57LayersVisible))
   }, [s57LayersVisible])
+
+  // Repaint S-57 layers + basemap when the chart palette theme changes.
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return
+    const palette = getChartPalette(theme)
+    try {
+      if (map.current.getLayer('background')) {
+        map.current.setPaintProperty('background', 'background-color', palette.background)
+      }
+      if (map.current.getLayer('coastline-outline')) {
+        map.current.setPaintProperty('coastline-outline', 'line-color', palette.coastline)
+      }
+      applyChartPalette(map.current, theme)
+    } catch (err) {
+      console.warn('[ChartView] theme repaint failed:', err)
+    }
+  }, [theme, mapLoaded, s57LayersLoaded])
 
   useEffect(() => {
     localStorage.setItem('chartview_s57_sublayers', JSON.stringify(s57SubLayerVisibility))
@@ -723,7 +745,7 @@ function ChartView() {
         {
           id: "background",
           type: "background",
-          paint: { "background-color": "#000000" }
+          paint: { "background-color": getChartPalette(themeRef.current).background }
         },
         // DISABLED FOR TESTING
         // {
@@ -743,7 +765,7 @@ function ChartView() {
           "source-layer": "coastline",
           minzoom: 4,
           paint: {
-            "line-color": "#FFFFFF",
+            "line-color": getChartPalette(themeRef.current).coastline,
             "line-width": [
               "interpolate",
               ["exponential", 1.5],
@@ -1164,7 +1186,7 @@ function ChartView() {
         }
 
         // Create sources and layers from the nautical style (vector tiles)
-        const { sources, layers } = createNauticalStyle(region.regionId, region.layers || [], TILE_BASE)
+        const { sources, layers } = createNauticalStyle(region.regionId, region.layers || [], TILE_BASE, themeRef.current)
 
         // Add the single vector tile source
         for (const [sid, sourceConfig] of Object.entries(sources)) {
