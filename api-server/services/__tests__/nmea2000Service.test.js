@@ -26,7 +26,7 @@ describe('PGN 127751 — DC Voltage/Current (this boat\'s battery monitor)', () 
     _handlePgnForTest({
       pgn: 127751,
       src: 0x94,
-      fields: { voltage: 13.42, current: 5.1 }
+      fields: { connectionNumber: 1, dcVoltage: 13.42, dcCurrent: 5.1 }
     })
     const v = getVesselData()
     expect(v.batteryVoltage).toBe(13.42)
@@ -34,9 +34,29 @@ describe('PGN 127751 — DC Voltage/Current (this boat\'s battery monitor)', () 
     expect(v.batterySource).toBe('127751')
   })
 
+  it('ignores 0 V readings from unused connection slots', () => {
+    // Live battery reading first…
+    _handlePgnForTest({
+      pgn: 127751, src: 0x94,
+      fields: { connectionNumber: 1, dcVoltage: 12.5, dcCurrent: 1.36 }
+    })
+    expect(getVesselData().batteryVoltage).toBe(12.5)
+    // …then an unused slot (connectionNumber: 0/2 → 0 V) must NOT blank it.
+    _handlePgnForTest({
+      pgn: 127751, src: 0x94,
+      fields: { connectionNumber: 0, dcVoltage: 0, dcCurrent: 0 }
+    })
+    _handlePgnForTest({
+      pgn: 127751, src: 0x94,
+      fields: { connectionNumber: 2, dcVoltage: 0, dcCurrent: 0 }
+    })
+    expect(getVesselData().batteryVoltage).toBe(12.5)
+    expect(getVesselData().batteryCurrent).toBeCloseTo(1.36)
+  })
+
   it('127751 wins over a stale 127508 reading', () => {
     _handlePgnForTest({ pgn: 127508, src: 0x50, fields: { voltage: 12.0 } })
-    _handlePgnForTest({ pgn: 127751, src: 0x94, fields: { voltage: 13.6 } })
+    _handlePgnForTest({ pgn: 127751, src: 0x94, fields: { connectionNumber: 1, dcVoltage: 13.6 } })
     expect(getVesselData().batteryVoltage).toBe(13.6)
     expect(getVesselData().batterySource).toBe('127751')
     // A subsequent 127508 must NOT overwrite the more recent 127751 reading.

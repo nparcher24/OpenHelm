@@ -260,14 +260,18 @@ function handlePgn(msg) {
       break
     }
 
-    case 127751: { // DC Voltage / Current — what this boat's battery monitor (src 0x94) emits
-      const v = num(fields.voltage)
-      const c = num(fields.current)
-      if (v != null) {
+    case 127751: { // DC Voltage / Current — this boat's battery monitor (src 0x94)
+      // canboatjs field names are dcVoltage / dcCurrent (not voltage/current).
+      // The monitor publishes one frame per connection slot; on this boat slots
+      // 0 and 2 are unused and report 0 V / 0 A. Skip those or the live reading
+      // gets zeroed every cycle. Connection 1 carries the actual battery.
+      const v = num(fields.dcVoltage)
+      const c = num(fields.dcCurrent)
+      if (v != null && v > 0.5) {
         vesselData.batteryVoltage = Math.round(v * 100) / 100
         vesselData.batterySource = '127751'
+        if (c != null) vesselData.batteryCurrent = Math.round(c * 100) / 100
       }
-      if (c != null) vesselData.batteryCurrent = Math.round(c * 100) / 100
       break
     }
 

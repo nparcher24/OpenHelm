@@ -24,7 +24,7 @@ function Divider() {
 }
 
 export const ChartTopBar = forwardRef(function ChartTopBar({
-  speed, depth, heading,
+  speed, depth, heading, waterTemp, fuelLevel, batteryVoltage,
   waypoints, onSelectWaypoint, onAddWaypoint,
   layers, onLayerChange,
   onWaypointsOpenChange,
@@ -99,6 +99,12 @@ export const ChartTopBar = forwardRef(function ChartTopBar({
         <TopMetric label="Speed" value={speed != null ? Number(speed).toFixed(1) : '—'} unit="kn" live/>
         <Divider/>
         <TopMetric label="Depth" value={depth != null ? Number(depth).toFixed(1) : '—'} unit="ft" tint="var(--tint-teal)" live/>
+        <Divider/>
+        <TopMetric label="Water" value={waterTemp != null ? String(Math.round(waterTemp)) : '—'} unit="°F" tint="var(--tint-teal)" live={waterTemp != null}/>
+        <Divider/>
+        <TopMetric label="Fuel" value={fuelLevel != null ? String(Math.round(fuelLevel)) : '—'} unit="%" live={fuelLevel != null}/>
+        <Divider/>
+        <TopMetric label="Batt" value={batteryVoltage != null ? Number(batteryVoltage).toFixed(1) : '—'} unit="V" live={batteryVoltage != null}/>
         <Divider/>
         <TopMetric label="HDG" value={heading != null ? String(Math.round(heading)).padStart(3, '0') : '—'} unit="°M"/>
         <Divider/>

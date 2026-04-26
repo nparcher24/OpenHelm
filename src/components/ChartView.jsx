@@ -115,6 +115,7 @@ function ChartView() {
   const trackingModeRef = useRef(null)
   const orientationModeRef = useRef('heading')
   const bearingFrozenRef = useRef(false)  // True when bearing is frozen after pan decouple
+  const [mapBearing, setMapBearing] = useState(0)  // Live mirror of map.getBearing() — drives compass rose
 
   // Waypoint state
   const [waypoints, setWaypoints] = useState([])
@@ -660,14 +661,18 @@ function ChartView() {
 
     const onZoom = () => updateHeadingLine()
     const onResize = () => updateHeadingLine()
+    const onRotate = () => setMapBearing(map.current.getBearing())
 
     map.current.on('zoom', onZoom)
     map.current.on('resize', onResize)
+    map.current.on('rotate', onRotate)
+    setMapBearing(map.current.getBearing())  // Seed initial value
 
     return () => {
       if (map.current) {
         map.current.off('zoom', onZoom)
         map.current.off('resize', onResize)
+        map.current.off('rotate', onRotate)
       }
     }
   }, [mapLoaded, updateHeadingLine])
@@ -1974,6 +1979,9 @@ function ChartView() {
         speed={gpsData?.speed}
         depth={topBarDepthFt}
         heading={gpsData?.heading}
+        waterTemp={vesselData?.isConnected && !vesselData?.isDemoMode ? vesselData?.waterTemp : null}
+        fuelLevel={vesselData?.isConnected && !vesselData?.isDemoMode ? vesselData?.fuelLevel : null}
+        batteryVoltage={vesselData?.isConnected && !vesselData?.isDemoMode ? vesselData?.batteryVoltage : null}
         waypoints={waypoints}
         onSelectWaypoint={(w) => {
           if (!map.current || w?.latitude == null || w?.longitude == null) return
@@ -2008,14 +2016,10 @@ function ChartView() {
 
       {/* RIGHT: compass + zoom */}
       <div style={{
-        position: 'absolute', top: 88, right: 14, zIndex: 5,
+        position: 'absolute', top: 128, right: 14, zIndex: 5,
         display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end',
       }}>
-        <CompassRose
-          heading={orientationMode === 'track' ? (gpsData?.cog ?? gpsData?.heading ?? 0) : (gpsData?.heading ?? 0)}
-          headingUp={orientationMode !== 'north'}
-          size={96}
-        />
+        <CompassRose bearing={mapBearing} size={96}/>
         <ChartZoomStack
           onZoomIn={() => map.current?.zoomIn()}
           onZoomOut={() => map.current?.zoomOut()}
