@@ -251,3 +251,63 @@ Search across 200+ icon sets when Heroicons lacks needed icons:
 - Weather: `"wind waves temperature"`
 
 Verify licensing before using non-Heroicons in production.
+
+## NMEA 2000 USB Adapter Sub-Project (`n2k_adapter/`)
+
+> **Standing instruction (READ ON EVERY SESSION):** Whenever you uncover information about the N2K adapter, the boat's bus, or the host system that future sessions would need, update both this section AND `n2k_adapter/CLAUDE.md`. That includes: PGNs actually observed on this boat, wiring deviations or quirks, kernel/driver/firmware version requirements, custom udev rules, systemd units, boot configs, and performance issues or buffer tuning beyond the `txqueuelen` note. Memory beats re-discovery.
+
+**Goal:** Pull live NMEA 2000 data off the boat's bus into OpenHelm via a USB-to-CAN adapter, so the existing vessel data pipeline (engine RPM, fuel, depth, etc.) has a real source instead of running in demo mode.
+
+### Hardware
+
+- **Adapter:** DSD TECH SH-C30G isolated USB-to-CAN. CANable 1.0 Pro clone, STM32F072 MCU. Ships with **candleLight** firmware by default (which is what we want).
+- **Bus:** NMEA 2000 — CAN 2.0B at **250 kbps**, J1939-based higher-layer protocol. Frames are extended (29-bit) IDs.
+- **Connection:** SH-C30G screw terminals wired to a sacrificed N2K Micro-C drop cable.
+  - White (CAN_H) → CAN_H
+  - Blue  (CAN_L) → CAN_L
+  - Mesh shield   → GND
+  - Red (NET-S, +12V) → **capped, unused**
+  - Black (NET-C, 0V) → **capped, unused**
+  - Adapter is USB-powered, **not bus-powered**. Keeping NET-S/NET-C disconnected avoids ground-loop and back-feed risk against the boat's 12V supply.
+- **Termination:** The boat's N2K backbone already has 120 Ω terminators at both ends. The SH-C30G's onboard 120 Ω switch must remain **OFF** — adding a third terminator will impedance-mismatch the bus.
+
+### Target Deployment
+
+Final integration runs on **Linux** (the Pi or M6 Ultra), via SocketCAN. The adapter exposes `can0` once plugged in.
+
+macOS is **dev-only** — no native SocketCAN, no `gs_usb` kernel driver. On macOS the adapter can be enumerated and basic USB descriptors inspected, but live frame capture and decoding requires Linux (or a slcan userspace tool, which we are explicitly avoiding — see below).
+
+### Software Stack
+
+OpenHelm is **Node-first**. There is already a working `api-server/services/nmea2000Service.js` that uses `@canboat/canboatjs`'s `SimpleCan` against `can0`. The intent is for the SH-C30G to **drop in as the `can0` provider** — the existing service should keep working unchanged once the OS-level interface is up.
+
+- **Primary stack (Node):** `@canboat/canboatjs` (already a dependency) → `SimpleCan` reads from `can0` via SocketCAN, `FromPgn` decodes PGNs.
+- **Optional alt stack (Python):** `python-can` + `canboat` CLI tools (`candump`, `analyzer`). Useful for ad-hoc bus sniffing, PGN discovery, and bench testing — not the production path.
+- **Avoid `slcan`:** the slcan userspace driver drops fast-packet frames under load. Use the `gs_usb` kernel driver (which is what candleLight firmware speaks) so the device shows up as a native SocketCAN interface.
+
+### Critical Linux Config Notes
+
+```bash
+# Bring up the interface (one-shot)
+sudo ip link set can0 up type can bitrate 250000
+
+# REQUIRED tuning — default txqueuelen of 10 drops N2K fast-packet frames
+sudo ip link set can0 txqueuelen 1000
+```
+
+- Use **candleLight** firmware (factory default). Do **not** flash slcan.
+- Verify enumeration: `dmesg | grep -i 'gs_usb\|candle'` after plug-in.
+- Verify interface: `ip -details link show can0` should show `bitrate 250000` and `qlen 1000`.
+- Confirm traffic: `candump can0` (from `can-utils`) before involving canboatjs.
+
+### Current Status (2026-04-26)
+
+- Hardware received and wired to a sacrificed Micro-C cable per the pinout above.
+- Adapter currently plugged into macOS for initial USB inspection only.
+- **Not yet** tested against the live bus.
+- Bench verification (loopback / two-adapter test) and live bus capture both **pending**.
+- Next session continues on the Linux deployment target.
+
+### Where the Sub-Project Lives
+
+All N2K-adapter-specific scaffolding (sub-project memory, README, setup files, code, tests) lives under `n2k_adapter/`. See `n2k_adapter/CLAUDE.md` for the granular running log.

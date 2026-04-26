@@ -1,0 +1,31 @@
+# udev rule for DSD TECH SH-C30G (CANable 1.0 Pro clone, candleLight firmware)
+#
+# Pins this adapter to the SocketCAN interface name "can0" regardless of plug-in
+# order. Without this, a second CAN-class device (PiCAN HAT, another CANable, etc.)
+# can take "can0" and bump the SH-C30G to "can1", which breaks every script and
+# systemd unit that hard-codes "can0".
+#
+# PLACEHOLDER — verify the idVendor / idProduct / serial against the actual
+# adapter on the Linux host before relying on this rule. Inspect with:
+#
+#   udevadm info -a -n /dev/bus/usb/<bus>/<dev> | grep -E 'idVendor|idProduct|serial'
+#   lsusb -v | less    (search for "candleLight" or "STM32 CAN")
+#
+# candleLight reference USB IDs (from upstream firmware):
+#   1d50:606f   OpenMoko, Inc. / candleLight
+#   16d0:117e   MCS Electronics / CANable Pro
+#
+# DSD TECH may rebadge under their own VID/PID — check before trusting the
+# IDs below.
+#
+# To activate after editing:
+#   sudo cp 99-canable.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules
+#   sudo udevadm trigger
+#   # Then unplug + replug the adapter.
+
+# Match by VID/PID (replace SERIAL_HERE with the actual device serial once known).
+SUBSYSTEM=="net", ACTION=="add", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="606f", ATTRS{serial}=="SERIAL_HERE", NAME="can0"
+
+# Fallback (any candleLight-class device) — uncomment if there is only ever one CAN device on the host.
+# SUBSYSTEM=="net", ACTION=="add", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="606f", NAME="can0"
