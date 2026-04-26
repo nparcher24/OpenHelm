@@ -24,8 +24,10 @@
 #   sudo udevadm trigger
 #   # Then unplug + replug the adapter.
 
-# Match by VID/PID (replace SERIAL_HERE with the actual device serial once known).
-SUBSYSTEM=="net", ACTION=="add", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="606f", ATTRS{serial}=="SERIAL_HERE", NAME="can0"
+# Match by VID/PID + serial. Serial captured 2026-04-26 from the actual SH-C30G
+# plugged into air-segment (host reports ID_VENDOR=bytewerk,
+# ID_MODEL=candleLight_USB_to_CAN_adapter via udevadm).
+SUBSYSTEM=="net", ACTION=="add", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="606f", ATTRS{serial}=="0036003C5847570D20343432", NAME="can0"
 
 # Fallback (any candleLight-class device) — uncomment if there is only ever one CAN device on the host.
 # SUBSYSTEM=="net", ACTION=="add", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="606f", NAME="can0"

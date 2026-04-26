@@ -108,18 +108,28 @@ If step 5 fails but step 3 succeeds, the bug is in our integration, not the adap
 
 ## Boat-Specific N2K Device Inventory
 
-> Populate this table the first time the adapter is connected to the live bus. Run `candump can0` for ~60 s and note source addresses + PGNs.
+First populated 2026-04-26 from a 30 s `candump` capture (3315 frames, 0 RX errors). Use `n2k_adapter/src/decode-capture.js <log>` to refresh.
 
-| Src addr | Device              | PGNs observed | Notes |
-|---------:|---------------------|---------------|-------|
-|  _TBD_   | _TBD_               | _TBD_         |       |
+| Src (hex/dec) | Device (inferred)                  | PGNs observed (frames in 30 s)                                                                                                                                                                                                                                                                       | Notes |
+|---:|---|---|---|
+| `0x01` / 1   | Fuel-tank level sender              | 127505 Fluid Level (12); 126720 group-function (90)                                                                                                                                                                                                                                                  | Already decoded by `nmea2000Service.js`. |
+| `0x02` / 2   | Unknown N2K node                    | 126993 Heartbeat (1); 126720 group-function (30)                                                                                                                                                                                                                                                     | Quiet — only heartbeat + ISO group function. Possible NMEA-gateway / bridge. |
+| `0x03` / 3   | **Multifunction display / GPS**     | 129025 Position Rapid (300); 129026 COG/SOG Rapid (120); 129029 GNSS Position (210); 129539 GNSS DOPs (30); 129540 GNSS Sats in View (660); 129283 XTE (30); 129284 Navigation Data (150); 127258 Magnetic Variation (30); 130310/130312 Env/Temp (75); 126720 Fusion-class Request Status (1029)     | Primary nav source. Also speaks Fusion proprietary PGNs → likely an MFD (Garmin/Raymarine/Simrad) doubling as the Fusion radio remote head. **Not currently surfaced by OpenHelm — frontend GPS comes from USB-serial WitMotion via `gpsService.js`.** |
+| `0x0A` / 10  | **Fusion marine stereo**            | 130820 Fusion: Power State (63); 126993 Heartbeat (1)                                                                                                                                                                                                                                                | Out of scope for nav, but useful for future "audio status" surfacing. |
+| `0x32` / 50  | Switch panel / bus controller       | 127501 Binary Switch Bank Status (19, **priority 0**)                                                                                                                                                                                                                                                | High priority + only sends switch state → looks like a dedicated switch input device (e.g. Maretron SIM100 or similar). |
+| `0x50` / 80  | **Engine ECU**                      | 126983 Alert (30); 126985 Alert Text (2); 65292 proprietary (120); 65293 proprietary (120); 126993 Heartbeat (1)                                                                                                                                                                                     | **No standard 127488/127489 frames.** Engine telemetry is in proprietary PGNs 65292/65293 — almost certainly Mercury SmartCraft or Yamaha Command Link. RPM/temp/oil pressure won't appear in OpenHelm until those proprietary PGNs are decoded. |
+| `0x94` / 148 | **Battery / DC monitor**            | 127751 DC Voltage/Current (24); 127500 Load Controller (24); 127501 Binary Switch Bank Status (3); 65300 proprietary (7); 126993 Heartbeat (1)                                                                                                                                                       | Likely Mastervolt/Victron/Lithionics-class. **127508 (Battery Status) not used here — the device exposes 127751 instead.** Existing service decodes 127508 only; needs to also handle 127751 to read battery voltage/current from this boat. |
 
-Useful canboat command to enumerate the bus:
+### Capture commands
+
+Refresh the inventory:
 
 ```bash
-candump -L can0 > capture.log &
-sleep 60 && kill %1
-analyzer -json < capture.log | jq -r '.pgn' | sort -u
+# Capture (run from anywhere)
+timeout 30 candump -tz can0 > /tmp/n2k_capture.log
+
+# Decode + summarize
+node n2k_adapter/src/decode-capture.js /tmp/n2k_capture.log
 ```
 
 ## Known Issues
@@ -129,6 +139,20 @@ _None yet — populate as we hit them on the live bus._
 ## Running Log
 
 _Append-only log of what's been built and verified, newest at top._
+
+### 2026-04-26 — First-light on air-segment + live-bus inventory
+- Plugged SH-C30G into air-segment. Kernel auto-bound `gs_usb` (no modprobe), `can0` netdev created in DOWN state.
+- USB descriptors: VID `1d50`, PID `606f`, vendor string `bytewerk`, model `candleLight_USB_to_CAN_adapter`, serial `0036003C5847570D20343432`. Updated `setup/99-canable.rules` with the real serial.
+- Brought interface up by hand: `sudo ip link set can0 up type can bitrate 250000 && sudo ip link set can0 txqueuelen 1000`. State `ERROR-ACTIVE` (= idle-healthy), 250 kbps confirmed via `ip -details link show`.
+- Installed `can-utils` (`apt install -y can-utils` → `candump`/`cansend`/`canbusload` now on PATH).
+- Captured 30 s of live-bus traffic with adapter connected to the boat's N2K trunk: 3315 frames, 0 RX errors, 0 dropped, 0 overruns. Dumped to `/tmp/n2k_capture.log` (gitignored).
+- Wrote `n2k_adapter/src/decode-capture.js` — offline decoder using canboatjs `FromPgn` with full fast-packet reassembly. Console-style logging matches `gpsService.js`.
+- Decoded inventory (see Boat-Specific N2K Device Inventory table). 7 sources, 22 unique PGNs. Headline findings:
+  - GPS / nav PGNs (129025/129026/129029/etc.) are present from src 0x03 — **not currently consumed by OpenHelm** (frontend GPS still comes from USB-serial WitMotion via `gpsService.js`).
+  - Engine ECU at src 0x50 sends **no standard 127488/127489**. RPM/temp/oil/fuel are in proprietary 65292/65293 — Mercury SmartCraft or Yamaha Command Link, almost certainly. This is the biggest functional gap vs. what `nmea2000Service.js` expects.
+  - Battery/DC monitor at src 0x94 uses **127751 (DC Voltage/Current)** instead of **127508 (Battery Status)** — existing service won't see this device's data without adding 127751.
+  - No 128267 (Water Depth) frames seen — likely no transducer on this bus.
+- Persistence (`can0.service`, `udev` rule) intentionally **not** installed yet — user wants to verify on the live bus by hand first.
 
 ### 2026-04-26 — Sub-project scaffolded (macOS dev box)
 - Created `n2k_adapter/` directory tree (`setup/`, `src/`, `tests/`).
@@ -141,10 +165,12 @@ _Append-only log of what's been built and verified, newest at top._
 
 > Cross-session/cross-machine context lives here so it isn't lost when sessions roll over. Move resolved items into the Running Log.
 
-1. **Logging convention for any code under `src/`** — match existing `api-server/services/*.js` style (console + emoji) or use `winston`? Inspect what other services actually do before writing the first sniffer.
-2. **Where does adapter enumeration get verified?** Does the existing `gpsService.js` do anything similar with serial-port detection that we should mimic for CAN-device detection?
-3. **Should `can0.service` be in `setup/` (copied to `/etc/systemd/system/` by install.sh) or shipped as a one-shot script that runs at every boot?** Currently planned as a unit file. Confirm with the next session that this matches the rest of OpenHelm's deployment style — `start-openhelm-prod.sh` brings up app services, but bus interface bring-up is a kernel-network concern that wants to happen earlier in boot.
-4. **Boot ordering** — does `can0.service` need `Before=openhelm-backend.service` (or whatever the API server unit is) so the API has `can0` available at start? The api-server today gracefully falls back to demo mode if `can0` is missing, so this is a polish item, not a blocker.
-5. **Multi-adapter** — if the user ever has two CANable-class devices plugged in, `can0` is no longer deterministic. The udev rule in `setup/99-canable.rules` aims to fix this, but the matching path (by serial number? by USB port?) needs to be verified once we know the SH-C30G's actual USB descriptors.
-6. **Does the boat's bus run `Engine #2` PGNs?** The existing service only handles single-engine PGN encodings. If this is a twin, we need to handle the `instance` field.
-7. **AIS over N2K?** PGNs 129038/129039/129794 carry AIS. If the boat has an AIS transponder on the N2K bus, that's a free upgrade for OpenHelm — note in the boat-device inventory and decide whether to surface it through the existing vessel WebSocket or a new channel.
+1. **Engine ECU proprietary decode (src 0x50, PGNs 65292/65293).** This is now the headline gap: real engine telemetry exists on the bus but lives in proprietary PGNs the existing service doesn't decode. Need to identify whether it's Mercury SmartCraft or Yamaha Command Link (both use prop-PGNs in this range) and either (a) add canboatjs custom-PGN definitions or (b) write a small decoder in `src/` that maps the byte layout to RPM/temp/oil/fuel and feeds the existing `vesselData` snapshot.
+2. **Battery monitor uses 127751, not 127508 (src 0x94).** `nmea2000Service.js`'s `case 127508:` branch will never fire on this boat. Need to add a `case 127751:` (DC Voltage/Current) and decide whether to overwrite `batteryVoltage`/`batteryCurrent` from it or keep them separate (helpful when both are present on other boats).
+3. **GPS bridging from N2K → OpenHelm.** Src 0x03 broadcasts 129025/129026/129029 already, but the frontend reads GPS from USB-serial WitMotion via `gpsService.js`. Question for the user: should `nmea2000Service.js` start populating lat/lon/COG/SOG from N2K as a fallback when the WitMotion is missing, or should we keep these strictly separate?
+4. **Identity of src 0x02.** Only emits Heartbeat + ISO group function. No telemetry. Worth running an ISO Address Claim query (PGN 60928 request) to learn the NAME / manufacturer code of every device — easy follow-up tool to write.
+5. **No 128267 (Water Depth) on this bus.** Either no transducer on N2K, or it's powered off / on a separate trunk. Confirm with the user before adding a depth-related UI element.
+6. **`can0.service` boot ordering** — does it need `Before=openhelm-backend.service` so the API has `can0` at start? Current behavior: api-server falls back to demo mode if `can0` is missing, so this is polish. Decide before running `setup/install.sh`.
+7. **Multi-adapter / udev pin still untested.** The serial-pinned rule (`0036003C5847570D20343432`) is now in `99-canable.rules` but hasn't been activated (`udevadm trigger`) — user is holding off on persistence until live-bus verification is complete. Activate when ready.
+8. **Does the boat's bus run `Engine #2` PGNs?** Capture so far shows only one engine source (0x50) — looks single-engine, but a longer capture or address-claim sweep should confirm before locking that assumption in.
+9. **AIS over N2K?** PGNs 129038/129039/129794 not seen in this 30 s capture. Either no AIS transponder, or AIS is silent at the dock with no targets in range. Re-check with the boat under way.
