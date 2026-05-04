@@ -94,15 +94,21 @@ const S57SubLayerMenu = React.memo(function S57SubLayerMenu({ sublayerVisibility
 
       {/* Menu Content */}
       <div
-        className="absolute top-14 right-0 z-40"
-        style={{ minWidth: 280, maxHeight: '70vh', overflow: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
+        className="absolute right-0 z-40"
+        style={{ top: 96, minWidth: 460, maxHeight: '80vh', overflow: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
       >
-        <Glass radius={12} style={{ padding: 0, overflow: 'hidden', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--bg-hairline-strong)', flexShrink: 0 }}>
-            <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg1)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Vector Chart Layers</h3>
+        <Glass radius={18} style={{
+          padding: 0, overflow: 'hidden', maxHeight: '80vh',
+          display: 'flex', flexDirection: 'column',
+          background: 'var(--bg-elev)',
+          backdropFilter: 'none',
+          WebkitBackdropFilter: 'none',
+        }}>
+          <div style={{ padding: '18px 22px', borderBottom: '0.5px solid var(--bg-hairline-strong)', flexShrink: 0 }}>
+            <h3 style={{ fontSize: 20, fontWeight: 600, color: 'var(--fg1)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Vector Chart Layers</h3>
           </div>
 
-          <div style={{ overflowY: 'auto', padding: '4px 0' }}>
+          <div style={{ overflowY: 'auto', padding: '6px 0' }}>
             {S57_SUBLAYER_GROUPS.map((group) => {
               const allVisible = isGroupAllVisible(group)
               const partial = isGroupPartiallyVisible(group)
@@ -111,31 +117,31 @@ const S57SubLayerMenu = React.memo(function S57SubLayerMenu({ sublayerVisibility
               return (
                 <div key={group.id}>
                   {/* Group header */}
-                  <div style={{ display: 'flex', alignItems: 'center', padding: '8px 12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', padding: '12px 18px' }}>
                     <button
                       onClick={() => toggleGroupExpanded(group.id)}
-                      style={{ padding: 4, background: 'transparent', border: 0, cursor: 'pointer', touchAction: 'manipulation', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      style={{ padding: 8, background: 'transparent', border: 0, cursor: 'pointer', touchAction: 'manipulation', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                       aria-label={expanded ? 'Collapse' : 'Expand'}
                     >
                       {expanded
-                        ? <ChevronDownIcon style={{ width: 16, height: 16, color: 'var(--fg2)' }} />
-                        : <ChevronRightIcon style={{ width: 16, height: 16, color: 'var(--fg2)' }} />
+                        ? <ChevronDownIcon style={{ width: 24, height: 24, color: 'var(--fg2)' }} />
+                        : <ChevronRightIcon style={{ width: 24, height: 24, color: 'var(--fg2)' }} />
                       }
                     </button>
-                    <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color: 'var(--fg1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginLeft: 4 }}>
+                    <span style={{ flex: 1, fontSize: 17, fontWeight: 600, color: 'var(--fg1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginLeft: 6 }}>
                       {group.name}
                     </span>
                     <button
                       onClick={() => onToggleGroup(group.id, !allVisible)}
-                      style={{ padding: 4, background: 'transparent', border: 0, cursor: 'pointer', touchAction: 'manipulation', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      style={{ padding: 8, background: 'transparent', border: 0, cursor: 'pointer', touchAction: 'manipulation', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                       aria-label={allVisible ? 'Hide all' : 'Show all'}
                       title={allVisible ? `Hide all ${group.name}` : `Show all ${group.name}`}
                     >
                       {allVisible
-                        ? <EyeIcon style={{ width: 16, height: 16, color: 'var(--fg1)' }} />
+                        ? <EyeIcon style={{ width: 24, height: 24, color: 'var(--fg1)' }} />
                         : partial
-                          ? <EyeIcon style={{ width: 16, height: 16, color: 'var(--fg2)' }} />
-                          : <EyeSlashIcon style={{ width: 16, height: 16, color: 'var(--fg2)' }} />
+                          ? <EyeIcon style={{ width: 24, height: 24, color: 'var(--fg2)' }} />
+                          : <EyeSlashIcon style={{ width: 24, height: 24, color: 'var(--fg2)' }} />
                       }
                     </button>
                   </div>
@@ -147,22 +153,22 @@ const S57SubLayerMenu = React.memo(function S57SubLayerMenu({ sublayerVisibility
                       <button
                         key={sublayer.id}
                         onClick={() => onToggleSublayer(sublayer.id)}
-                        style={{ width: '100%', paddingLeft: 36, paddingRight: 16, paddingTop: 10, paddingBottom: 10, textAlign: 'left', background: 'transparent', border: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, touchAction: 'manipulation' }}
+                        style={{ width: '100%', paddingLeft: 56, paddingRight: 22, paddingTop: 14, paddingBottom: 14, textAlign: 'left', background: 'transparent', border: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16, touchAction: 'manipulation' }}
                       >
                         <div style={{
-                          width: 16, height: 16, borderRadius: 4, border: visible ? '1.5px solid var(--signal)' : '1.5px solid var(--bg-hairline-strong)',
+                          width: 24, height: 24, borderRadius: 6, border: visible ? '2px solid var(--signal)' : '2px solid var(--bg-hairline-strong)',
                           background: visible ? 'rgba(0,200,100,0.12)' : 'transparent',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                         }}>
                           {visible && (
-                            <CheckIcon style={{ width: 12, height: 12, color: 'var(--signal)', strokeWidth: 3 }} />
+                            <CheckIcon style={{ width: 18, height: 18, color: 'var(--signal)', strokeWidth: 3 }} />
                           )}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--fg1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontSize: 20, fontWeight: 500, color: 'var(--fg1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {sublayer.name}
                           </div>
-                          <div style={{ fontSize: 12, color: 'var(--fg2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontSize: 16, color: 'var(--fg2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {sublayer.desc}
                           </div>
                         </div>

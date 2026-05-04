@@ -24,6 +24,7 @@ import { S57_SUBLAYER_GROUPS } from './S57SubLayerMenu'
 import S57FeatureCard from './S57FeatureCard'
 import { createMarkerSVG } from '../utils/waypointIcons'
 import useVesselData from '../hooks/useVesselData'
+import useTracks from '../hooks/useTracks'
 import {
   ChartTopBar,
   CompassRose,
@@ -163,6 +164,34 @@ function ChartView() {
     const saved = localStorage.getItem('chartview_weather_visible')
     return saved !== null ? JSON.parse(saved) : false
   })
+
+  // Track (breadcrumb) layer state — display defaults off; recording is unaffected.
+  const [trackVisible, setTrackVisible] = useState(() => {
+    const saved = localStorage.getItem('chartview_track_visible')
+    return saved !== null ? JSON.parse(saved) : false
+  })
+  const [trackMode, setTrackMode] = useState(() => {
+    return localStorage.getItem('chartview_track_mode') || 'current'
+  })
+  const [trackDateFrom, setTrackDateFrom] = useState(() => {
+    const saved = localStorage.getItem('chartview_track_date_from')
+    if (saved) return parseInt(saved, 10)
+    const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime()
+  })
+  const [trackDateTo, setTrackDateTo] = useState(() => {
+    const saved = localStorage.getItem('chartview_track_date_to')
+    if (saved) return parseInt(saved, 10)
+    const d = new Date(); d.setHours(23, 59, 59, 999); return d.getTime()
+  })
+  const [trackSelectedTripIds, setTrackSelectedTripIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('chartview_track_selected_trips')
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
+  const [trackColorMode, setTrackColorMode] = useState(() => {
+    return localStorage.getItem('chartview_track_color_mode') || 'solid'
+  })
   const [weatherRegions, setWeatherRegions] = useState([])
   const [weatherTimestamps, setWeatherTimestamps] = useState([])
   const [forecastTimeIndex, setForecastTimeIndex] = useState(0)
@@ -199,6 +228,34 @@ function ChartView() {
   useEffect(() => {
     localStorage.setItem('chartview_weather_visible', JSON.stringify(weatherLayersVisible))
   }, [weatherLayersVisible])
+
+  useEffect(() => {
+    localStorage.setItem('chartview_track_visible', JSON.stringify(trackVisible))
+  }, [trackVisible])
+  useEffect(() => {
+    localStorage.setItem('chartview_track_mode', trackMode)
+  }, [trackMode])
+  useEffect(() => {
+    localStorage.setItem('chartview_track_date_from', String(trackDateFrom))
+  }, [trackDateFrom])
+  useEffect(() => {
+    localStorage.setItem('chartview_track_date_to', String(trackDateTo))
+  }, [trackDateTo])
+  useEffect(() => {
+    localStorage.setItem('chartview_track_selected_trips', JSON.stringify(trackSelectedTripIds))
+  }, [trackSelectedTripIds])
+  useEffect(() => {
+    localStorage.setItem('chartview_track_color_mode', trackColorMode)
+  }, [trackColorMode])
+
+  // Hook into the tracks API + WebSocket. The hook is a no-op when visible is false.
+  const tracks = useTracks({
+    visible: trackVisible,
+    mode: trackMode,
+    dateFrom: trackDateFrom,
+    dateTo: trackDateTo,
+    selectedTripIds: trackSelectedTripIds,
+  })
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -857,6 +914,52 @@ function ChartView() {
 
       // Load weather layers (on top of everything)
       await loadWeatherLayers()
+
+      // Tracks (breadcrumb): two sources — history and the live current trip.
+      // Two sources because the current trip mutates per WS frame and we don't
+      // want to re-marshal full history on every tick.
+      if (!map.current.getSource('tracks-history')) {
+        map.current.addSource('tracks-history', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        })
+        map.current.addLayer({
+          id: 'tracks-history-line',
+          type: 'line',
+          source: 'tracks-history',
+          layout: {
+            visibility: 'none',
+            'line-cap': 'round',
+            'line-join': 'round',
+          },
+          paint: {
+            'line-color': '#3aa0ff',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 8, 2, 14, 4],
+            'line-opacity': 0.85,
+          },
+        })
+      }
+      if (!map.current.getSource('tracks-current')) {
+        map.current.addSource('tracks-current', {
+          type: 'geojson',
+          data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } },
+        })
+        map.current.addLayer({
+          id: 'tracks-current-line',
+          type: 'line',
+          source: 'tracks-current',
+          layout: {
+            visibility: 'none',
+            'line-cap': 'round',
+            'line-join': 'round',
+          },
+          paint: {
+            'line-color': '#ff8a3d',
+            'line-width': 4,
+            'line-opacity': 0.95,
+          },
+        })
+      }
     })
 
     return () => {
@@ -1818,6 +1921,31 @@ function ChartView() {
     }
   }, [satelliteLayersVisible, mapLoaded])
 
+  // Track layer: visibility flip
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return
+    const vis = trackVisible ? 'visible' : 'none'
+    for (const id of ['tracks-history-line', 'tracks-current-line']) {
+      if (map.current.getLayer(id)) {
+        map.current.setLayoutProperty(id, 'visibility', vis)
+      }
+    }
+  }, [trackVisible, mapLoaded])
+
+  // Track layer: feed history GeoJSON to the source
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return
+    const src = map.current.getSource('tracks-history')
+    if (src) src.setData(tracks.historyGeoJSON)
+  }, [tracks.historyGeoJSON, mapLoaded])
+
+  // Track layer: feed current-trip GeoJSON to the source
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return
+    const src = map.current.getSource('tracks-current')
+    if (src) src.setData(tracks.currentGeoJSON)
+  }, [tracks.currentGeoJSON, mapLoaded])
+
   // Update weather layer visibility
   useEffect(() => {
     if (!map.current || !mapLoaded) return
@@ -1999,6 +2127,7 @@ function ChartView() {
           s57:      s57LayersVisible,
           satellite: satelliteLayersVisible,
           weather:  weatherLayersVisible,
+          trail:    trackVisible,
         }}
         onLayerChange={(id, v) => {
           if (id === 'bluetopo') setTopoLayersVisible(v)
@@ -2006,6 +2135,27 @@ function ChartView() {
           else if (id === 's57') setS57LayersVisible(v)
           else if (id === 'satellite') setSatelliteLayersVisible(v)
           else if (id === 'weather') setWeatherLayersVisible(v)
+          else if (id === 'trail') setTrackVisible(v)
+        }}
+        tracks={{
+          visible: trackVisible,
+          onVisibleChange: setTrackVisible,
+          mode: trackMode,
+          onModeChange: setTrackMode,
+          dateFrom: trackDateFrom,
+          dateTo: trackDateTo,
+          onDateChange: ({ from, to }) => {
+            if (from != null) setTrackDateFrom(from)
+            if (to != null) setTrackDateTo(to)
+          },
+          trips: tracks.trips,
+          selectedTripIds: trackSelectedTripIds,
+          onSelectedTripsChange: setTrackSelectedTripIds,
+          colorMode: trackColorMode,
+          onColorModeChange: setTrackColorMode,
+          recording: tracks.recording,
+          currentTrip: tracks.currentTrip,
+          onEndTrip: tracks.endCurrentTrip,
         }}
         onWaypointsOpenChange={setWaypointDropdownOpen}
         s57FilterVisible={s57LayersVisible && s57RegionCount > 0}

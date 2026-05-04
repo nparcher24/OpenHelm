@@ -3,6 +3,7 @@ import { Icon, PagesMenu, ThemeCycleButton } from '../../ui/primitives'
 import { TopMetric } from './TopMetric.jsx'
 import { WaypointDropdown } from './WaypointDropdown.jsx'
 import { LayersPanel } from './LayersPanel.jsx'
+import { TracksPanel } from './TracksPanel.jsx'
 import S57SubLayerMenu from '../S57SubLayerMenu'
 
 function Clock() {
@@ -29,11 +30,13 @@ export const ChartTopBar = forwardRef(function ChartTopBar({
   layers, onLayerChange,
   onWaypointsOpenChange,
   s57FilterVisible, s57SubLayerVisibility, onToggleSublayer, onToggleGroup,
+  tracks,
 }, ref) {
   const [pagesOpen, setPagesOpen] = useState(false)
   const [waypointsOpen, setWaypointsOpen] = useState(false)
   const [layersOpen, setLayersOpen] = useState(false)
   const [s57FilterOpen, setS57FilterOpen] = useState(false)
+  const [tracksOpen, setTracksOpen] = useState(false)
   const rootRef = useRef(null)
 
   // Notify parent when waypoints dropdown opens/closes so parent effects can fire
@@ -48,11 +51,12 @@ export const ChartTopBar = forwardRef(function ChartTopBar({
     setWaypointsOpenAndNotify(false)
     setLayersOpen(false)
     setS57FilterOpen(false)
+    setTracksOpen(false)
   }
 
   useImperativeHandle(ref, () => ({ closeAll }))
 
-  const anyOpen = pagesOpen || waypointsOpen || layersOpen || s57FilterOpen
+  const anyOpen = pagesOpen || waypointsOpen || layersOpen || s57FilterOpen || tracksOpen
   useEffect(() => {
     if (!anyOpen) return
     const handler = (e) => {
@@ -138,6 +142,38 @@ export const ChartTopBar = forwardRef(function ChartTopBar({
           </button>
           <LayersPanel open={layersOpen} layers={layers} onChange={onLayerChange}/>
         </div>
+
+        {/* Tracks (breadcrumb) */}
+        {tracks && (
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => { const v = !tracksOpen; closeAll(); setTracksOpen(v) }} style={{
+              width: 84, height: 84, borderRadius: 18,
+              background: tracksOpen ? 'var(--fill-1)' : 'transparent',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--fg1)', border: 0, cursor: 'pointer',
+            }} title="Tracks">
+              <Icon name="route" size={42}/>
+            </button>
+            <TracksPanel
+              open={tracksOpen}
+              visible={tracks.visible}
+              onVisibleChange={tracks.onVisibleChange}
+              mode={tracks.mode}
+              onModeChange={tracks.onModeChange}
+              dateFrom={tracks.dateFrom}
+              dateTo={tracks.dateTo}
+              onDateChange={tracks.onDateChange}
+              trips={tracks.trips || []}
+              selectedTripIds={tracks.selectedTripIds || []}
+              onSelectedTripsChange={tracks.onSelectedTripsChange}
+              colorMode={tracks.colorMode}
+              onColorModeChange={tracks.onColorModeChange}
+              recording={tracks.recording}
+              currentTrip={tracks.currentTrip}
+              onEndTrip={tracks.onEndTrip}
+            />
+          </div>
+        )}
 
         {/* Vector chart sublayer filter — only when S-57 layer is active */}
         {s57FilterVisible && (
