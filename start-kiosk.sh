@@ -22,6 +22,9 @@ while [ $WAITED -lt 60 ]; do
 done
 echo "Services ready in ${WAITED}s"
 
+# Disable display blanking / DPMS (kiosk must stay on 24/7)
+xset s off s noblank -dpms
+
 # Start matchbox window manager (forces all windows fullscreen)
 matchbox-window-manager -use_titlebar no -use_cursor no &
 
