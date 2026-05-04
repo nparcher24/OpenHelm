@@ -136,8 +136,10 @@ describe('buildSnapshot', () => {
   })
 
   it('preserves witmotion-only sensors regardless of source', () => {
+    // Slow enough that the heading-slave logic does not engage (< 3 MPH)
     const wm = freshWitmotion({ timestamp: NOW - 60_000 })
-    const snap = buildSnapshot(wm, freshN2k(), NOW)
+    const n2k = freshN2k({ gps: { sog: 0.2 } })
+    const snap = buildSnapshot(wm, n2k, NOW)
     expect(snap.source).toBe('n2k')
     // IMU + wave fields come from WitMotion no matter what
     expect(snap.heading).toBe(95)
@@ -147,6 +149,39 @@ describe('buildSnapshot', () => {
     expect(snap.waveHeight).toBe(0.3)
     expect(snap.seaState).toBe(1)
     expect(snap.seaStateDesc).toBe('Calm (rippled)')
+  })
+
+  it('slaves heading to cog when underway above 3 MPH', () => {
+    // 5 m/s ≈ 11 MPH — well above the 1.341 m/s threshold
+    const wm = freshWitmotion({ heading: 270, cog: 90, groundSpeed: 5.0 })
+    const snap = buildSnapshot(wm, freshN2k(), NOW)
+    expect(snap.headingSlavedToCog).toBe(true)
+    expect(snap.heading).toBe(90) // pulled to cog, not the IMU's 270
+  })
+
+  it('leaves heading alone below 3 MPH', () => {
+    // 1.0 m/s ≈ 2.2 MPH — below threshold
+    const wm = freshWitmotion({ heading: 270, cog: 90, groundSpeed: 1.0 })
+    const snap = buildSnapshot(wm, freshN2k({ gps: { sog: 1.0 } }), NOW)
+    expect(snap.headingSlavedToCog).toBe(false)
+    expect(snap.heading).toBe(270)
+  })
+
+  it('does not slave heading when cog is null', () => {
+    const wm = freshWitmotion({ heading: 270, cog: null, groundSpeed: 5.0 })
+    const snap = buildSnapshot(wm, freshN2k({ gps: { cog: null } }), NOW)
+    expect(snap.headingSlavedToCog).toBe(false)
+    expect(snap.heading).toBe(270)
+  })
+
+  it('uses arbitrated n2k sog when gating the slave on a stale-witmotion fallback', () => {
+    // WitMotion stale → arbitrated groundSpeed comes from N2K's sog
+    const wm = freshWitmotion({ timestamp: NOW - 60_000, heading: 270 })
+    const n2k = freshN2k({ gps: { cog: 45, sog: 5.2 } })
+    const snap = buildSnapshot(wm, n2k, NOW)
+    expect(snap.source).toBe('n2k')
+    expect(snap.headingSlavedToCog).toBe(true)
+    expect(snap.heading).toBe(45)
   })
 
   it('exposes source-label for the UI', () => {

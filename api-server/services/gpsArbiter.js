@@ -17,13 +17,18 @@
  *   'none'      — neither source has a recent valid position
  */
 
-import { getGpsData } from './gpsService.js'
+import { getGpsData, autoCalibrateHeadingToCourse } from './gpsService.js'
 import { getVesselData } from './nmea2000Service.js'
 
 // How old (ms) a snapshot can be before we treat it as stale and look elsewhere.
 // 5s comfortably covers the WitMotion's 1-5 Hz cadence and N2K's 1-10 Hz
 // without flapping during a normal momentary read gap.
 export const STALE_MS = 5000
+
+// Above this ground speed, slave the displayed heading to COG and auto-calibrate
+// the magnetic offset. Below it the boat could be drifting/stationary and COG is
+// unreliable. 1.341 m/s = 3 MPH.
+export const HEADING_SLAVE_SPEED_MS = 1.341
 
 // Threshold to consider a position "valid" — WitMotion may report (0, 0) or
 // near-zero before lock; N2K GPSes can transiently report nulls. We require
@@ -111,6 +116,13 @@ export function buildSnapshot(witmotion, vessel, now = Date.now()) {
     vdop = ng.vdop ?? wm.vdop
   }
 
+  // While underway above the slave threshold, lock displayed heading to COG —
+  // the IMU magnetometer drifts and bridge-area magnetic anomalies routinely
+  // skew it, but ground track from GPS is dependable when you're moving.
+  let displayHeading = wm.heading
+  const headingSlaved = groundSpeed != null && groundSpeed > HEADING_SLAVE_SPEED_MS && cog != null && isFinite(cog)
+  if (headingSlaved) displayHeading = cog
+
   return {
     // Position (arbitrated)
     latitude,
@@ -131,7 +143,8 @@ export function buildSnapshot(witmotion, vessel, now = Date.now()) {
     n2kAvailable,
     n2kSrc: ng.src ?? null,
     // WitMotion-only sensors (always pass through, regardless of source)
-    heading: wm.heading,
+    heading: displayHeading,
+    headingSlavedToCog: headingSlaved,
     headingRaw: wm.headingRaw,
     headingOffset: wm.headingOffset,
     roll: wm.roll,
@@ -160,5 +173,14 @@ export function buildSnapshot(witmotion, vessel, now = Date.now()) {
  * the arbitrated snapshot.
  */
 export function getActiveGps() {
-  return buildSnapshot(getGpsData(), getVesselData(), Date.now())
+  const wm = getGpsData()
+  const vessel = getVesselData()
+  const snapshot = buildSnapshot(wm, vessel, Date.now())
+  // Side effect: while underway, nudge the persisted magnetic offset toward
+  // (cog - raw heading). Kept out of buildSnapshot so that helper stays pure
+  // and unit-testable.
+  if (snapshot.headingSlavedToCog) {
+    autoCalibrateHeadingToCourse(snapshot.cog)
+  }
+  return snapshot
 }

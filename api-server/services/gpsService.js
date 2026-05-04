@@ -55,6 +55,42 @@ export function setHeadingOffset(offset) {
   return offset
 }
 
+// Auto-calibration: while underway (speed > 3 MPH), nudge headingOffset so the
+// calibrated heading converges on COG. Per-frame correction is low-passed so a
+// noisy COG doesn't whip the offset around, and the file write is throttled so
+// we're not hammering disk on every snapshot tick.
+const AUTO_CAL_ALPHA = 0.05         // ~20 frames (≈4s @ 5Hz) for a full step
+const AUTO_CAL_SAVE_THROTTLE_MS = 5000
+const AUTO_CAL_SAVE_MIN_DELTA = 0.25  // degrees — skip writes for tiny drift
+let autoCalLastSaveAt = 0
+let autoCalLastSavedOffset = null
+
+export function autoCalibrateHeadingToCourse(cog) {
+  if (cog == null || !isFinite(cog)) return
+  if (gpsData.heading == null || !isFinite(gpsData.heading)) return
+
+  let err = cog - gpsData.heading
+  while (err > 180) err -= 360
+  while (err < -180) err += 360
+
+  let next = headingOffset + AUTO_CAL_ALPHA * err
+  while (next > 180) next -= 360
+  while (next < -180) next += 360
+
+  headingOffset = next
+  gpsData.headingOffset = next
+
+  const now = Date.now()
+  const delta = autoCalLastSavedOffset == null
+    ? Infinity
+    : Math.abs(next - autoCalLastSavedOffset)
+  if (now - autoCalLastSaveAt > AUTO_CAL_SAVE_THROTTLE_MS && delta > AUTO_CAL_SAVE_MIN_DELTA) {
+    saveHeadingOffset()
+    autoCalLastSaveAt = now
+    autoCalLastSavedOffset = next
+  }
+}
+
 // GPS data cache
 let gpsData = {
   latitude: null,
@@ -510,14 +546,22 @@ function parseWitMotionMessage(msg) {
       // Bytes 2-3: GPSYaw (int16, 0.1° units) - Course Over Ground
       // Bytes 4-7: GPSVelocity (uint32, 1/1000 km/h units)
       const gpsHeight = data.readInt16LE(0) / 10 // 0.1m to meters
-      let gpsCOG = data.readInt16LE(2) / 10 // 0.1° to degrees
+      const cogRaw = data.readInt16LE(2) // 0.1° units
       const gpsSpeedRaw = data.readUInt32LE(4)
       const gpsSpeedKmh = gpsSpeedRaw / 1000 // to km/h
       const gpsSpeedMs = gpsSpeedKmh / 3.6 // to m/s
 
-      // Normalize COG to 0-360 range
-      if (gpsCOG < 0) gpsCOG += 360
-      gpsData.cog = gpsCOG
+      // WitMotion firmware reports GPSYaw in 0.1° units, either signed
+      // [-180°, 180°] or unsigned [0°, 360°]. Out-of-range values appear in
+      // the wild when stationary or pre-fix — reject them so the UI shows
+      // "--" rather than nonsense like 2672°.
+      if (cogRaw >= -1800 && cogRaw <= 3600) {
+        let gpsCOG = cogRaw / 10
+        if (gpsCOG < 0) gpsCOG += 360
+        gpsData.cog = gpsCOG
+      } else {
+        gpsData.cog = null
+      }
 
       // Validate speed is reasonable (< 200 knots / ~100 m/s for any boat)
       if (gpsSpeedMs >= 0 && gpsSpeedMs < 100) {
