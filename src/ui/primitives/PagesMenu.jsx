@@ -16,7 +16,10 @@ export function PagesMenu({ open, onClose }) {
   const go = (p) => { navigate(p); onClose?.() }
   return (
     <Glass radius={42} style={{
-      position: 'absolute', top: 144, left: 0, width: 390, padding: 18, zIndex: 20,
+      position: 'absolute', top: 144, left: 0, width: 390, padding: 18, zIndex: 1000,
+      background: 'var(--bg-elev)',
+      backdropFilter: 'none',
+      WebkitBackdropFilter: 'none',
       animation: 'oh-slide 220ms var(--ease-out)',
     }}>
       {NAV_PAGES.map(n => {

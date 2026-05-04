@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Icon, PagesMenu, ThemeCycleButton } from '../../ui/primitives'
 import { TopMetric } from './TopMetric.jsx'
 import { WaypointDropdown } from './WaypointDropdown.jsx'
@@ -34,6 +34,7 @@ export const ChartTopBar = forwardRef(function ChartTopBar({
   const [waypointsOpen, setWaypointsOpen] = useState(false)
   const [layersOpen, setLayersOpen] = useState(false)
   const [s57FilterOpen, setS57FilterOpen] = useState(false)
+  const rootRef = useRef(null)
 
   // Notify parent when waypoints dropdown opens/closes so parent effects can fire
   // (e.g. refreshLatestDrift keyed on waypointDropdownOpen in ChartView).
@@ -51,16 +52,30 @@ export const ChartTopBar = forwardRef(function ChartTopBar({
 
   useImperativeHandle(ref, () => ({ closeAll }))
 
+  const anyOpen = pagesOpen || waypointsOpen || layersOpen || s57FilterOpen
+  useEffect(() => {
+    if (!anyOpen) return
+    const handler = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) closeAll()
+    }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('touchstart', handler)
+    }
+  }, [anyOpen])
+
   return (
     <>
-      <div style={{
+      <div ref={rootRef} style={{
         position: 'absolute', top: 0, left: 0, right: 0, height: 114,
         display: 'flex', alignItems: 'center', gap: 18, padding: '0 27px',
         background: 'var(--bg-chrome)',
         backdropFilter: 'var(--blur-chrome)',
         WebkitBackdropFilter: 'var(--blur-chrome)',
         borderBottom: '0.5px solid var(--bg-hairline)',
-        zIndex: 10,
+        zIndex: 100,
       }}>
         {/* Pages menu */}
         <div style={{ position: 'relative' }}>
