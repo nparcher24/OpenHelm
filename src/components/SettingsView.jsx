@@ -12,6 +12,7 @@ import ErrorBoundary from './ErrorBoundary'
 import UpdateManager from './UpdateManager'
 import { version as appVersion } from '../../package.json'
 import { DisplaySettings } from './settings/DisplaySettings.jsx'
+import { WifiSettings } from './settings/WifiSettings.jsx'
 import { TopBar, Glass, Pill, Toggle, Badge } from '../ui/primitives'
 
 /* ---------- Section label chip ---------- */
@@ -123,38 +124,109 @@ function GeneralSection() {
 }
 
 function GPSSection() {
+  const [gps, setGps] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    const tick = async () => {
+      try {
+        const r = await fetch(`${API_BASE}/api/gps`)
+        if (!r.ok) return
+        const d = await r.json()
+        if (!cancelled) setGps(d)
+      } catch { /* ignore — next tick will retry */ }
+    }
+    tick()
+    const id = setInterval(tick, 2000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [])
+
+  const source = gps?.source ?? 'none'
+  const sourceLabel = gps?.sourceLabel ?? '—'
+  const wmHdop = gps?.witmotionHdop
+  const n2kHdop = gps?.n2kHdop
+  const dis = gps?.cogDisagreement
+  const tighter =
+    wmHdop != null && n2kHdop != null
+      ? (wmHdop < n2kHdop ? 'witmotion' : n2kHdop < wmHdop ? 'n2k' : 'tie')
+      : null
+
   return (
     <div style={{ display: 'grid', gap: 16 }}>
       <Glass radius={14} style={{ padding: 24 }}>
-        <SectionLabel>Connection Status</SectionLabel>
+        <SectionLabel>Active Source</SectionLabel>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-          <Badge tone="alarm" dot>NOT CONNECTED</Badge>
+          {source === 'none'
+            ? <Badge tone="alarm" dot>NO FIX</Badge>
+            : <Badge tone="safe" dot>{sourceLabel}</Badge>}
+          {gps?.cogSource && (
+            <Badge tone="neutral">COG: {gps.cogSource === 'n2k' ? 'NMEA 2000' : 'WitMotion'}</Badge>
+          )}
         </div>
-        <div style={{ fontSize: 17, color: 'var(--fg3)' }}>No GPS receiver detected</div>
+        <div style={{ fontSize: 15, color: 'var(--fg3)', marginTop: 8 }}>
+          Position picks the source with the tighter horizontal fix (lower HDOP). COG prefers the Garmin marine GPS over N2K when fresh.
+        </div>
       </Glass>
+
       <Glass radius={14} style={{ padding: 24 }}>
-        <SectionLabel>Receiver Settings</SectionLabel>
+        <SectionLabel>Source Quality (HDOP — lower is better)</SectionLabel>
         <div style={{ display: 'grid', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 18, color: 'var(--fg1)', fontWeight: 500 }}>Port</span>
-            <StyledSelect>
-              <option>/dev/ttyUSB0</option>
-              <option>/dev/ttyUSB1</option>
-              <option>/dev/ttyACM0</option>
-              <option>Auto-detect</option>
-            </StyledSelect>
-          </div>
+          <SourceRow
+            name="WitMotion (USB)"
+            hdop={wmHdop}
+            available={gps?.witmotionAvailable}
+            isWinner={tighter === 'witmotion' || tighter === 'tie'}
+          />
           <div style={{ height: 0.5, background: 'var(--bg-hairline)' }} />
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 18, color: 'var(--fg1)', fontWeight: 500 }}>Baud Rate</span>
-            <StyledSelect>
-              <option>4800</option>
-              <option>9600</option>
-              <option>38400</option>
-            </StyledSelect>
-          </div>
+          <SourceRow
+            name="NMEA 2000 (Garmin)"
+            hdop={n2kHdop}
+            available={gps?.n2kAvailable}
+            isWinner={tighter === 'n2k'}
+          />
         </div>
       </Glass>
+
+      <Glass radius={14} style={{ padding: 24 }}>
+        <SectionLabel>Course Cross-Check</SectionLabel>
+        {!dis ? (
+          <div style={{ fontSize: 16, color: 'var(--fg3)' }}>
+            Waiting for both sources to report COG…
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              {dis.major
+                ? <Badge tone="alarm" dot>COG MISMATCH {dis.deg.toFixed(0)}°</Badge>
+                : <Badge tone="safe" dot>Agree within {dis.deg.toFixed(0)}°</Badge>}
+            </div>
+            <div style={{ fontSize: 17, color: 'var(--fg2)', fontFamily: 'var(--font-mono, monospace)', lineHeight: 1.7 }}>
+              <div>WitMotion COG: {dis.witmotionCog.toFixed(1)}°</div>
+              <div>NMEA 2000 COG: {dis.n2kCog.toFixed(1)}°</div>
+              <div>Δ: {dis.deg.toFixed(1)}°</div>
+            </div>
+            {dis.major && (
+              <div style={{ fontSize: 14, color: 'var(--caution, #E8B93A)', marginTop: 12 }}>
+                Logged to api.log. Large disagreement usually means one GPS has a stale or jammed fix; check sky view and helm power.
+              </div>
+            )}
+          </>
+        )}
+      </Glass>
+    </div>
+  )
+}
+
+function SourceRow({ name, hdop, available, isWinner }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 18, color: 'var(--fg1)', fontWeight: 500 }}>{name}</span>
+        {!available && <Badge tone="neutral">offline</Badge>}
+        {available && isWinner && <Badge tone="safe">active</Badge>}
+      </div>
+      <span style={{ fontSize: 18, color: 'var(--fg2)', fontFamily: 'var(--font-mono, monospace)' }}>
+        {hdop != null ? hdop.toFixed(2) : '—'}
+      </span>
     </div>
   )
 }
@@ -310,6 +382,7 @@ function SettingsView() {
   const sections = [
     { id: 'general',   label: 'General' },
     { id: 'display',   label: 'Display' },
+    { id: 'wifi',      label: 'Wi-Fi' },
     { id: 'waypoints', label: 'Waypoints' },
     { id: 's57',       label: 'Vector Charts' },
     { id: 'enc',       label: 'Raster Charts' },
@@ -329,6 +402,13 @@ function SettingsView() {
 
       case 'display':
         return <DisplaySettings />
+
+      case 'wifi':
+        return (
+          <ErrorBoundary>
+            <WifiSettings />
+          </ErrorBoundary>
+        )
 
       case 'gps':
         return <GPSSection />

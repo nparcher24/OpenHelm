@@ -12,9 +12,12 @@ import { exec } from 'child_process'
 
 const execAsync = promisify(exec)
 
-// Heading calibration offset (persisted to file)
+// Heading calibration offset + last on-device mag-cal record. Stored together
+// because they describe the same compass-correction stack and tend to be
+// inspected/reset together.
 const CALIBRATION_FILE = path.join(process.cwd(), 'heading-calibration.json')
 let headingOffset = 0
+let lastMagCalibration = null  // { timestamp, stability, stabilityLabel, sectorsCovered, sampleCount, durationMs } | null
 
 function loadHeadingOffset() {
   try {
@@ -24,19 +27,28 @@ function loadHeadingOffset() {
         headingOffset = data.headingOffset
         console.log(`[GPS] Loaded heading offset: ${headingOffset}°`)
       }
+      if (data.lastMagCalibration && typeof data.lastMagCalibration.timestamp === 'number') {
+        lastMagCalibration = data.lastMagCalibration
+        console.log(`[GPS] Last mag cal: ${new Date(lastMagCalibration.timestamp).toISOString()}`)
+      }
     }
   } catch (err) {
     console.error('[GPS] Failed to load heading calibration:', err.message)
   }
 }
 
-function saveHeadingOffset() {
+function persistCalibrationFile() {
   try {
-    fs.writeFileSync(CALIBRATION_FILE, JSON.stringify({ headingOffset }, null, 2))
+    fs.writeFileSync(
+      CALIBRATION_FILE,
+      JSON.stringify({ headingOffset, lastMagCalibration }, null, 2),
+    )
   } catch (err) {
     console.error('[GPS] Failed to save heading calibration:', err.message)
   }
 }
+
+function saveHeadingOffset() { persistCalibrationFile() }
 
 // Load calibration on module init
 loadHeadingOffset()
@@ -129,6 +141,308 @@ let gpsData = {
   seaStateDesc: null,  // Text descriptor
   headingOffset: headingOffset  // Calibration offset (degrees)
 }
+
+// Position-derived COG state. The WitMotion 0x58 "GPSYaw" field is unreliable —
+// in real-boat data (trip 5 on 2026-05-09) it averaged 100° of error vs the
+// actual ground track and rotated smoothly through 360° while the boat traveled
+// in a straight line. We compute COG from successive lat/lon pairs instead.
+//
+// `COG_BASELINE_MS` is how far back we look for the start of the bearing
+// baseline — long enough to ride out GPS jitter, short enough that the value
+// follows real direction changes within a couple of seconds.
+// `COG_MIN_DIST_M` is the displacement floor below which we treat the boat as
+// stationary and emit cog=null instead of a bearing through GPS noise.
+const COG_HISTORY_MAX = 16
+const COG_BASELINE_MS = 1500
+const COG_MIN_DIST_M = 3
+const cogHistory = []  // [{ ts, lat, lon }]
+
+function _haversineMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000
+  const φ1 = lat1 * Math.PI / 180
+  const φ2 = lat2 * Math.PI / 180
+  const Δφ = (lat2 - lat1) * Math.PI / 180
+  const Δλ = (lon2 - lon1) * Math.PI / 180
+  const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2
+  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function _bearingDeg(lat1, lon1, lat2, lon2) {
+  const φ1 = lat1 * Math.PI / 180
+  const φ2 = lat2 * Math.PI / 180
+  const Δλ = (lon2 - lon1) * Math.PI / 180
+  const y = Math.sin(Δλ) * Math.cos(φ2)
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ)
+  let θ = Math.atan2(y, x) * 180 / Math.PI
+  if (θ < 0) θ += 360
+  return θ
+}
+
+function updateCogFromPosition(lat, lon, now = Date.now()) {
+  cogHistory.push({ ts: now, lat, lon })
+  while (cogHistory.length > COG_HISTORY_MAX) cogHistory.shift()
+  // Pick the newest sample that's still ≥ baseline-old; that gives the longest
+  // available lever arm without going stale.
+  let baseline = null
+  for (let i = 0; i < cogHistory.length - 1; i++) {
+    if (now - cogHistory[i].ts >= COG_BASELINE_MS) baseline = cogHistory[i]
+  }
+  if (!baseline) return
+  const dist = _haversineMeters(baseline.lat, baseline.lon, lat, lon)
+  if (dist < COG_MIN_DIST_M) {
+    gpsData.cog = null
+    return
+  }
+  gpsData.cog = _bearingDeg(baseline.lat, baseline.lon, lat, lon)
+}
+
+// Exported for unit tests and debug tools
+export const _cogInternals = {
+  haversineMeters: _haversineMeters,
+  bearingDeg: _bearingDeg,
+  updateCogFromPosition,
+  reset: () => { cogHistory.length = 0; gpsData.cog = null },
+  COG_BASELINE_MS,
+  COG_MIN_DIST_M,
+}
+
+// ============================================================
+// Onboard Magnetometer Calibration (WitMotion Standard Protocol)
+// ============================================================
+//
+// The sensor has a built-in spherical-fit mag calibration that lives in
+// device flash. We trigger it over the same serial port we're already reading
+// from. While calibration is active the device internally fits a sphere to
+// the incoming mag samples; on exit, the new hard-iron offsets are persisted
+// by the SAVE command. Sequence is documented in the WIT Standard Protocol:
+//
+//   Unlock          0xFF 0xAA 0x69 0x88 0xB5
+//   Enter mag-cal   0xFF 0xAA 0x01 0x07 0x00   (CALSW = 7, sphere fit)
+//   ...user rotates the boat through 360° of yaw...
+//   Exit cal mode   0xFF 0xAA 0x01 0x00 0x00   (CALSW = 0)
+//   Save to flash   0xFF 0xAA 0x00 0x00 0x00
+//
+// Sector coverage and sample count are tracked client-side from the raw mag
+// stream purely as UI feedback — the actual fit is happening on the device.
+const MAG_CAL_UNLOCK    = Buffer.from([0xFF, 0xAA, 0x69, 0x88, 0xB5])
+const MAG_CAL_ENTER     = Buffer.from([0xFF, 0xAA, 0x01, 0x07, 0x00])
+const MAG_CAL_EXIT      = Buffer.from([0xFF, 0xAA, 0x01, 0x00, 0x00])
+const MAG_CAL_SAVE      = Buffer.from([0xFF, 0xAA, 0x00, 0x00, 0x00])
+const MAG_CAL_CMD_DELAY = 120  // ms between commands — device needs time to ack
+
+let magCalActive = false
+let magCalStartTs = null
+let magCalSectors = new Array(8).fill(false)
+let magCalSampleCount = 0
+let magCalError = null
+// Mag-magnitude buffer drives our client-side "field stability" quality metric.
+// Coefficient of variation (stddev/mean) of |mag| during the sweep is a proxy
+// for how well the device's spherical fit can succeed: a perfectly calibrated
+// mag returns near-constant magnitude as you rotate; an uncalibrated one
+// varies because the hard-iron offset shifts the centre of the (mag) sphere
+// relative to the origin.
+let magCalMagSamples = []
+const MAG_CAL_MAG_SAMPLES_MAX = 5000  // ~17 min at 5 Hz — plenty of headroom
+// Pre/post heading-vs-COG snapshots so the wizard can show whether things
+// actually got better. Captured at start/stop, both may be null if the boat
+// wasn't underway/COG wasn't available.
+let magCalErrorBefore = null
+let magCalErrorAfter = null
+// Watchdog: if the wizard stops polling status (page closed, network drop)
+// while cal is active, we auto-cancel so the device doesn't sit in cal mode
+// indefinitely. The wizard polls every 500 ms; 15 s is generous.
+let magCalLastPollTs = 0
+let magCalWatchdog = null
+const MAG_CAL_POLL_TIMEOUT_MS = 15000
+const MAG_CAL_WATCHDOG_INTERVAL_MS = 5000
+
+function _sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
+
+function _signedAngleDelta(a, b) {
+  let d = a - b
+  while (d > 180) d -= 360
+  while (d < -180) d += 360
+  return d
+}
+
+function _captureHeadingError() {
+  if (gpsData.headingRaw == null || gpsData.cog == null) return null
+  return _signedAngleDelta(gpsData.headingRaw, gpsData.cog)
+}
+
+function _computeStability(samples) {
+  if (samples.length < 10) return null
+  let sum = 0
+  for (const v of samples) sum += v
+  const mean = sum / samples.length
+  if (mean <= 0) return null
+  let sq = 0
+  for (const v of samples) sq += (v - mean) * (v - mean)
+  const stddev = Math.sqrt(sq / samples.length)
+  return (stddev / mean) * 100  // CV as percent
+}
+
+function _stabilityLabel(cv) {
+  if (cv == null) return 'Insufficient data'
+  if (cv < 5) return 'Excellent'
+  if (cv < 10) return 'Good'
+  if (cv < 15) return 'Fair'
+  return 'Poor'
+}
+
+function _stopWatchdog() {
+  if (magCalWatchdog) {
+    clearInterval(magCalWatchdog)
+    magCalWatchdog = null
+  }
+}
+
+async function _writeBytes(bytes) {
+  if (!serialPort || !serialPort.isOpen) {
+    throw new Error('GPS serial port is not open')
+  }
+  await new Promise((resolve, reject) => {
+    serialPort.write(bytes, (err) => err ? reject(err) : resolve())
+  })
+  await new Promise((resolve, reject) => {
+    serialPort.drain((err) => err ? reject(err) : resolve())
+  })
+}
+
+export async function startMagCalibration() {
+  if (!isRunning || !serialPort || !serialPort.isOpen) {
+    throw new Error('GPS service not running — connect the WitMotion first')
+  }
+  if (magCalActive) {
+    return { alreadyActive: true }
+  }
+  magCalSectors = new Array(8).fill(false)
+  magCalSampleCount = 0
+  magCalMagSamples = []
+  magCalError = null
+  magCalErrorBefore = _captureHeadingError()
+  magCalErrorAfter = null
+  magCalStartTs = Date.now()
+  magCalLastPollTs = Date.now()
+  magCalActive = true
+
+  await _writeBytes(MAG_CAL_UNLOCK)
+  await _sleep(MAG_CAL_CMD_DELAY)
+  await _writeBytes(MAG_CAL_ENTER)
+
+  // Watchdog: auto-cancel if the wizard stops polling status. Without this,
+  // a closed browser tab leaves the device parked in cal mode.
+  _stopWatchdog()
+  magCalWatchdog = setInterval(() => {
+    if (!magCalActive) { _stopWatchdog(); return }
+    if (Date.now() - magCalLastPollTs > MAG_CAL_POLL_TIMEOUT_MS) {
+      console.warn('[GPS] Mag-cal watchdog: no status poll for >15s, auto-cancelling')
+      cancelMagCalibration().catch(err => console.error('[GPS] Watchdog cancel failed:', err.message))
+    }
+  }, MAG_CAL_WATCHDOG_INTERVAL_MS)
+
+  console.log('[GPS] Magnetometer calibration: STARTED')
+  return { started: true, errorBefore: magCalErrorBefore }
+}
+
+export async function stopMagCalibration() {
+  if (!magCalActive) {
+    throw new Error('No calibration in progress')
+  }
+  if (!serialPort || !serialPort.isOpen) {
+    magCalActive = false
+    _stopWatchdog()
+    throw new Error('GPS serial port closed during calibration')
+  }
+  await _writeBytes(MAG_CAL_UNLOCK)
+  await _sleep(MAG_CAL_CMD_DELAY)
+  await _writeBytes(MAG_CAL_EXIT)
+  await _sleep(MAG_CAL_CMD_DELAY)
+  await _writeBytes(MAG_CAL_SAVE)
+
+  const stability = _computeStability(magCalMagSamples)
+  const stabilityLabel = _stabilityLabel(stability)
+  magCalErrorAfter = _captureHeadingError()
+
+  const sectorsCovered = magCalSectors.filter(Boolean).length
+  const result = {
+    sectors: [...magCalSectors],
+    sectorsCovered,
+    sampleCount: magCalSampleCount,
+    quality: sectorsCovered / 8,
+    stability,                       // CV as percent, may be null
+    stabilityLabel,                  // 'Excellent' | 'Good' | 'Fair' | 'Poor' | 'Insufficient data'
+    errorBefore: magCalErrorBefore,  // signed degrees, may be null
+    errorAfter: magCalErrorAfter,    // signed degrees, may be null
+    durationMs: Date.now() - magCalStartTs,
+  }
+
+  // Persist the success record so the UI can surface "last calibrated …"
+  lastMagCalibration = {
+    timestamp: Date.now(),
+    stability,
+    stabilityLabel,
+    sectorsCovered,
+    sampleCount: magCalSampleCount,
+    durationMs: result.durationMs,
+  }
+
+  magCalActive = false
+  magCalStartTs = null
+  _stopWatchdog()
+
+  // Onboard mag was just re-zeroed by the device — the legacy software offset
+  // is no longer meaningful. Reset it so the new physical calibration is what
+  // the user sees, and the auto-cal integrator starts from a clean slate.
+  headingOffset = 0
+  gpsData.headingOffset = 0
+  persistCalibrationFile()
+
+  console.log(`[GPS] Magnetometer calibration: SAVED (${result.sampleCount} samples, ${sectorsCovered}/8 sectors, stability ${stability != null ? stability.toFixed(1) + '%' : 'n/a'})`)
+  return result
+}
+
+export async function cancelMagCalibration() {
+  if (!magCalActive) return { wasActive: false }
+  // Always try to exit cal mode on the device, even if cancel races with stop.
+  // We deliberately do NOT send the SAVE command here.
+  try {
+    if (serialPort && serialPort.isOpen) {
+      await _writeBytes(MAG_CAL_UNLOCK)
+      await _sleep(MAG_CAL_CMD_DELAY)
+      await _writeBytes(MAG_CAL_EXIT)
+    }
+  } catch (err) {
+    console.warn('[GPS] Mag-cal cancel: failed to exit cal mode cleanly:', err.message)
+  }
+  magCalActive = false
+  magCalStartTs = null
+  _stopWatchdog()
+  console.log('[GPS] Magnetometer calibration: CANCELLED')
+  return { wasActive: true }
+}
+
+export function getMagCalStatus() {
+  if (magCalActive) magCalLastPollTs = Date.now()
+  const liveStability = magCalActive ? _computeStability(magCalMagSamples) : null
+  return {
+    state: magCalError ? 'error' : (magCalActive ? 'active' : 'idle'),
+    active: magCalActive,
+    sectors: [...magCalSectors],
+    sampleCount: magCalSampleCount,
+    quality: magCalSectors.filter(Boolean).length / 8,
+    elapsedMs: magCalActive && magCalStartTs ? Date.now() - magCalStartTs : 0,
+    liveStability,                              // null if not enough samples
+    liveStabilityLabel: _stabilityLabel(liveStability),
+    error: magCalError,
+  }
+}
+
+export function getLastMagCalibration() {
+  return lastMagCalibration
+}
+
+// ============================================================
 
 // Heading smoothing state (EMA with circular handling)
 let headingSin = null  // Running average of sin(heading)
@@ -499,6 +813,21 @@ function parseWitMotionMessage(msg) {
       gpsData.hx = data.readInt16LE(0)
       gpsData.hy = data.readInt16LE(2)
       gpsData.hz = data.readInt16LE(4)
+      // While onboard mag-cal is running, track sector coverage from raw mag
+      // bearing as visual feedback for the wizard. The device is doing the
+      // actual fit internally; this is purely UI progress.
+      if (magCalActive) {
+        magCalSampleCount++
+        let bearing = Math.atan2(gpsData.hy, gpsData.hx) * 180 / Math.PI
+        if (bearing < 0) bearing += 360
+        const sector = Math.floor(bearing / 45) % 8
+        magCalSectors[sector] = true
+        const mag = Math.sqrt(gpsData.hx * gpsData.hx + gpsData.hy * gpsData.hy + gpsData.hz * gpsData.hz)
+        if (isFinite(mag)) {
+          magCalMagSamples.push(mag)
+          if (magCalMagSamples.length > MAG_CAL_MAG_SAMPLES_MAX) magCalMagSamples.shift()
+        }
+      }
       break
 
     case 'V': // 0x56 - Barometry/Altimeter
@@ -537,31 +866,23 @@ function parseWitMotionMessage(msg) {
       if (parsedLat >= -90 && parsedLat <= 90 && parsedLon >= -180 && parsedLon <= 180) {
         gpsData.latitude = parsedLat
         gpsData.longitude = parsedLon
+        // Derive COG from successive positions — see comment near
+        // `updateCogFromPosition` for why we don't trust 0x58 GPSYaw.
+        updateCogFromPosition(parsedLat, parsedLon)
       }
       break
 
-    case 'X': // 0x58 - GPS Ground Speed
-      // Correct WitMotion 0x58 format:
+    case 'X': // 0x58 - GPS Ground Speed (and altitude — DO NOT trust the
+      // GPSYaw field at bytes 2-3 as Course Over Ground; live-boat data shows
+      // it bears no relation to actual ground track. COG is now derived from
+      // successive lat/lon pairs in case 'W' instead.
       // Bytes 0-1: GPSHeight (int16, 0.1m units)
-      // Bytes 2-3: GPSYaw (int16, 0.1° units) - Course Over Ground
+      // Bytes 2-3: GPSYaw (int16, 0.1° units) — IGNORED
       // Bytes 4-7: GPSVelocity (uint32, 1/1000 km/h units)
       const gpsHeight = data.readInt16LE(0) / 10 // 0.1m to meters
-      const cogRaw = data.readInt16LE(2) // 0.1° units
       const gpsSpeedRaw = data.readUInt32LE(4)
       const gpsSpeedKmh = gpsSpeedRaw / 1000 // to km/h
       const gpsSpeedMs = gpsSpeedKmh / 3.6 // to m/s
-
-      // WitMotion firmware reports GPSYaw in 0.1° units, either signed
-      // [-180°, 180°] or unsigned [0°, 360°]. Out-of-range values appear in
-      // the wild when stationary or pre-fix — reject them so the UI shows
-      // "--" rather than nonsense like 2672°.
-      if (cogRaw >= -1800 && cogRaw <= 3600) {
-        let gpsCOG = cogRaw / 10
-        if (gpsCOG < 0) gpsCOG += 360
-        gpsData.cog = gpsCOG
-      } else {
-        gpsData.cog = null
-      }
 
       // Validate speed is reasonable (< 200 knots / ~100 m/s for any boat)
       if (gpsSpeedMs >= 0 && gpsSpeedMs < 100) {

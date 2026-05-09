@@ -20,9 +20,10 @@
 import db from './trackDatabaseService.js'
 import { getActiveGps } from './gpsArbiter.js'
 
-// Sample cadence — once per second. WitMotion's 5 Hz native cadence plus the
-// distance gate means we still get a smooth trace at speed.
-const SAMPLE_INTERVAL_MS = 1000
+// Sample cadence — 500 ms. WitMotion's GPS module emits lat/lon at ~1.2 Hz, so
+// 500 ms guarantees we never miss a fresh fix. The distance gate (5 m) still
+// throttles DB writes; this just decides how often we *consider* writing.
+const SAMPLE_INTERVAL_MS = 500
 
 // Distance/time gate.
 const MIN_DISTANCE_M = 5      // Don't insert closer than 5 m apart…

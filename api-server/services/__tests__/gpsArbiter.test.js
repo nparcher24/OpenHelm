@@ -51,11 +51,32 @@ function freshN2k(overrides = {}) {
 }
 
 describe('selectSource', () => {
-  it('prefers witmotion when both are fresh', () => {
+  it('picks tighter source (lower HDOP) when both fresh — n2k typically wins', () => {
+    // Fixtures: witmotion hdop=0.9, n2k hdop=0.7
     const r = selectSource(freshWitmotion(), freshN2k(), NOW)
-    expect(r.source).toBe('witmotion')
+    expect(r.source).toBe('n2k')
     expect(r.witmotionAvailable).toBe(true)
     expect(r.n2kAvailable).toBe(true)
+    expect(r.witmotionHdop).toBe(0.9)
+    expect(r.n2kHdop).toBe(0.7)
+  })
+
+  it('picks witmotion when its HDOP is tighter', () => {
+    const wm = freshWitmotion({ hdop: 0.5 })
+    const n2k = freshN2k({ gps: { hdop: 1.5 } })
+    expect(selectSource(wm, n2k, NOW).source).toBe('witmotion')
+  })
+
+  it('breaks HDOP ties in favor of witmotion (sensor co-location)', () => {
+    const wm = freshWitmotion({ hdop: 1.0 })
+    const n2k = freshN2k({ gps: { hdop: 1.0 } })
+    expect(selectSource(wm, n2k, NOW).source).toBe('witmotion')
+  })
+
+  it('treats missing HDOP as Infinity (known value beats unknown)', () => {
+    const wm = freshWitmotion({ hdop: null })
+    const n2k = freshN2k({ gps: { hdop: 0.7 } })
+    expect(selectSource(wm, n2k, NOW).source).toBe('n2k')
   })
 
   it('falls back to n2k when witmotion is stale', () => {
@@ -114,14 +135,86 @@ describe('selectSource', () => {
 })
 
 describe('buildSnapshot', () => {
-  it('uses witmotion position when source=witmotion', () => {
-    const snap = buildSnapshot(freshWitmotion(), freshN2k(), NOW)
+  it('uses witmotion position when its HDOP is tighter', () => {
+    const wm = freshWitmotion({ hdop: 0.5 })
+    const n2k = freshN2k({ gps: { hdop: 2.0 } })
+    const snap = buildSnapshot(wm, n2k, NOW)
     expect(snap.source).toBe('witmotion')
     expect(snap.latitude).toBeCloseTo(36.85)
     expect(snap.longitude).toBeCloseTo(-76.30)
-    expect(snap.cog).toBe(90)
-    expect(snap.groundSpeed).toBe(5.0)
+    // cog/sog still prefer N2K when fresh, regardless of position source
+    expect(snap.cog).toBe(92)
+    expect(snap.cogSource).toBe('n2k')
+    expect(snap.groundSpeed).toBe(5.2)
     expect(snap.satellites).toBe(8)
+  })
+
+  it('exposes both HDOPs in the snapshot for UI quality display', () => {
+    const snap = buildSnapshot(freshWitmotion(), freshN2k(), NOW)
+    expect(snap.witmotionHdop).toBe(0.9)
+    expect(snap.n2kHdop).toBe(0.7)
+  })
+
+  it('exposes cogDisagreement when both sources have fresh cog', () => {
+    const wm = freshWitmotion({ cog: 10 })
+    const n2k = freshN2k({ gps: { cog: 50 } })
+    const snap = buildSnapshot(wm, n2k, NOW)
+    expect(snap.cogDisagreement).not.toBeNull()
+    expect(snap.cogDisagreement.deg).toBe(40)
+    expect(snap.cogDisagreement.witmotionCog).toBe(10)
+    expect(snap.cogDisagreement.n2kCog).toBe(50)
+    expect(snap.cogDisagreement.major).toBe(true)
+  })
+
+  it('marks cogDisagreement as not-major below threshold', () => {
+    const wm = freshWitmotion({ cog: 10 })
+    const n2k = freshN2k({ gps: { cog: 25 } })
+    const snap = buildSnapshot(wm, n2k, NOW)
+    expect(snap.cogDisagreement.major).toBe(false)
+  })
+
+  it('reports cogDisagreement=null when only one source has cog', () => {
+    const wm = freshWitmotion({ cog: null })
+    const snap = buildSnapshot(wm, freshN2k(), NOW)
+    expect(snap.cogDisagreement).toBe(null)
+  })
+
+  it('handles cogDisagreement wrap (359° vs 1° = 2°, not 358°)', () => {
+    const wm = freshWitmotion({ cog: 359 })
+    const n2k = freshN2k({ gps: { cog: 1 } })
+    const snap = buildSnapshot(wm, n2k, NOW)
+    expect(snap.cogDisagreement.deg).toBe(2)
+    expect(snap.cogDisagreement.major).toBe(false)
+  })
+
+  it('falls back to witmotion cog when n2k cog is null', () => {
+    const n2k = freshN2k({ gps: { cog: null } })
+    const snap = buildSnapshot(freshWitmotion(), n2k, NOW)
+    expect(snap.cog).toBe(90)
+    expect(snap.cogSource).toBe('witmotion')
+  })
+
+  it('falls back to witmotion cog when n2k is stale', () => {
+    const n2k = freshN2k({ gps: { timestamp: NOW - 60_000 } })
+    const snap = buildSnapshot(freshWitmotion(), n2k, NOW)
+    expect(snap.cog).toBe(90)
+    expect(snap.cogSource).toBe('witmotion')
+  })
+
+  it('warns on large COG disagreement between sources', () => {
+    const warn = console.warn
+    const calls = []
+    console.warn = (m) => calls.push(m)
+    try {
+      // Bump `now` past prior warn-throttle state from earlier tests.
+      const t = NOW + 1_000_000
+      const wm = freshWitmotion({ cog: 0, timestamp: t - 500 })
+      const n2k = freshN2k({ gps: { cog: 60, timestamp: t - 200 } })
+      buildSnapshot(wm, n2k, t)
+      expect(calls.some(c => c.includes('COG disagreement'))).toBe(true)
+    } finally {
+      console.warn = warn
+    }
   })
 
   it('uses n2k position when source=n2k', () => {
@@ -152,9 +245,10 @@ describe('buildSnapshot', () => {
   })
 
   it('slaves heading to cog when underway above 3 MPH', () => {
-    // 5 m/s ≈ 11 MPH — well above the 1.341 m/s threshold
+    // 5 m/s ≈ 11 MPH — well above the 1.341 m/s threshold.
+    // No N2K source so witmotion cog is the only one available.
     const wm = freshWitmotion({ heading: 270, cog: 90, groundSpeed: 5.0 })
-    const snap = buildSnapshot(wm, freshN2k(), NOW)
+    const snap = buildSnapshot(wm, { gps: { latitude: null, longitude: null, timestamp: null } }, NOW)
     expect(snap.headingSlavedToCog).toBe(true)
     expect(snap.heading).toBe(90) // pulled to cog, not the IMU's 270
   })
@@ -185,9 +279,12 @@ describe('buildSnapshot', () => {
   })
 
   it('exposes source-label for the UI', () => {
-    expect(buildSnapshot(freshWitmotion(), freshN2k(), NOW).sourceLabel).toBe('WitMotion (USB)')
+    // Default fixtures: n2k.hdop (0.7) < witmotion.hdop (0.9) → n2k wins
+    expect(buildSnapshot(freshWitmotion(), freshN2k(), NOW).sourceLabel).toBe('NMEA 2000 (boat MFD)')
     const wm = freshWitmotion({ timestamp: NOW - 60_000 })
     expect(buildSnapshot(wm, freshN2k(), NOW).sourceLabel).toBe('NMEA 2000 (boat MFD)')
+    // Tighten witmotion HDOP so it wins
+    expect(buildSnapshot(freshWitmotion({ hdop: 0.3 }), freshN2k(), NOW).sourceLabel).toBe('WitMotion (USB)')
     expect(buildSnapshot(null, null, NOW).sourceLabel).toBe('No fix')
   })
 
@@ -198,11 +295,15 @@ describe('buildSnapshot', () => {
   })
 
   it('age reflects active source timestamp', () => {
+    // Default fixtures pick n2k (tighter HDOP) → age = 200ms
     const snap = buildSnapshot(freshWitmotion(), freshN2k(), NOW)
-    expect(snap.age).toBe(500) // witmotion is 500ms old
+    expect(snap.age).toBe(200)
     const wm = freshWitmotion({ timestamp: NOW - 60_000 })
     const snap2 = buildSnapshot(wm, freshN2k(), NOW)
     expect(snap2.age).toBe(200) // n2k is 200ms old
+    // Force witmotion source by tightening its HDOP
+    const snap3 = buildSnapshot(freshWitmotion({ hdop: 0.3 }), freshN2k(), NOW)
+    expect(snap3.age).toBe(500) // witmotion is 500ms old
   })
 
   it('returns age=null when no source has any timestamp', () => {
