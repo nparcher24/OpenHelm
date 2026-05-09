@@ -3,7 +3,12 @@
  */
 
 import { Router } from 'express'
-import { startGpsService, stopGpsService, getGpsData, isGpsRunning, getHeadingOffset, setHeadingOffset } from '../services/gpsService.js'
+import {
+  startGpsService, stopGpsService, getGpsData, isGpsRunning,
+  getHeadingOffset, setHeadingOffset,
+  startMagCalibration, stopMagCalibration, cancelMagCalibration, getMagCalStatus,
+  getLastMagCalibration,
+} from '../services/gpsService.js'
 import { getActiveGps } from '../services/gpsArbiter.js'
 
 const router = Router()
@@ -115,6 +120,46 @@ router.post('/heading-offset', (req, res) => {
       message: error.message
     })
   }
+})
+
+/**
+ * Magnetometer calibration — drives the WitMotion's onboard spherical-fit
+ * mag calibration. The wizard UI calls these endpoints; the device does the
+ * actual fit and persists hard-iron offsets to its flash on stop().
+ */
+router.post('/mag-cal/start', async (req, res) => {
+  try {
+    const result = await startMagCalibration()
+    res.json({ success: true, ...result })
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+router.post('/mag-cal/stop', async (req, res) => {
+  try {
+    const result = await stopMagCalibration()
+    res.json({ success: true, ...result })
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+router.post('/mag-cal/cancel', async (req, res) => {
+  try {
+    const result = await cancelMagCalibration()
+    res.json({ success: true, ...result })
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+router.get('/mag-cal/status', (req, res) => {
+  res.json(getMagCalStatus())
+})
+
+router.get('/mag-cal/last', (req, res) => {
+  res.json({ lastMagCalibration: getLastMagCalibration() })
 })
 
 export default router

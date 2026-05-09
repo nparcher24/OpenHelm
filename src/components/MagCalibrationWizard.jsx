@@ -110,6 +110,14 @@ function getQualityLabel(quality) {
   return { text: 'Poor', color: 'text-red-400' }
 }
 
+function getStabilityColor(label) {
+  if (label === 'Excellent') return 'text-green-400'
+  if (label === 'Good') return 'text-yellow-400'
+  if (label === 'Fair') return 'text-amber-400'
+  if (label === 'Poor') return 'text-red-400'
+  return 'text-terminal-green-dim'
+}
+
 export default function MagCalibrationWizard({ isOpen, onClose }) {
   const [step, setStep] = useState('instructions') // 'instructions' | 'calibrating' | 'complete' | 'error'
   const [elapsed, setElapsed] = useState(0)
@@ -314,16 +322,24 @@ export default function MagCalibrationWizard({ isOpen, onClose }) {
             <SectorRose sectors={sectors} size={220} />
 
             {/* Stats */}
-            <div className="flex justify-between items-center mt-4 mb-2 px-4">
-              <div className="text-sm font-mono">
+            <div className="grid grid-cols-3 gap-2 mt-4 mb-2 px-4 text-sm font-mono">
+              <div>
                 <span className="text-terminal-green-dim">Coverage: </span>
                 <span className={quality >= 0.75 ? 'text-green-400' : quality >= 0.5 ? 'text-yellow-400' : 'text-terminal-green'}>
-                  {sectors.filter(Boolean).length}/{SECTOR_COUNT} sectors
+                  {sectors.filter(Boolean).length}/{SECTOR_COUNT}
                 </span>
               </div>
-              <div className="text-sm font-mono">
+              <div>
                 <span className="text-terminal-green-dim">Samples: </span>
                 <span className="text-terminal-green">{sampleCount}</span>
+              </div>
+              <div className="text-right">
+                <span className="text-terminal-green-dim">Stability: </span>
+                <span className={getStabilityColor(calStatus?.liveStabilityLabel)}>
+                  {calStatus?.liveStability != null
+                    ? `±${calStatus.liveStability.toFixed(1)}%`
+                    : '—'}
+                </span>
               </div>
             </div>
 
@@ -368,32 +384,92 @@ export default function MagCalibrationWizard({ isOpen, onClose }) {
               Calibration Complete
             </h2>
 
-            {/* Quality result */}
+            {/* Headline stability label (the trustworthy quality metric) */}
             {completeResult && (
               <>
-                <div className={`text-3xl font-bold mb-2 ${getQualityLabel(completeResult.quality).color}`}>
-                  {getQualityLabel(completeResult.quality).text}
+                <div className="text-terminal-green-dim text-xs uppercase tracking-wider mb-1">Field Stability</div>
+                <div className={`text-3xl font-bold mb-1 ${getStabilityColor(completeResult.stabilityLabel)}`}>
+                  {completeResult.stabilityLabel || 'Unknown'}
                 </div>
                 <p className="text-terminal-green-dim text-sm mb-4">
-                  {completeResult.sampleCount} samples collected across{' '}
-                  {completeResult.sectors?.filter(Boolean).length || 0}/8 sectors
+                  {completeResult.stability != null
+                    ? `Magnetic field varied ±${completeResult.stability.toFixed(1)}% across the sweep`
+                    : 'Not enough samples to compute stability'}
                 </p>
 
                 {/* Final compass rose */}
-                <SectorRose sectors={completeResult.sectors || sectors} size={180} />
+                <SectorRose sectors={completeResult.sectors || sectors} size={150} />
+
+                {/* Detail grid */}
+                <div className="grid grid-cols-2 gap-2 text-xs font-mono mt-3 mb-3 text-left bg-terminal-bg/40 rounded p-3 border border-terminal-border">
+                  <div>
+                    <span className="text-terminal-green-dim">Coverage: </span>
+                    <span className={getQualityLabel(completeResult.quality).color}>
+                      {(completeResult.sectorsCovered ?? completeResult.sectors?.filter(Boolean).length) || 0}/8 sectors
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-terminal-green-dim">Samples: </span>
+                    <span className="text-terminal-green">{completeResult.sampleCount}</span>
+                  </div>
+                  <div>
+                    <span className="text-terminal-green-dim">Duration: </span>
+                    <span className="text-terminal-green">
+                      {completeResult.durationMs != null ? formatElapsed(completeResult.durationMs) : '—'}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-terminal-green-dim">Saved to: </span>
+                    <span className="text-terminal-green">device flash</span>
+                  </div>
+                </div>
+
+                {/* Before/after compass error vs COG */}
+                {(completeResult.errorBefore != null || completeResult.errorAfter != null) && (
+                  <div className="bg-terminal-bg/40 rounded p-3 mb-3 border border-terminal-border text-left">
+                    <div className="text-terminal-green-dim text-xs uppercase tracking-wider mb-2 text-center">
+                      Compass vs Course (GPS) Error
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                      <div>
+                        <span className="text-terminal-green-dim">Before: </span>
+                        <span className="text-terminal-green">
+                          {completeResult.errorBefore != null
+                            ? `${completeResult.errorBefore > 0 ? '+' : ''}${completeResult.errorBefore.toFixed(1)}°`
+                            : 'n/a'}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-terminal-green-dim">After: </span>
+                        <span className="text-terminal-green">
+                          {completeResult.errorAfter != null
+                            ? `${completeResult.errorAfter > 0 ? '+' : ''}${completeResult.errorAfter.toFixed(1)}°`
+                            : 'n/a'}
+                        </span>
+                      </div>
+                    </div>
+                    {completeResult.errorBefore == null && completeResult.errorAfter == null && (
+                      <p className="text-terminal-green-dim text-xs mt-2 text-center">
+                        Need GPS COG (boat moving steadily) to measure error
+                      </p>
+                    )}
+                  </div>
+                )}
               </>
             )}
 
-            <div className="bg-terminal-bg/50 rounded-lg p-3 mt-4 mb-4 border border-terminal-border">
+            <div className="bg-terminal-bg/50 rounded-lg p-3 mt-2 mb-4 border border-terminal-border">
               <p className="text-terminal-green-dim text-xs">
-                The magnetometer calibration has been saved to the device. Heading offset has been reset to 0
-                and will auto-calibrate when traveling above 10 knots.
+                Calibration saved to device flash. Software heading offset has been reset to 0°
+                and will re-converge automatically once you're underway above 3 mph.
               </p>
             </div>
 
-            {completeResult && completeResult.quality < 0.75 && (
+            {completeResult && (completeResult.quality < 0.75 || (completeResult.stability != null && completeResult.stability >= 15)) && (
               <p className="text-amber-400 text-sm mb-4">
-                Coverage was below optimal. Consider recalibrating for better accuracy.
+                {completeResult.quality < 0.75
+                  ? 'Coverage was below optimal — consider recalibrating with a smoother full-circle turn.'
+                  : 'Field stability is poor — try moving away from large metal objects and recalibrating.'}
               </p>
             )}
 

@@ -4,9 +4,12 @@ import { API_BASE, WS_BASE as WS_URL } from '../utils/apiConfig.js'
 import { fitDriftLinearRegression } from '../utils/driftCalc'
 import { saveDriftCalculation } from '../services/driftService'
 import { TopBar, Glass, Readout, Pill, Badge, Toggle } from '../ui/primitives'
+import { InformationCircleIcon } from '@heroicons/react/24/outline'
 
 // Lazy load the 3D component for better initial load
 const AttitudeIndicator3D = lazy(() => import('./AttitudeIndicator3D'))
+// Lazy load the calibration wizard — only mounted when the user opens it
+const MagCalibrationWizard = lazy(() => import('./MagCalibrationWizard'))
 
 // Drift calibration window length in milliseconds.
 const DRIFT_SAMPLE_WINDOW_MS = 20000
@@ -27,6 +30,9 @@ function GpsView() {
   const [offsetInput, setOffsetInput] = useState('')
   const [calibrationStatus, setCalibrationStatus] = useState(null) // 'saving' | 'saved' | 'error'
   const [autoCalPreview, setAutoCalPreview] = useState(null) // number or null
+  const [showMagCalWizard, setShowMagCalWizard] = useState(false)
+  const [showMagCalInfo, setShowMagCalInfo] = useState(false)
+  const [lastMagCal, setLastMagCal] = useState(null) // { timestamp, stability, stabilityLabel, ... }
   const [updateHz, setUpdateHz] = useState(null)
   // Drift measurement UI state
   const [driftPhase, setDriftPhase] = useState('idle') // 'idle' | 'sampling' | 'saving' | 'done' | 'error'
@@ -315,6 +321,21 @@ function GpsView() {
       }
     }
   }, [])
+
+  // Fetch the persisted last-mag-cal record so the UI can show "Last calibrated…"
+  // Re-fetched whenever the wizard closes — that's when a fresh save may have
+  // updated the record on the backend.
+  const fetchLastMagCal = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/gps/mag-cal/last`)
+      const data = await res.json()
+      setLastMagCal(data?.lastMagCalibration || null)
+    } catch {
+      // Network blip — try again next mount
+    }
+  }, [])
+  useEffect(() => { fetchLastMagCal() }, [fetchLastMagCal])
+  useEffect(() => { if (!showMagCalWizard) fetchLastMagCal() }, [showMagCalWizard, fetchLastMagCal])
 
   // Calculate drift angle (difference between heading and COG)
   const getDriftAngle = () => {
@@ -634,7 +655,24 @@ function GpsView() {
               </span>
               <Toggle on={showCalibration} onChange={setShowCalibration} />
             </div>
-            {showCalibration && (
+            {showCalibration && (() => {
+              // Live compass-vs-COG error: signed delta of the raw mag heading
+              // against ground track. Only meaningful when boat is moving so
+              // COG is reported (gpsArbiter only emits cog when displacement
+              // exceeds its baseline floor — i.e. boat is actually underway).
+              let compassError = null
+              if (gpsData?.headingRaw != null && gpsData?.cog != null) {
+                let d = gpsData.headingRaw - gpsData.cog
+                while (d > 180) d -= 360
+                while (d < -180) d += 360
+                compassError = d
+              }
+              const errorMagnitude = compassError != null ? Math.abs(compassError) : null
+              const errorColor = errorMagnitude == null ? 'var(--fg3)'
+                : errorMagnitude < 5 ? 'var(--tint-green)'
+                : errorMagnitude < 15 ? 'var(--tint-yellow)'
+                : 'var(--tint-red)'
+              return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={ROW_LABEL}>Current Offset</span>
@@ -642,6 +680,14 @@ function GpsView() {
                     {gpsData?.headingOffset != null
                       ? `${gpsData.headingOffset > 0 ? '+' : ''}${gpsData.headingOffset.toFixed(1)}°`
                       : '0.0°'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={ROW_LABEL}>Compass vs COG</span>
+                  <span style={{ ...ROW_VALUE, color: errorColor }}>
+                    {compassError != null
+                      ? `${compassError > 0 ? '+' : ''}${compassError.toFixed(1)}°`
+                      : '— (need COG)'}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -699,8 +745,93 @@ function GpsView() {
                 {calibrationStatus === 'saved' && <Badge tone="safe" style={{ alignSelf: 'center' }}>Saved</Badge>}
                 {calibrationStatus === 'saving' && <span style={{ color: 'var(--fg3)', fontSize: 18, textAlign: 'center' }}>Saving…</span>}
                 {calibrationStatus === 'error' && <Badge tone="alarm" style={{ alignSelf: 'center' }}>Save failed</Badge>}
+
+                <div style={{ height: 1, background: 'var(--bg-hairline)', margin: '4px 0' }} />
+                {lastMagCal?.timestamp && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                    <span style={ROW_LABEL}>Last Compass Cal</span>
+                    <span style={{ ...ROW_VALUE, fontSize: 18, textAlign: 'right' }}>
+                      {formatRelativeTime(lastMagCal.timestamp)}
+                      {lastMagCal.stabilityLabel && (
+                        <span style={{
+                          marginLeft: 8, fontSize: 14,
+                          color: lastMagCal.stabilityLabel === 'Excellent' ? 'var(--tint-green)'
+                               : lastMagCal.stabilityLabel === 'Good' ? 'var(--tint-yellow)'
+                               : lastMagCal.stabilityLabel === 'Fair' ? 'var(--tint-amber, var(--tint-yellow))'
+                               : 'var(--tint-red)',
+                        }}>
+                          ({lastMagCal.stabilityLabel})
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'stretch', gap: 10 }}>
+                  <Pill
+                    onClick={() => setShowMagCalWizard(true)}
+                    style={{ minHeight: 60, flex: 1 }}
+                  >Calibrate Compass</Pill>
+                  <button
+                    onClick={() => setShowMagCalInfo(v => !v)}
+                    aria-label={showMagCalInfo ? 'Hide info' : 'Show info'}
+                    aria-expanded={showMagCalInfo}
+                    style={{
+                      minHeight: 60, minWidth: 60,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: showMagCalInfo ? 'var(--bg-elev)' : 'transparent',
+                      border: '0.5px solid var(--bg-hairline-strong)',
+                      borderRadius: 999, color: 'var(--fg2)',
+                      cursor: 'pointer', touchAction: 'manipulation', padding: 0,
+                    }}
+                  >
+                    <InformationCircleIcon style={{ width: 28, height: 28 }} />
+                  </button>
+                </div>
+                {showMagCalInfo && (
+                  <div style={{
+                    background: 'var(--bg)', border: '0.5px solid var(--bg-hairline)',
+                    borderRadius: 12, padding: 16,
+                    fontSize: 16, lineHeight: 1.45, color: 'var(--fg2)',
+                    display: 'flex', flexDirection: 'column', gap: 12,
+                  }}>
+                    <div>
+                      <div style={{ color: 'var(--fg1)', fontWeight: 600, marginBottom: 4 }}>What it is</div>
+                      Triggers the WitMotion sensor's built-in magnetometer calibration. The sensor
+                      collects mag readings while you turn, fits a sphere to them, and stores the
+                      hard-iron correction in its own flash memory.
+                    </div>
+                    <div>
+                      <div style={{ color: 'var(--fg1)', fontWeight: 600, marginBottom: 4 }}>What it does</div>
+                      Removes the constant magnetic bias caused by ferrous metal and electronics
+                      near the sensor (engine block, batteries, wiring, brackets). After saving,
+                      the heading offset above is reset to 0° — the physical calibration replaces it.
+                    </div>
+                    <div>
+                      <div style={{ color: 'var(--fg1)', fontWeight: 600, marginBottom: 4 }}>When to use it</div>
+                      • First install of the GPS / IMU<br/>
+                      • After moving the sensor or anything ferrous near it<br/>
+                      • If the compass reads consistently wrong on multiple headings (a single offset
+                      can't fix heading-dependent error)<br/>
+                      • Periodically — every season, or after major electrical work
+                    </div>
+                    <div>
+                      <div style={{ color: 'var(--fg1)', fontWeight: 600, marginBottom: 4 }}>How to use it</div>
+                      1. Get to open water with no large metal nearby (bridges, steel docks, other
+                      boats)<br/>
+                      2. Settle into a slow steady turn at 3–5 mph<br/>
+                      3. Tap <strong>Calibrate Compass</strong> and follow the wizard — it needs ≥6
+                      of 8 sectors covered (≈one full smooth 360°)<br/>
+                      4. Tap <strong>Finish Calibration</strong>; it writes to the device flash and
+                      survives power cycles
+                    </div>
+                    <div style={{ color: 'var(--fg3)', fontSize: 14 }}>
+                      Cancel exits cleanly without saving — your existing calibration is preserved.
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+              )
+            })()}
           </Glass>
 
           {/* Drift Calibration */}
@@ -790,6 +921,15 @@ function GpsView() {
           </Glass>
         </div>
       </div>
+
+      {showMagCalWizard && (
+        <Suspense fallback={null}>
+          <MagCalibrationWizard
+            isOpen={showMagCalWizard}
+            onClose={() => setShowMagCalWizard(false)}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }
@@ -799,6 +939,23 @@ function getCompassDirection(heading) {
                       'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
   const index = Math.round(heading / 22.5) % 16
   return directions[index]
+}
+
+function formatRelativeTime(ts) {
+  if (!ts) return '—'
+  const diffMs = Date.now() - ts
+  if (diffMs < 0) return 'just now'
+  const sec = Math.floor(diffMs / 1000)
+  if (sec < 60) return 'just now'
+  const min = Math.floor(sec / 60)
+  if (min < 60) return `${min} min ago`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr} hr ago`
+  const days = Math.floor(hr / 24)
+  if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `${months} mo ago`
+  return new Date(ts).toLocaleDateString()
 }
 
 function getDopTokenColor(dop) {
