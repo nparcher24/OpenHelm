@@ -29,6 +29,7 @@ import satelliteRoutes from './routes/satellite.js'
 import weatherRoutes from './routes/weather.js'
 import updateRoutes from './routes/update.js'
 import tracksRoutes from './routes/tracks.js'
+import wifiRoutes from './routes/wifi.js'
 import { start as startTrackRecorder, stop as stopTrackRecorder, onPoint as onTrackPoint } from './services/trackRecorderService.js'
 
 const app = express()
@@ -97,6 +98,7 @@ app.use('/api/satellite', satelliteRoutes)
 app.use('/api/weather', weatherRoutes)
 app.use('/api/update', updateRoutes)
 app.use('/api/tracks', tracksRoutes)
+app.use('/api/wifi', wifiRoutes)
 
 // Static file serving for weather data
 app.use('/weather-data', express.static(path.join(process.cwd(), 'weather-data'), {
