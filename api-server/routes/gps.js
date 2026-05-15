@@ -9,7 +9,8 @@ import {
   startMagCalibration, stopMagCalibration, cancelMagCalibration, getMagCalStatus,
   getLastMagCalibration,
 } from '../services/gpsService.js'
-import { getActiveGps } from '../services/gpsArbiter.js'
+import { getActiveGps, getHeadingFusionState } from '../services/gpsArbiter.js'
+import { getSecondaryGpsData, isSecondaryGpsRunning } from '../services/gpsServiceSecondary.js'
 
 const router = Router()
 
@@ -160,6 +161,56 @@ router.get('/mag-cal/status', (req, res) => {
 
 router.get('/mag-cal/last', (req, res) => {
   res.json({ lastMagCalibration: getLastMagCalibration() })
+})
+
+/**
+ * GET /api/gps/heading-fusion — Diagnostics for the dual-unit heading fuser.
+ * Use during sea trial to verify the second unit is reporting, biases are
+ * staying bounded, and the mag-gradient interference detector behaves.
+ * See HEADING_FUSION.md §5 (sea trial checklist).
+ */
+router.get('/heading-fusion', (req, res) => {
+  const arbitrated = getActiveGps()
+  res.json({
+    headingFusion: arbitrated.headingFusion,
+    heading: arbitrated.heading,
+    cog: arbitrated.cog,
+    groundSpeed: arbitrated.groundSpeed,
+    headingSlavedToCog: arbitrated.headingSlavedToCog,
+    secondary: {
+      running: isSecondaryGpsRunning(),
+      data: getSecondaryGpsData(),
+    },
+    fuserState: getHeadingFusionState(),
+    timestamp: Date.now(),
+  })
+})
+
+/**
+ * GET /api/gps/secondary — Raw secondary-unit snapshot (or null when feature
+ * flag is unset). Mostly for verifying the udev rule and serial wiring.
+ */
+router.get('/secondary', (req, res) => {
+  res.json({
+    enabled: getSecondaryGpsData() != null,
+    running: isSecondaryGpsRunning(),
+    data: getSecondaryGpsData(),
+  })
+})
+
+/**
+ * GET /api/gps/sources — Side-by-side health summary of all three GPS sources
+ * (primary WitMotion, secondary WitMotion, Garmin N2K). The boat-side session
+ * uses this during signal verification before going underway.
+ */
+router.get('/sources', (req, res) => {
+  const arbitrated = getActiveGps()
+  res.json({
+    active: arbitrated.source,
+    activeLabel: arbitrated.sourceLabel,
+    sources: arbitrated.sources,
+    timestamp: Date.now(),
+  })
 })
 
 export default router

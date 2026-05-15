@@ -1,24 +1,37 @@
 /**
- * GPS Arbiter — picks between WitMotion (USB-serial IMU/GPS) and the boat's
- * N2K GPS (broadcast on the NMEA 2000 bus, decoded by nmea2000Service).
+ * GPS Arbiter — picks between THREE GPS sources:
+ *   1. WitMotion primary  — USB-serial IMU/GPS, /dev/witmotion
+ *   2. WitMotion secondary — USB-serial IMU/GPS, /dev/witmotion-b (opt-in, see HEADING_FUSION.md)
+ *   3. NMEA 2000 GPS       — the boat's Garmin MFD on the N2K bus
  *
- * Policy: WitMotion is primary. Fall back to N2K GPS only when WitMotion's
- * lat/lon snapshot is older than `STALE_MS` or has no fix.
+ * Policy: pick the source with the tightest horizontal fix (lowest HDOP).
+ * Ties — including the "all sources missing HDOP" degenerate case — resolve
+ * in preference order: primary > secondary > n2k. The preference order is
+ * for IMU co-location, not for accuracy claims; in practice HDOP comparisons
+ * decide it.
  *
- * The arbiter does NOT modify either source's state. It only synthesizes a
- * unified snapshot from `getGpsData()` (WitMotion) and `getVesselData()`
- * (N2K). Sensor-unique fields from WitMotion (IMU, wave estimation, heading)
- * always pass through unchanged; only position-class fields swap on fallback.
+ * The arbiter does NOT modify any source's state. It synthesizes a unified
+ * snapshot from `getGpsData()` (primary), `getSecondaryGpsData()` (secondary,
+ * may be null when the feature is off) and `getVesselData()` (N2K). IMU /
+ * heading / wave sensors on the primary always pass through unchanged; only
+ * position-class fields swap when fallback happens.
+ *
+ * On top of source selection, this module layers in heading fusion (see
+ * HEADING_FUSION.md). The heading fuser runs after buildSnapshot in
+ * getActiveGps() and replaces `snapshot.heading` with the fused value.
  *
  * Returned `source` field tells the UI which provider is currently feeding
  * the position fix:
- *   'witmotion' — WitMotion is fresh and has a fix
- *   'n2k'       — WitMotion stale or no fix, N2K bus has a fresh position
- *   'none'      — neither source has a recent valid position
+ *   'witmotion'   — primary fresh, tightest HDOP
+ *   'witmotion-b' — secondary fresh, tightest HDOP
+ *   'n2k'         — N2K bus fresh, tightest HDOP
+ *   'none'        — no source has a recent valid position
  */
 
 import { getGpsData, autoCalibrateHeadingToCourse } from './gpsService.js'
+import { getSecondaryGpsData } from './gpsServiceSecondary.js'
 import { getVesselData } from './nmea2000Service.js'
+import { createHeadingFuser } from './headingFusion.js'
 
 // How old (ms) a snapshot can be before we treat it as stale and look elsewhere.
 // 5s comfortably covers the WitMotion's 1-5 Hz cadence and N2K's 1-10 Hz
@@ -30,22 +43,22 @@ export const STALE_MS = 5000
 // unreliable. 1.341 m/s = 3 MPH.
 export const HEADING_SLAVE_SPEED_MS = 1.341
 
-// Disagreement threshold (degrees) between N2K-reported COG and WitMotion's
-// position-derived COG that warrants a diagnostic warning. Above 30° one of
-// the sources is almost certainly wrong; below it can be turn lag or noise.
+// Disagreement threshold (degrees) between any two sources' COG that warrants
+// a diagnostic warning. Above 30° one of the sources is almost certainly wrong;
+// below it can be turn lag or noise.
 const COG_DISAGREEMENT_WARN_DEG = 30
 let lastCogWarnAt = 0
 const COG_WARN_THROTTLE_MS = 10000
 
-// Threshold to consider a position "valid" — WitMotion may report (0, 0) or
-// near-zero before lock; N2K GPSes can transiently report nulls. We require
-// non-null lat/lon and (for WitMotion) fix=true.
-function witmotionHasFix(gps, now) {
+// Threshold for treating a WitMotion (primary or secondary) snapshot as a
+// usable position source: non-null lat/lon, fresh timestamp, fix=true.
+// Extracted to a helper so primary/secondary share validation.
+function witmotionHasFixHelper(gps, now) {
   if (!gps) return false
+  if (gps.stale) return false
   if (gps.latitude == null || gps.longitude == null) return false
   if (gps.timestamp == null) return false
   if (now - gps.timestamp > STALE_MS) return false
-  // WitMotion sets fix=false until ≥4 sats; respect it.
   if (gps.fix === false) return false
   return true
 }
@@ -62,40 +75,52 @@ function n2kHasFix(vessel, now) {
   return true
 }
 
+// Preference order when HDOP can't decide. See module header.
+const SOURCE_PREFERENCE = ['witmotion', 'witmotion-b', 'n2k']
+
 /**
- * Resolve the active GPS source.
- *
- * When both sources are fresh+fixed, pick the one with the tighter horizontal
- * fix (lower HDOP). The Garmin MFD's marine GPS typically reports HDOP ~0.7
- * while WitMotion's USB module sits around 1.0–12.0 depending on sky view, so
- * in practice this means N2K wins when the helm is on. WitMotion's IMU /
- * heading / wave fields always pass through regardless, so we don't lose any
- * sensor coverage by switching position sources.
+ * Resolve the active GPS source from up to three candidates.
  *
  * Pure function over inputs — kept separate from `getActiveGps()` so unit
  * tests can drive it with synthetic snapshots without mocking the services.
  *
- * @param {object} witmotion - shape from gpsService.getGpsData()
- * @param {object} vessel    - shape from nmea2000Service.getVesselData()
- * @param {number} now       - current epoch ms (injected for deterministic tests)
- * @returns {{source: 'witmotion'|'n2k'|'none', witmotionAvailable: boolean, n2kAvailable: boolean, witmotionHdop: number|null, n2kHdop: number|null}}
+ * @param {object|null} witmotion    - shape from gpsService.getGpsData()
+ * @param {object|null} witmotionB   - shape from gpsServiceSecondary.getSecondaryGpsData(), or null when feature flag off
+ * @param {object|null} vessel       - shape from nmea2000Service.getVesselData()
+ * @param {number}      now          - current epoch ms (injected for deterministic tests)
+ * @returns {{source: 'witmotion'|'witmotion-b'|'n2k'|'none',
+ *            witmotionAvailable: boolean, witmotionBAvailable: boolean, n2kAvailable: boolean,
+ *            witmotionHdop: number|null, witmotionBHdop: number|null, n2kHdop: number|null}}
  */
-export function selectSource(witmotion, vessel, now = Date.now()) {
-  const witmotionAvailable = witmotionHasFix(witmotion, now)
+export function selectSource(witmotion, witmotionB, vessel, now = Date.now()) {
+  const witmotionAvailable = witmotionHasFixHelper(witmotion, now)
+  const witmotionBAvailable = witmotionHasFixHelper(witmotionB, now)
   const n2kAvailable = n2kHasFix(vessel, now)
+
   const witmotionHdop = witmotion?.hdop ?? null
+  const witmotionBHdop = witmotionB?.hdop ?? null
   const n2kHdop = vessel?.gps?.hdop ?? null
+
+  const candidates = []
+  if (witmotionAvailable)   candidates.push({ source: 'witmotion',   hdop: witmotionHdop  ?? Infinity })
+  if (witmotionBAvailable)  candidates.push({ source: 'witmotion-b', hdop: witmotionBHdop ?? Infinity })
+  if (n2kAvailable)         candidates.push({ source: 'n2k',         hdop: n2kHdop        ?? Infinity })
+
   let source = 'none'
-  if (witmotionAvailable && n2kAvailable) {
-    // Tighter horizontal fix wins. Missing HDOP treated as Infinity so a known
-    // value beats an unknown. Tie → prefer witmotion (sensor co-location with
-    // the IMU pass-through fields).
-    const wmH = witmotionHdop ?? Infinity
-    const nH = n2kHdop ?? Infinity
-    source = nH < wmH ? 'n2k' : 'witmotion'
-  } else if (witmotionAvailable) source = 'witmotion'
-  else if (n2kAvailable) source = 'n2k'
-  return { source, witmotionAvailable, n2kAvailable, witmotionHdop, n2kHdop }
+  if (candidates.length > 0) {
+    // Sort by HDOP ascending, tiebreak by SOURCE_PREFERENCE index ascending.
+    candidates.sort((a, b) => {
+      if (a.hdop !== b.hdop) return a.hdop - b.hdop
+      return SOURCE_PREFERENCE.indexOf(a.source) - SOURCE_PREFERENCE.indexOf(b.source)
+    })
+    source = candidates[0].source
+  }
+
+  return {
+    source,
+    witmotionAvailable, witmotionBAvailable, n2kAvailable,
+    witmotionHdop, witmotionBHdop, n2kHdop,
+  }
 }
 
 /**
@@ -104,44 +129,63 @@ export function selectSource(witmotion, vessel, now = Date.now()) {
  * Pure over inputs — same testability story as selectSource.
  *
  * Position fields (latitude/longitude/altitude/cog/groundSpeed/satellites/fix/
- * hdop/pdop/vdop) come from the active source. All other fields (IMU, heading,
- * wave estimation, headingOffset) pass through from WitMotion regardless,
- * because those sensors only exist on the WitMotion side.
+ * hdop/pdop/vdop) come from the active source. WitMotion-only sensor fields
+ * (IMU, mag heading, wave estimation, headingOffset) always pass through from
+ * the PRIMARY unit regardless, because those calibrated stacks only exist on
+ * the primary side.
+ *
+ * COG/SOG: prefer N2K when fresh (PGN 129026 is fast and calibrated). When
+ * N2K is stale, use whichever WitMotion is active.
  */
-export function buildSnapshot(witmotion, vessel, now = Date.now()) {
-  const { source, witmotionAvailable, n2kAvailable, witmotionHdop, n2kHdop } = selectSource(witmotion, vessel, now)
+export function buildSnapshot(witmotion, witmotionB, vessel, now = Date.now()) {
+  const sel = selectSource(witmotion, witmotionB, vessel, now)
+  const { source, witmotionAvailable, witmotionBAvailable, n2kAvailable,
+          witmotionHdop, witmotionBHdop, n2kHdop } = sel
+
   const wm = witmotion || {}
+  const wmB = witmotionB || {}
   const ng = (vessel && vessel.gps) || {}
 
-  // Position fields default to WitMotion values, override with N2K when
-  // active. Keeps existing UI consumers working even when source === 'n2k'.
-  let latitude = wm.latitude
-  let longitude = wm.longitude
-  let altitude = wm.altitude
-  let cog = wm.cog
+  // Position fields default to primary WitMotion values, override based on
+  // active source. Keeps existing UI consumers working when source flips.
+  let latitude    = wm.latitude
+  let longitude   = wm.longitude
+  let altitude    = wm.altitude
+  let cog         = wm.cog
   let groundSpeed = wm.groundSpeed
-  let satellites = wm.satellites
-  let fix = wm.fix
-  let pdop = wm.pdop
-  let hdop = wm.hdop
-  let vdop = wm.vdop
+  let satellites  = wm.satellites
+  let fix         = wm.fix
+  let pdop        = wm.pdop
+  let hdop        = wm.hdop
+  let vdop        = wm.vdop
 
-  if (source === 'n2k') {
-    latitude = ng.latitude
-    longitude = ng.longitude
-    altitude = ng.altitude ?? wm.altitude
-    satellites = ng.satellites ?? wm.satellites
-    fix = ng.fix ?? false
-    pdop = ng.pdop ?? wm.pdop
-    hdop = ng.hdop ?? wm.hdop
-    vdop = ng.vdop ?? wm.vdop
+  if (source === 'witmotion-b') {
+    latitude    = wmB.latitude
+    longitude   = wmB.longitude
+    altitude    = wmB.altitude ?? wm.altitude
+    cog         = wmB.cog ?? wm.cog                  // overridden below by N2K when fresh
+    groundSpeed = wmB.groundSpeed ?? wm.groundSpeed
+    satellites  = wmB.satellites ?? wm.satellites
+    fix         = wmB.fix ?? false
+    pdop        = wmB.pdop ?? wm.pdop
+    hdop        = wmB.hdop ?? wm.hdop
+    vdop        = wmB.vdop ?? wm.vdop
+  } else if (source === 'n2k') {
+    latitude    = ng.latitude
+    longitude   = ng.longitude
+    altitude    = ng.altitude ?? wm.altitude
+    satellites  = ng.satellites ?? wm.satellites
+    fix         = ng.fix ?? false
+    pdop        = ng.pdop ?? wm.pdop
+    hdop        = ng.hdop ?? wm.hdop
+    vdop        = ng.vdop ?? wm.vdop
   }
 
-  // COG / SOG: prefer N2K when fresh — Garmin's marine GPS ships PGN 129026 at
-  // ~10 Hz, calibrated, faster + more reliable than WitMotion's 1 Hz position-
-  // derived COG. Independent of which source owns position. Warn when both are
-  // fresh and disagree by enough to indicate one is wrong.
-  let cogSource = 'witmotion'
+  // COG / SOG: N2K wins whenever fresh, regardless of who owns position.
+  // Diagnostic: if more than one source has a fresh COG and they disagree
+  // significantly, log a throttled warning. Compare primary↔N2K for the
+  // legacy diagnostic; the panel UI can render the three-way picture itself.
+  let cogSource = source === 'witmotion-b' ? 'witmotion-b' : 'witmotion'
   let cogDisagreement = null
   if (witmotionAvailable && n2kAvailable
       && wm.cog != null && isFinite(wm.cog)
@@ -174,6 +218,41 @@ export function buildSnapshot(witmotion, vessel, now = Date.now()) {
   const headingSlaved = groundSpeed != null && groundSpeed > HEADING_SLAVE_SPEED_MS && cog != null && isFinite(cog)
   if (headingSlaved) displayHeading = cog
 
+  const sourceLabel =
+      source === 'witmotion'   ? 'WitMotion (USB)'
+    : source === 'witmotion-b' ? 'WitMotion B (USB)'
+    : source === 'n2k'         ? 'NMEA 2000 (boat MFD)'
+                               : 'No fix'
+
+  // Per-source liveness metadata for the GPS page's sources panel.
+  const sources = {
+    witmotion: {
+      available: witmotionAvailable,
+      hdop: witmotionHdop,
+      satellites: wm.satellites ?? null,
+      timestamp: wm.timestamp ?? null,
+      cog: isFiniteOrNull(wm.cog),
+      device: wm.device ?? null,
+    },
+    'witmotion-b': {
+      available: witmotionBAvailable,
+      hdop: witmotionBHdop,
+      satellites: wmB.satellites ?? null,
+      timestamp: wmB.timestamp ?? null,
+      cog: isFiniteOrNull(wmB.cog),
+      device: wmB.device ?? null,
+      enabled: witmotionB != null,
+    },
+    n2k: {
+      available: n2kAvailable,
+      hdop: n2kHdop,
+      satellites: ng.satellites ?? null,
+      timestamp: ng.timestamp ?? null,
+      cog: isFiniteOrNull(ng.cog),
+      src: ng.src ?? null,
+    },
+  }
+
   return {
     // Position (arbitrated)
     latitude,
@@ -188,16 +267,17 @@ export function buildSnapshot(witmotion, vessel, now = Date.now()) {
     pdop, hdop, vdop,
     // Source metadata — for the UI to surface which provider is active
     source,
-    sourceLabel: source === 'witmotion' ? 'WitMotion (USB)'
-               : source === 'n2k' ? 'NMEA 2000 (boat MFD)'
-               : 'No fix',
+    sourceLabel,
     witmotionAvailable,
+    witmotionBAvailable,
     n2kAvailable,
     witmotionHdop,
+    witmotionBHdop,
     n2kHdop,
     cogDisagreement,
     n2kSrc: ng.src ?? null,
-    // WitMotion-only sensors (always pass through, regardless of source)
+    sources,
+    // WitMotion-only sensors (always pass through from primary, regardless of source)
     heading: displayHeading,
     headingSlavedToCog: headingSlaved,
     headingRaw: wm.headingRaw,
@@ -213,29 +293,82 @@ export function buildSnapshot(witmotion, vessel, now = Date.now()) {
     seaState: wm.seaState,
     seaStateDesc: wm.seaStateDesc,
     // Liveness for clients
-    timestamp: source === 'n2k' ? ng.timestamp : wm.timestamp,
+    timestamp: _activeTimestamp(source, wm, wmB, ng),
     age: (() => {
-      const ts = source === 'n2k' ? ng.timestamp : wm.timestamp
+      const ts = _activeTimestamp(source, wm, wmB, ng)
       return ts ? now - ts : null
     })(),
-    device: wm.device,
-    error: wm.error
+    device: source === 'witmotion-b' ? wmB.device : wm.device,
+    error: wm.error,
   }
 }
 
+function _activeTimestamp(source, wm, wmB, ng) {
+  if (source === 'witmotion-b') return wmB.timestamp ?? null
+  if (source === 'n2k') return ng.timestamp ?? null
+  return wm.timestamp ?? null
+}
+
+function isFiniteOrNull(v) {
+  return (typeof v === 'number' && Number.isFinite(v)) ? v : null
+}
+
+// Module-scoped fuser — owns filter state across calls. Lives here so every
+// caller of getActiveGps() shares a single integrator; buildSnapshot stays
+// pure and tests of it don't accidentally accumulate fusion state.
+const _fuser = createHeadingFuser()
+
 /**
- * Production entry point — pulls live state from both services and returns
- * the arbitrated snapshot.
+ * Production entry point — pulls live state from all three services and
+ * returns the arbitrated + fused snapshot.
  */
 export function getActiveGps() {
   const wm = getGpsData()
+  const wmB = getSecondaryGpsData()  // null when feature flag unset
   const vessel = getVesselData()
-  const snapshot = buildSnapshot(wm, vessel, Date.now())
-  // Side effect: while underway, nudge the persisted magnetic offset toward
-  // (cog - raw heading). Kept out of buildSnapshot so that helper stays pure
-  // and unit-testable.
+  const now = Date.now()
+  const snapshot = buildSnapshot(wm, wmB, vessel, now)
+
+  const fusion = _fuser.update({
+    now,
+    primary: wm,
+    // Treat stale secondary the same as absent — fuser falls back to
+    // pass-through rather than coasting on a frozen frame.
+    secondary: wmB && !wmB.stale ? wmB : null,
+    vessel,
+    fallbackHeading: snapshot.heading,
+    fallbackCog: snapshot.cog,
+    fallbackGroundSpeed: snapshot.groundSpeed,
+  })
+
+  if (fusion.heading != null && isFinite(fusion.heading)) {
+    snapshot.heading = fusion.heading
+  }
+  snapshot.headingFusion = {
+    source: fusion.source,
+    confidence: fusion.confidence,
+    primaryHealth: fusion.primaryHealth,
+    secondaryHealth: fusion.secondaryHealth,
+    magInterferenceDetected: fusion.magInterferenceDetected,
+    magGradient: fusion.magGradient,
+    gyroAgreement: fusion.gyroAgreement,
+    biasA: fusion.biasA,
+    biasB: fusion.biasB,
+  }
+
   if (snapshot.headingSlavedToCog) {
     autoCalibrateHeadingToCourse(snapshot.cog)
   }
   return snapshot
+}
+
+/**
+ * Diagnostic accessor for the debug endpoint. Returns the live fuser state
+ * (defensive copy) plus the most recent fusion output.
+ */
+export function getHeadingFusionState() {
+  return {
+    state: _fuser.getState(),
+    secondaryEnabled: getSecondaryGpsData() != null,
+  }
 }

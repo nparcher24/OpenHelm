@@ -17,6 +17,7 @@ import blueTopoRoutes from './routes/bluetopo.js'
 import cuspRoutes from './routes/cusp.js'
 import gpsRoutes from './routes/gps.js'
 import { setGpsUpdateCallback, startGpsService } from './services/gpsService.js'
+import { startSecondaryGpsService } from './services/gpsServiceSecondary.js'
 import { startSimulator, stopSimulator, isSimulatorRunning } from './services/gpsSimulator.js'
 import vesselRoutes from './routes/vessel.js'
 import { setVesselUpdateCallback, startNmea2000Service } from './services/nmea2000Service.js'
@@ -301,6 +302,15 @@ startGpsService().then(() => {
   console.log('🛰️ GPS service auto-started')
 }).catch(err => {
   console.log('⚠️ GPS service not available:', err.message)
+})
+
+// Secondary WitMotion unit for heading fusion. No-op unless
+// OPENHELM_GPS_SECONDARY=1 or OPENHELM_GPS_SECONDARY_DEVICE is set.
+// See HEADING_FUSION.md for the boat-side setup.
+startSecondaryGpsService().then((result) => {
+  if (result) console.log('🛰️ Secondary GPS service started (heading fusion enabled)')
+}).catch(err => {
+  console.log('⚠️ Secondary GPS service failed to start:', err.message)
 })
 
 // Track recorder — always-on background service that persists vessel positions.

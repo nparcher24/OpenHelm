@@ -415,10 +415,12 @@ function GpsView() {
             <Badge tone={hasFix ? 'safe' : 'warn'} dot>{hasFix ? 'GPS FIX' : 'NO FIX'}</Badge>
             <Badge
               tone={gpsData?.source === 'witmotion' ? 'neutral'
+                  : gpsData?.source === 'witmotion-b' ? 'neutral'
                   : gpsData?.source === 'n2k' ? 'warn'
                   : 'alarm'}
             >
               {gpsData?.source === 'witmotion' ? 'WitMotion'
+               : gpsData?.source === 'witmotion-b' ? 'WitMotion B'
                : gpsData?.source === 'n2k' ? `NMEA 2000${gpsData?.n2kSrc != null ? ` · 0x${gpsData.n2kSrc.toString(16).toUpperCase().padStart(2, '0')}` : ''}`
                : 'No Source'}
             </Badge>
@@ -570,6 +572,11 @@ function GpsView() {
               ))}
             </div>
           </Glass>
+
+          {/* GPS Sources — three-way arbitration view. The arbiter picks the
+              tightest-HDOP source; this panel surfaces all available providers
+              so the user can see at a glance which is feeding position. */}
+          {gpsData?.sources && <GpsSourcesPanel sources={gpsData.sources} activeSource={gpsData.source} />}
 
           {/* Environment + Sea State combined */}
           <Glass radius={14} style={{ padding: 22 }}>
@@ -964,6 +971,76 @@ function getDopTokenColor(dop) {
   if (dop <= 5) return 'var(--tint-yellow)'
   if (dop <= 10) return 'var(--tint-orange)'
   return 'var(--tint-red)'
+}
+
+const SOURCE_LABELS = {
+  witmotion: 'WitMotion',
+  'witmotion-b': 'WitMotion B',
+  n2k: 'NMEA 2000',
+}
+
+const SOURCE_ORDER = ['witmotion', 'witmotion-b', 'n2k']
+
+/**
+ * Compact per-source availability panel. One row per provider, active row
+ * highlighted. The "WitMotion B" row dims itself when the secondary feature
+ * isn't enabled (no env var set on the server), so the user can tell at a
+ * glance whether the second unit has been brought online.
+ */
+function GpsSourcesPanel({ sources, activeSource }) {
+  return (
+    <Glass radius={14} style={{ padding: 22 }}>
+      <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)', marginBottom: 12 }}>
+        GPS Sources
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {SOURCE_ORDER.map(key => {
+          const s = sources[key] || {}
+          const isActive = activeSource === key
+          const isDisabled = key === 'witmotion-b' && s.enabled === false
+          const dotColor = isActive ? 'var(--signal)'
+                         : s.available ? 'var(--tint-green)'
+                         : isDisabled ? 'var(--fg3)'
+                         : 'var(--tint-red)'
+          return (
+            <div
+              key={key}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '12px 1fr auto auto',
+                alignItems: 'center',
+                gap: 12,
+                padding: '8px 10px',
+                borderRadius: 8,
+                background: isActive ? 'var(--fill-1)' : 'transparent',
+                opacity: isDisabled ? 0.45 : 1,
+              }}
+            >
+              <div style={{
+                width: 10, height: 10, borderRadius: '50%',
+                background: dotColor,
+                boxShadow: isActive ? `0 0 8px ${dotColor}` : 'none',
+              }}/>
+              <div style={{ fontSize: 20, fontWeight: isActive ? 700 : 500, color: 'var(--fg1)' }}>
+                {SOURCE_LABELS[key]}
+                {isActive && <span style={{ fontSize: 14, marginLeft: 8, color: 'var(--signal)', letterSpacing: '0.05em' }}>ACTIVE</span>}
+                {isDisabled && <span style={{ fontSize: 14, marginLeft: 8, color: 'var(--fg3)' }}>(not enabled)</span>}
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, color: 'var(--fg3)', textAlign: 'right' }}>
+                {s.satellites != null ? `${s.satellites} sat` : '— sat'}
+              </div>
+              <div style={{
+                fontFamily: 'var(--font-mono)', fontSize: 18, minWidth: 80,
+                color: getDopTokenColor(s.hdop), textAlign: 'right',
+              }}>
+                HDOP {s.hdop != null ? s.hdop.toFixed(1) : '—'}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </Glass>
+  )
 }
 
 export default GpsView
