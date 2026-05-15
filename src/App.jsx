@@ -1,52 +1,31 @@
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import Navbar from './components/Navbar'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import MainContent from './components/MainContent'
 import BlueTopoTilesView from './components/BlueTopoTilesView'
 import SatelliteRegionSelector from './components/SatelliteRegionSelector'
 import WeatherRegionSelector from './components/WeatherRegionSelector'
 
-const MAIN_TABS = new Set(['chart', 'gps', 'vessel', 'settings'])
-
 function App() {
-  const location = useLocation()
-
-  // Prevent context menu globally
   const handleContextMenu = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    return false
+    e.preventDefault(); e.stopPropagation(); return false
   }
-
-  // Check if current route is a special (non-tabbed) page
-  const path = location.pathname
-  const isSpecialRoute = path === '/bluetopo-tiles' || path === '/satellite-region' || path === '/weather-region'
-
-  // Derive active tab from URL
-  const activeTab = path.replace('/', '') || 'chart'
-  const resolvedTab = MAIN_TABS.has(activeTab) ? activeTab : 'chart'
 
   return (
     <div
-      className="h-screen w-screen bg-terminal-bg text-terminal-green font-mono flex flex-col"
+      className="h-screen w-screen flex flex-col"
+      style={{ background: 'var(--bg)', color: 'var(--fg1)', fontFamily: 'var(--font-ui)' }}
       onContextMenu={handleContextMenu}
     >
-      {isSpecialRoute ? (
-        <Routes>
-          <Route path="/bluetopo-tiles" element={<BlueTopoTilesView />} />
-          <Route path="/satellite-region" element={<SatelliteRegionSelector />} />
-          <Route path="/weather-region" element={<WeatherRegionSelector />} />
-        </Routes>
-      ) : (
-        <>
-          <Navbar />
-          <MainContent activeTab={resolvedTab} />
-          {/* Handle redirect for bare / path */}
-          <Routes>
-            <Route path="/" element={<Navigate to="/chart" replace />} />
-            <Route path="*" element={null} />
-          </Routes>
-        </>
-      )}
+      <Routes>
+        <Route path="/bluetopo-tiles"   element={<BlueTopoTilesView />} />
+        <Route path="/satellite-region" element={<SatelliteRegionSelector />} />
+        <Route path="/weather-region"   element={<WeatherRegionSelector />} />
+        <Route path="/chart"    element={<MainContent activeTab="chart" />} />
+        <Route path="/gps"      element={<MainContent activeTab="gps" />} />
+        <Route path="/vessel"   element={<MainContent activeTab="vessel" />} />
+        <Route path="/settings" element={<MainContent activeTab="settings" />} />
+        <Route path="/"         element={<Navigate to="/chart" replace />} />
+        <Route path="*"         element={<Navigate to="/chart" replace />} />
+      </Routes>
     </div>
   )
 }

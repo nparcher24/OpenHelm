@@ -6,28 +6,75 @@ import { getDownloadedTileMetadata, getTileUrl, getDepthAtLocation } from '../se
 import { getSatelliteRegions, getSatelliteTileUrl } from '../services/satelliteTileService'
 import { getDownloadedRegions as getDownloadedENCRegions } from '../services/encDownloadService'
 import { getDownloadedRegions as getDownloadedS57Regions } from '../services/s57DownloadService'
-import { createNauticalStyle, S57_LAYER_PREFIX } from '../styles/nauticalChartStyle'
+import { createNauticalStyle, applyChartPalette, S57_LAYER_PREFIX } from '../styles/nauticalChartStyle'
+import { getChartPalette } from '../styles/chartPalettes'
+import { useTheme } from '../ui/theme/useTheme.js'
 import { getAllWaypoints, createWaypoint } from '../services/waypointService'
 import { getLatestDrift } from '../services/driftService'
 import { computeDriftCorrected } from '../utils/driftCalc'
 import { getWeatherRegions, getRegionData, getTimestamps, getGridAtTime, buildStationGeoJSON } from '../services/weatherDataService'
 import ForecastTimeSlider from './ForecastTimeSlider'
 import WeatherStationPopup from './WeatherStationPopup'
-import { SettingsIcon, BoatIcon } from './Icons'
 import { createHeadingLineSVGString } from '../utils/headingLine'
 import DepthCrosshairs from './DepthCrosshairs'
 import DepthInfoCard from './DepthInfoCard'
 import WaypointMenu from './WaypointMenu'
 import WaypointEditModal from './WaypointEditModal'
-import WaypointDropdown from './WaypointDropdown'
-import LayersMenu from './LayersMenu'
-import S57SubLayerMenu, { S57_SUBLAYER_GROUPS } from './S57SubLayerMenu'
+import { S57_SUBLAYER_GROUPS } from './S57SubLayerMenu'
 import S57FeatureCard from './S57FeatureCard'
-import HudOverlay from './HudOverlay'
 import { createMarkerSVG } from '../utils/waypointIcons'
-import { MapPinIcon } from '@heroicons/react/24/outline'
+import useVesselData from '../hooks/useVesselData'
+import useTracks from '../hooks/useTracks'
+import {
+  ChartTopBar,
+  CompassRose,
+  FollowControls,
+  ScaleBar,
+  ChartZoomStack,
+} from './chart'
+
+// Boat marker + heading-line accent. CSS vars resolve inside SVG attributes
+// in modern Chromium, so they cascade through theme changes automatically.
+const ACCENT_FIX    = 'var(--signal)'
+const ACCENT_NO_FIX = 'var(--tint-red)'
+
+// Apple-Maps-style vessel marker: pointed kite silhouette with a soft radial
+// halo and a subtle bow gloss. Re-rendered on fix-state change so gradient
+// stops adopt the current accent color.
+function buildBoatMarkerSVG(color, palette) {
+  // 2× size — 120×120 render, viewBox stays at 60×60 so the existing path
+  // coordinates simply scale up. Stroke + gloss come from the palette so the
+  // marker recolors with the chart theme.
+  const stroke = palette?.markerStroke ?? 'rgba(0,0,0,0.42)'
+  const gloss  = palette?.markerGloss  ?? 'rgba(255,255,255,0.55)'
+  const dot    = palette?.markerDot    ?? 'rgba(255,255,255,0.92)'
+  return `
+    <svg width="120" height="120" viewBox="0 0 60 60" style="overflow:visible; display:block;">
+      <defs>
+        <radialGradient id="bm-halo" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"  stop-color="${color}" stop-opacity="0.34"/>
+          <stop offset="55%" stop-color="${color}" stop-opacity="0.10"/>
+          <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="bm-gloss" x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%"   stop-color="${gloss}"/>
+          <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+        </linearGradient>
+      </defs>
+      <circle cx="30" cy="30" r="28" fill="url(#bm-halo)"/>
+      <path d="M30 16 L38.5 38.5 L30 34 L21.5 38.5 Z"
+            fill="${color}"
+            stroke="${stroke}" stroke-width="0.6" stroke-linejoin="round"/>
+      <path d="M30 18.5 L34 28.5 L30 27 L26 28.5 Z" fill="url(#bm-gloss)"/>
+      <circle cx="30" cy="29.5" r="1.4" fill="${dot}"/>
+    </svg>
+  `
+}
 
 function ChartView() {
+  const { theme } = useTheme()
+  const themeRef = useRef(theme)
+  useEffect(() => { themeRef.current = theme }, [theme])
   const mapContainer = useRef(null)
   const map = useRef(null)
   const [mapLoaded, setMapLoaded] = useState(false)
@@ -49,17 +96,27 @@ function ChartView() {
   // Live depth/position display during crosshairs hold
   const [liveDepthData, setLiveDepthData] = useState(null)
 
+  // Top-bar Depth metric source:
+  //   1) NMEA 2000 water depth (PGN 128267) when a real bus is connected.
+  //   2) BlueTopo bathymetry sampled at the vessel's GPS position.
+  //   3) `null` (renders as `—`) when neither is available — e.g. on land or
+  //      outside downloaded BlueTopo coverage.
+  const { vesselData } = useVesselData()
+  const [vesselBlueTopoDepthFt, setVesselBlueTopoDepthFt] = useState(null)
+
   // GPS tracking state
-  // trackingMode: null = not tracking, 'center' = boat centered, 'offset' = boat 1/3 from bottom
+  // trackingMode: null = not tracking, 'center' = boat centered, 'offset' = boat 1/4 from bottom
   const [trackingMode, setTrackingMode] = useState('center')  // Start tracking by default
-  const [northUp, setNorthUp] = useState(false)  // true = north up, false = heading up
+  // 'north' = north up, 'heading' = bow up, 'track' = ground-track (COG) up
+  const [orientationMode, setOrientationMode] = useState('heading')
   const initialGpsCenterDone = useRef(false)  // Track if we've done initial GPS center
   const [gpsData, setGpsData] = useState(null)
   const boatMarkerRef = useRef(null)
   const headingLineRef = useRef(null)
   const trackingModeRef = useRef(null)
-  const northUpRef = useRef(false)
+  const orientationModeRef = useRef('heading')
   const bearingFrozenRef = useRef(false)  // True when bearing is frozen after pan decouple
+  const [mapBearing, setMapBearing] = useState(0)  // Live mirror of map.getBearing() — drives compass rose
 
   // Waypoint state
   const [waypoints, setWaypoints] = useState([])
@@ -92,7 +149,6 @@ function ChartView() {
   })
   const [s57RegionCount, setS57RegionCount] = useState(0)
   const [s57LayersLoaded, setS57LayersLoaded] = useState(0)
-  const [s57SubLayerMenuOpen, setS57SubLayerMenuOpen] = useState(false)
   const [s57SubLayerVisibility, setS57SubLayerVisibility] = useState(() => {
     try {
       const saved = localStorage.getItem('chartview_s57_sublayers')
@@ -108,6 +164,34 @@ function ChartView() {
     const saved = localStorage.getItem('chartview_weather_visible')
     return saved !== null ? JSON.parse(saved) : false
   })
+
+  // Track (breadcrumb) layer state — display defaults off; recording is unaffected.
+  const [trackVisible, setTrackVisible] = useState(() => {
+    const saved = localStorage.getItem('chartview_track_visible')
+    return saved !== null ? JSON.parse(saved) : false
+  })
+  const [trackMode, setTrackMode] = useState(() => {
+    return localStorage.getItem('chartview_track_mode') || 'current'
+  })
+  const [trackDateFrom, setTrackDateFrom] = useState(() => {
+    const saved = localStorage.getItem('chartview_track_date_from')
+    if (saved) return parseInt(saved, 10)
+    const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime()
+  })
+  const [trackDateTo, setTrackDateTo] = useState(() => {
+    const saved = localStorage.getItem('chartview_track_date_to')
+    if (saved) return parseInt(saved, 10)
+    const d = new Date(); d.setHours(23, 59, 59, 999); return d.getTime()
+  })
+  const [trackSelectedTripIds, setTrackSelectedTripIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('chartview_track_selected_trips')
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
+  const [trackColorMode, setTrackColorMode] = useState(() => {
+    return localStorage.getItem('chartview_track_color_mode') || 'solid'
+  })
   const [weatherRegions, setWeatherRegions] = useState([])
   const [weatherTimestamps, setWeatherTimestamps] = useState([])
   const [forecastTimeIndex, setForecastTimeIndex] = useState(0)
@@ -116,15 +200,7 @@ function ChartView() {
   const [weatherDownloadedAt, setWeatherDownloadedAt] = useState(null)
   const weatherLayersLoadedRef = useRef(false)
 
-  // HUD overlay state
-  const [hudVisible, setHudVisible] = useState(() => {
-    const saved = localStorage.getItem('chartview_hud_visible')
-    return saved !== null ? JSON.parse(saved) : true
-  })
-  const [hudDepth, setHudDepth] = useState(null)
-  const [hudColor, setHudColor] = useState(() => {
-    return localStorage.getItem('chartview_hud_color') || '#22c55e'
-  })
+  // HUD was removed in the design restyle; Speed/Depth/HDG now live in ChartTopBar.
 
   const [layersMenuOpen, setLayersMenuOpen] = useState(false)
 
@@ -154,12 +230,32 @@ function ChartView() {
   }, [weatherLayersVisible])
 
   useEffect(() => {
-    localStorage.setItem('chartview_hud_visible', JSON.stringify(hudVisible))
-  }, [hudVisible])
-
+    localStorage.setItem('chartview_track_visible', JSON.stringify(trackVisible))
+  }, [trackVisible])
   useEffect(() => {
-    localStorage.setItem('chartview_hud_color', hudColor)
-  }, [hudColor])
+    localStorage.setItem('chartview_track_mode', trackMode)
+  }, [trackMode])
+  useEffect(() => {
+    localStorage.setItem('chartview_track_date_from', String(trackDateFrom))
+  }, [trackDateFrom])
+  useEffect(() => {
+    localStorage.setItem('chartview_track_date_to', String(trackDateTo))
+  }, [trackDateTo])
+  useEffect(() => {
+    localStorage.setItem('chartview_track_selected_trips', JSON.stringify(trackSelectedTripIds))
+  }, [trackSelectedTripIds])
+  useEffect(() => {
+    localStorage.setItem('chartview_track_color_mode', trackColorMode)
+  }, [trackColorMode])
+
+  // Hook into the tracks API + WebSocket. The hook is a no-op when visible is false.
+  const tracks = useTracks({
+    visible: trackVisible,
+    mode: trackMode,
+    dateFrom: trackDateFrom,
+    dateTo: trackDateTo,
+    selectedTripIds: trackSelectedTripIds,
+  })
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -175,8 +271,17 @@ function ChartView() {
   }, [trackingMode])
 
   useEffect(() => {
-    northUpRef.current = northUp
-  }, [northUp])
+    orientationModeRef.current = orientationMode
+  }, [orientationMode])
+
+  // Compute the desired map bearing for the current orientation mode.
+  // Track-up uses COG, falling back to heading when COG is unavailable
+  // (e.g. boat is stopped or COG hasn't been reported yet).
+  const bearingForMode = useCallback((mode, gps) => {
+    if (mode === 'north') return 0
+    if (mode === 'track') return gps?.cog ?? gps?.heading ?? 0
+    return gps?.heading ?? 0
+  }, [])
 
   // Query live depth when crosshairs appear
   useEffect(() => {
@@ -214,24 +319,55 @@ function ChartView() {
     return () => clearTimeout(timeoutId)
   }, [touchState?.showingCrosshairs, touchState?.currentX, touchState?.currentY])
 
-  // HUD depth query — poll BlueTopo depth at boat position
+  // BlueTopo depth at the vessel's GPS position — fallback for the top-bar
+  // Depth metric when NMEA 2000 sounder data isn't available. Throttled by
+  // rounding the position to ~11 m (4 decimal places) so the effect doesn't
+  // refire on every GPS jitter, and skipped entirely when a real NMEA bus is
+  // already supplying depth.
+  const nmeaDepthLive =
+    vesselData?.isConnected && !vesselData?.isDemoMode && vesselData?.waterDepth != null
+      ? vesselData.waterDepth
+      : null
+  const vlat = gpsData?.latitude
+  const vlng = gpsData?.longitude
+  const vlatKey = vlat != null ? Math.round(vlat * 1e4) / 1e4 : null
+  const vlngKey = vlng != null ? Math.round(vlng * 1e4) / 1e4 : null
   useEffect(() => {
-    if (!hudVisible || !gpsData) return
-    const lat = gpsData.latitude
-    const lon = gpsData.longitude
-    if (lat == null || lon == null) return
-
+    if (nmeaDepthLive != null) {
+      setVesselBlueTopoDepthFt(null)
+      return
+    }
+    // Inline GPS-fix validation; the shared helpers (`isValidCoordinate`,
+    // `hasGpsFix`) are defined further down in this component.
+    const validCoord =
+      typeof vlat === 'number' && typeof vlng === 'number' &&
+      !Number.isNaN(vlat) && !Number.isNaN(vlng) &&
+      vlat >= -90 && vlat <= 90 && vlng >= -180 && vlng <= 180
+    const hasFix = !(vlat === 0 && vlng === 0)
+    if (!validCoord || !hasFix) {
+      setVesselBlueTopoDepthFt(null)
+      return
+    }
+    let cancelled = false
     const timeoutId = setTimeout(async () => {
       try {
-        const result = await getDepthAtLocation(lon, lat)
-        setHudDepth(result.success ? result.depth : null)
+        const result = await getDepthAtLocation(vlng, vlat)
+        if (cancelled) return
+        // depthQueryService returns elevation in meters: negative below sea
+        // level, ≥ 0 means on land / out of water → leave the metric blank.
+        if (!result?.success || result.depth == null || result.depth >= 0) {
+          setVesselBlueTopoDepthFt(null)
+          return
+        }
+        setVesselBlueTopoDepthFt(Math.round(-result.depth * 3.28084 * 10) / 10)
       } catch {
-        setHudDepth(null)
+        if (!cancelled) setVesselBlueTopoDepthFt(null)
       }
-    }, 300)
+    }, 500)
+    return () => { cancelled = true; clearTimeout(timeoutId) }
+  }, [nmeaDepthLive, vlatKey, vlngKey])
 
-    return () => clearTimeout(timeoutId)
-  }, [hudVisible, gpsData?.latitude, gpsData?.longitude])
+  const topBarDepthFt = nmeaDepthLive ?? vesselBlueTopoDepthFt
 
   // Default position just offshore Virginia Beach oceanfront (no GPS / no satellite fix)
   const DEFAULT_NO_FIX_POSITION = { latitude: 36.853, longitude: -75.960 }
@@ -324,14 +460,14 @@ function ChartView() {
     const centerLat = fix ? gpsData.latitude : DEFAULT_NO_FIX_POSITION.latitude
     const centerLng = fix ? gpsData.longitude : DEFAULT_NO_FIX_POSITION.longitude
 
-    // Fly to GPS position at default zoom with heading-up bearing
+    // Fly to GPS position at default zoom with the orientation-appropriate bearing
     map.current.flyTo({
       center: [centerLng, centerLat],
       zoom: defaultZoom,
-      bearing: northUp ? 0 : (gpsData.heading || 0),
+      bearing: bearingForMode(orientationMode, gpsData),
       duration: 1000
     })
-  }, [mapLoaded, gpsData, northUp])
+  }, [mapLoaded, gpsData, orientationMode, bearingForMode])
 
   // Load waypoints when map is ready
   const loadWaypoints = async () => {
@@ -478,8 +614,44 @@ function ChartView() {
     const hasGps = gpsData && isValidCoordinate(gpsData.latitude, gpsData.longitude)
     const fix = hasGps && hasGpsFix(gpsData.latitude, gpsData.longitude)
     const displayLat = fix ? gpsData.latitude : DEFAULT_NO_FIX_POSITION.latitude
-    headingLineRef.current.innerHTML = createHeadingLineSVGString(map.current, displayLat, hudColor, gpsData?.heading, gpsData?.cog)
-  }, [gpsData, hudColor])
+    const accent = fix ? ACCENT_FIX : ACCENT_NO_FIX
+    headingLineRef.current.innerHTML = createHeadingLineSVGString(
+      map.current, displayLat, accent, gpsData?.heading, gpsData?.cog,
+      getChartPalette(themeRef.current)
+    )
+  }, [gpsData])
+
+  // Repaint S-57 layers + basemap when the chart palette theme changes.
+  // Also re-render the boat marker and heading-line range labels so the
+  // vessel symbol and tick text track the new theme colors.
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return
+    const palette = getChartPalette(theme)
+    try {
+      if (map.current.getLayer('background')) {
+        map.current.setPaintProperty('background', 'background-color', palette.background)
+      }
+      if (map.current.getLayer('coastline-outline')) {
+        map.current.setPaintProperty('coastline-outline', 'line-color', palette.coastline)
+      }
+      applyChartPalette(map.current, theme)
+
+      // Refresh boat marker SVG (stroke / gloss / dot are palette-driven).
+      if (boatMarkerRef.current) {
+        const boatIcon = boatMarkerRef.current.getElement().querySelector('.boat-icon')
+        if (boatIcon) {
+          const hasGps = gpsData && isValidCoordinate(gpsData.latitude, gpsData.longitude)
+          const fix = hasGps && hasGpsFix(gpsData.latitude, gpsData.longitude)
+          const accent = fix ? ACCENT_FIX : ACCENT_NO_FIX
+          boatIcon.innerHTML = buildBoatMarkerSVG(accent, palette)
+        }
+      }
+      // Heading-line tick labels use palette text/halo — refresh.
+      updateHeadingLine()
+    } catch (err) {
+      console.warn('[ChartView] theme repaint failed:', err)
+    }
+  }, [theme, mapLoaded, s57LayersLoaded, updateHeadingLine, gpsData])
 
   useEffect(() => {
     if (!mapLoaded || !map.current) return
@@ -488,56 +660,37 @@ function ChartView() {
     const fix = hasGps && hasGpsFix(gpsData.latitude, gpsData.longitude)
     const displayLat = fix ? gpsData.latitude : DEFAULT_NO_FIX_POSITION.latitude
     const displayLng = fix ? gpsData.longitude : DEFAULT_NO_FIX_POSITION.longitude
-    const fillColor = fix ? hudColor : '#ef4444'
-    const glowColor = 'rgba(0, 0, 0, 0.6)'
+    const accent = fix ? ACCENT_FIX : ACCENT_NO_FIX
 
     // Create or update marker
     if (!boatMarkerRef.current) {
-      // Wrapper — 38x38 centered on the map point, overflow visible for heading line
+      // Wrapper — small bounding box centered on the GPS point. The vessel SVG
+      // and heading line are absolutely positioned siblings that share the
+      // wrapper's center as their anchor. overflow:visible lets the halo and
+      // heading line extend past the wrapper.
       const el = document.createElement('div')
       el.className = 'boat-marker'
-      el.style.cssText = 'width:38px; height:38px; position:relative; overflow:visible;'
+      el.style.cssText = 'width:24px; height:24px; position:relative; overflow:visible; pointer-events:none;'
 
-      // Heading line container — anchored to the center of the boat icon (GPS position)
+      // Heading line container — anchored to the center of the wrapper (GPS position)
       const lineContainer = document.createElement('div')
       lineContainer.className = 'heading-line-container'
       lineContainer.style.cssText = 'position:absolute; bottom:50%; left:50%; transform:translateX(-50%); pointer-events:none; overflow:visible;'
       headingLineRef.current = lineContainer
       el.appendChild(lineContainer)
 
-      // Boat icon — 38px (20% larger than 32), detailed boat shape
+      // Vessel: 120×120 SVG centered on the wrapper center via top/left + transform.
       const boatSvg = document.createElement('div')
       boatSvg.className = 'boat-icon'
-      boatSvg.style.cssText = `position:relative; z-index:1; filter: drop-shadow(0 0 5px ${glowColor});`
-      boatSvg.innerHTML = `
-        <svg width="38" height="38" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <!-- Hull -->
-          <path d="M16 2 L10 10 L9 22 L11 27 L16 29 L21 27 L23 22 L22 10 Z"
-                fill="${fillColor}" stroke="${fillColor}" stroke-width="0.5" stroke-linejoin="round"/>
-          <!-- Hull highlight (port side) -->
-          <path d="M16 3 L11 10 L10 21 L12 26 L16 28"
-                fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1" stroke-linecap="round"/>
-          <!-- Gunwale line -->
-          <path d="M11.5 11 L20.5 11" stroke="rgba(0,0,0,0.25)" stroke-width="0.8" stroke-linecap="round"/>
-          <!-- Cabin / wheelhouse -->
-          <rect x="12.5" y="12" width="7" height="5" rx="1.2"
-                fill="rgba(0,0,0,0.2)" stroke="rgba(0,0,0,0.15)" stroke-width="0.5"/>
-          <!-- Windshield -->
-          <rect x="13.2" y="12.6" width="5.6" height="2" rx="0.6"
-                fill="rgba(180,230,255,0.45)" stroke="rgba(255,255,255,0.3)" stroke-width="0.3"/>
-          <!-- Bow detail -->
-          <path d="M13 7 L16 3.5 L19 7" fill="none"
-                stroke="rgba(255,255,255,0.35)" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
-          <!-- Stern transom -->
-          <path d="M12 25 L20 25" stroke="rgba(0,0,0,0.2)" stroke-width="0.8" stroke-linecap="round"/>
-          <!-- Center keel line -->
-          <path d="M16 4 L16 28" stroke="rgba(0,0,0,0.1)" stroke-width="0.4"/>
-        </svg>
-      `
+      boatSvg.style.cssText = 'position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:none;'
+      boatSvg.innerHTML = buildBoatMarkerSVG(accent, getChartPalette(themeRef.current))
       el.appendChild(boatSvg)
 
       // Initial heading line render
-      lineContainer.innerHTML = createHeadingLineSVGString(map.current, displayLat, hudColor, gpsData?.heading, gpsData?.cog)
+      lineContainer.innerHTML = createHeadingLineSVGString(
+        map.current, displayLat, accent, gpsData?.heading, gpsData?.cog,
+        getChartPalette(themeRef.current)
+      )
 
       boatMarkerRef.current = new maplibregl.Marker({
         element: el,
@@ -548,17 +701,8 @@ function ChartView() {
         .addTo(map.current)
     } else {
       boatMarkerRef.current.setLngLat([displayLng, displayLat])
-      // Update boat icon color when fix status changes
       const boatIcon = boatMarkerRef.current.getElement().querySelector('.boat-icon')
-      if (boatIcon) {
-        boatIcon.style.filter = `drop-shadow(0 0 5px ${glowColor})`
-        const hull = boatIcon.querySelector('svg path')
-        if (hull) {
-          hull.setAttribute('fill', fillColor)
-          hull.setAttribute('stroke', fillColor)
-        }
-      }
-      // Update heading line
+      if (boatIcon) boatIcon.innerHTML = buildBoatMarkerSVG(accent, getChartPalette(themeRef.current))
       updateHeadingLine()
     }
 
@@ -574,36 +718,40 @@ function ChartView() {
 
     const onZoom = () => updateHeadingLine()
     const onResize = () => updateHeadingLine()
+    const onRotate = () => setMapBearing(map.current.getBearing())
 
     map.current.on('zoom', onZoom)
     map.current.on('resize', onResize)
+    map.current.on('rotate', onRotate)
+    setMapBearing(map.current.getBearing())  // Seed initial value
 
     return () => {
       if (map.current) {
         map.current.off('zoom', onZoom)
         map.current.off('resize', onResize)
+        map.current.off('rotate', onRotate)
       }
     }
   }, [mapLoaded, updateHeadingLine])
 
-  // Update map bearing when north-up toggle changes (only when NOT tracking - tracking handles its own bearing)
+  // Update map bearing when orientation mode changes (only when NOT tracking - tracking handles its own bearing)
   useEffect(() => {
     if (!map.current || !mapLoaded || trackingMode) return
 
-    if (northUp) {
+    if (orientationMode === 'north') {
       // Bearing frozen by pan decouple - don't snap to 0, just leave map as-is
       if (bearingFrozenRef.current) return
       map.current.easeTo({ bearing: 0, duration: 200 })
       return
     }
 
-    // Heading-up mode: follow GPS heading
+    // Heading-up / track-up: slave bearing to live source
     bearingFrozenRef.current = false
     map.current.easeTo({
-      bearing: gpsData?.heading || 0,
+      bearing: bearingForMode(orientationMode, gpsData),
       duration: 200
     })
-  }, [northUp, gpsData?.heading, mapLoaded, trackingMode])
+  }, [orientationMode, gpsData?.heading, gpsData?.cog, mapLoaded, trackingMode, bearingForMode])
 
   // Tracking mode - follow boat position with bearing rotation
   // Only depends on position + heading fields, not entire gpsData object
@@ -615,7 +763,7 @@ function ChartView() {
     const trackLat = fix ? gpsData.latitude : DEFAULT_NO_FIX_POSITION.latitude
     const trackLng = fix ? gpsData.longitude : DEFAULT_NO_FIX_POSITION.longitude
     const mapHeight = map.current.getContainer().clientHeight
-    const bearing = northUp ? 0 : (gpsData.heading || 0)
+    const bearing = bearingForMode(orientationMode, gpsData)
 
     if (trackingMode === 'center') {
       // Mode 1: Boat centered in middle of screen
@@ -626,16 +774,17 @@ function ChartView() {
         duration: 200  // Match 5 Hz update interval for smooth motion
       })
     } else if (trackingMode === 'offset') {
-      // Mode 2: Boat 1/3 from bottom, centered laterally
-      // To place center at 2/3 from top, we need top padding of 1/3 height
+      // Mode 2: Boat 1/4 from bottom, centered laterally — see more chart ahead.
+      // Top padding T pushes the visual center to (height + T) / 2 from the top.
+      // For boat at y = 3h/4, solve T = h/2.
       map.current.easeTo({
         center: [trackLng, trackLat],
         bearing: bearing,
-        padding: { top: mapHeight / 3, bottom: 0, left: 0, right: 0 },
+        padding: { top: mapHeight / 2, bottom: 0, left: 0, right: 0 },
         duration: 200  // Match 5 Hz update interval for smooth motion
       })
     }
-  }, [trackingMode, gpsData?.latitude, gpsData?.longitude, gpsData?.heading, northUp])
+  }, [trackingMode, gpsData?.latitude, gpsData?.longitude, gpsData?.heading, gpsData?.cog, orientationMode, bearingForMode])
 
   // Decouple from tracking on user pan
   useEffect(() => {
@@ -647,10 +796,10 @@ function ChartView() {
         if (trackingModeRef.current) {
           setTrackingMode(null)
         }
-        // Also exit heading-follow mode, freezing the current bearing
-        if (!northUpRef.current) {
+        // Also exit any orientation lock (heading/track), freezing the current bearing
+        if (orientationModeRef.current !== 'north') {
           bearingFrozenRef.current = true
-          setNorthUp(true)
+          setOrientationMode('north')
         }
       }
     }
@@ -685,7 +834,7 @@ function ChartView() {
         {
           id: "background",
           type: "background",
-          paint: { "background-color": "#000000" }
+          paint: { "background-color": getChartPalette(themeRef.current).background }
         },
         // DISABLED FOR TESTING
         // {
@@ -705,7 +854,7 @@ function ChartView() {
           "source-layer": "coastline",
           minzoom: 4,
           paint: {
-            "line-color": "#FFFFFF",
+            "line-color": getChartPalette(themeRef.current).coastline,
             "line-width": [
               "interpolate",
               ["exponential", 1.5],
@@ -765,6 +914,52 @@ function ChartView() {
 
       // Load weather layers (on top of everything)
       await loadWeatherLayers()
+
+      // Tracks (breadcrumb): two sources — history and the live current trip.
+      // Two sources because the current trip mutates per WS frame and we don't
+      // want to re-marshal full history on every tick.
+      if (!map.current.getSource('tracks-history')) {
+        map.current.addSource('tracks-history', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        })
+        map.current.addLayer({
+          id: 'tracks-history-line',
+          type: 'line',
+          source: 'tracks-history',
+          layout: {
+            visibility: 'none',
+            'line-cap': 'round',
+            'line-join': 'round',
+          },
+          paint: {
+            'line-color': '#3aa0ff',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 8, 2, 14, 4],
+            'line-opacity': 0.85,
+          },
+        })
+      }
+      if (!map.current.getSource('tracks-current')) {
+        map.current.addSource('tracks-current', {
+          type: 'geojson',
+          data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } },
+        })
+        map.current.addLayer({
+          id: 'tracks-current-line',
+          type: 'line',
+          source: 'tracks-current',
+          layout: {
+            visibility: 'none',
+            'line-cap': 'round',
+            'line-join': 'round',
+          },
+          paint: {
+            'line-color': '#ff8a3d',
+            'line-width': 4,
+            'line-opacity': 0.95,
+          },
+        })
+      }
     })
 
     return () => {
@@ -1126,7 +1321,7 @@ function ChartView() {
         }
 
         // Create sources and layers from the nautical style (vector tiles)
-        const { sources, layers } = createNauticalStyle(region.regionId, region.layers || [], TILE_BASE)
+        const { sources, layers } = createNauticalStyle(region.regionId, region.layers || [], TILE_BASE, themeRef.current)
 
         // Add the single vector tile source
         for (const [sid, sourceConfig] of Object.entries(sources)) {
@@ -1621,21 +1816,6 @@ function ChartView() {
     }
   ]
 
-  // Toggle individual layer visibility
-  const handleToggleLayer = useCallback((layerId) => {
-    if (layerId === 'bluetopo') {
-      setTopoLayersVisible(v => !v)
-    } else if (layerId === 'enc') {
-      setEncLayersVisible(v => !v)
-    } else if (layerId === 's57') {
-      setS57LayersVisible(v => !v)
-    } else if (layerId === 'satellite') {
-      setSatelliteLayersVisible(v => !v)
-    } else if (layerId === 'weather') {
-      setWeatherLayersVisible(v => !v)
-    }
-  }, [])
-
   // Toggle individual S-57 sublayer visibility
   const handleToggleSublayer = useCallback((sublayerId) => {
     setS57SubLayerVisibility(prev => ({
@@ -1656,9 +1836,10 @@ function ChartView() {
   }, [])
 
   // Memoized button handlers to prevent unnecessary re-renders
-  const handleToggleNorthUp = useCallback(() => {
-    bearingFrozenRef.current = false  // Manual toggle always resets frozen state
-    setNorthUp(n => !n)
+  // Cycle: north → heading → track → north
+  const handleCycleOrientation = useCallback(() => {
+    bearingFrozenRef.current = false  // Manual cycle always resets frozen state
+    setOrientationMode(m => (m === 'north' ? 'heading' : m === 'heading' ? 'track' : 'north'))
   }, [])
   const handleCycleTrackingMode = useCallback(() => {
     setTrackingMode(mode => {
@@ -1740,6 +1921,31 @@ function ChartView() {
     }
   }, [satelliteLayersVisible, mapLoaded])
 
+  // Track layer: visibility flip
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return
+    const vis = trackVisible ? 'visible' : 'none'
+    for (const id of ['tracks-history-line', 'tracks-current-line']) {
+      if (map.current.getLayer(id)) {
+        map.current.setLayoutProperty(id, 'visibility', vis)
+      }
+    }
+  }, [trackVisible, mapLoaded])
+
+  // Track layer: feed history GeoJSON to the source
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return
+    const src = map.current.getSource('tracks-history')
+    if (src) src.setData(tracks.historyGeoJSON)
+  }, [tracks.historyGeoJSON, mapLoaded])
+
+  // Track layer: feed current-trip GeoJSON to the source
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return
+    const src = map.current.getSource('tracks-current')
+    if (src) src.setData(tracks.currentGeoJSON)
+  }, [tracks.currentGeoJSON, mapLoaded])
+
   // Update weather layer visibility
   useEffect(() => {
     if (!map.current || !mapLoaded) return
@@ -1796,28 +2002,22 @@ function ChartView() {
   }
 
   return (
-    <div className="relative h-full w-full bg-terminal-bg">
-      {/* Map Container */}
+    <div className="relative h-full w-full" style={{ background: 'var(--bg)' }}>
+      {/* Map Container — inset top to clear the 114px top bar */}
       <div
         ref={mapContainer}
-        className="h-full w-full"
         style={{
-          position: 'relative',
+          position: 'absolute',
+          top: 114,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'var(--bg)',
           touchAction: 'none',
           WebkitUserSelect: 'none',
           WebkitTouchCallout: 'none'
         }}
       />
-
-      {/* HUD Overlay */}
-      {hudVisible && (
-        <HudOverlay
-          heading={gpsData?.heading}
-          speedMs={gpsData?.groundSpeed}
-          depthMeters={hudDepth}
-          color={hudColor}
-        />
-      )}
 
       {/* Crosshairs during hold */}
       {touchState?.showingCrosshairs && (
@@ -1902,258 +2102,111 @@ function ChartView() {
         downloadedAt={weatherDownloadedAt}
       />
 
-      {/* Loading Indicator */}
+      {/* NEW CHROME: Top bar */}
+      <ChartTopBar
+        speed={gpsData?.speed}
+        depth={topBarDepthFt}
+        heading={gpsData?.heading}
+        waterTemp={vesselData?.isConnected && !vesselData?.isDemoMode ? vesselData?.waterTemp : null}
+        fuelLevel={vesselData?.isConnected && !vesselData?.isDemoMode ? vesselData?.fuelLevel : null}
+        batteryVoltage={vesselData?.isConnected && !vesselData?.isDemoMode ? vesselData?.batteryVoltage : null}
+        waypoints={waypoints}
+        onSelectWaypoint={(w) => {
+          if (!map.current || w?.latitude == null || w?.longitude == null) return
+          map.current.flyTo({ center: [w.longitude, w.latitude], zoom: Math.max(map.current.getZoom(), 14), duration: 1000 })
+        }}
+        onAddWaypoint={() => {
+          const c = map.current?.getCenter?.()
+          if (!c) return
+          setWaypointEditPosition({ lat: c.lat, lng: c.lng })
+          setWaypointEditModalOpen(true)
+        }}
+        layers={{
+          bluetopo: topoLayersVisible,
+          enc:      encLayersVisible,
+          s57:      s57LayersVisible,
+          satellite: satelliteLayersVisible,
+          weather:  weatherLayersVisible,
+          trail:    trackVisible,
+        }}
+        onLayerChange={(id, v) => {
+          if (id === 'bluetopo') setTopoLayersVisible(v)
+          else if (id === 'enc') setEncLayersVisible(v)
+          else if (id === 's57') setS57LayersVisible(v)
+          else if (id === 'satellite') setSatelliteLayersVisible(v)
+          else if (id === 'weather') setWeatherLayersVisible(v)
+          else if (id === 'trail') setTrackVisible(v)
+        }}
+        tracks={{
+          visible: trackVisible,
+          onVisibleChange: setTrackVisible,
+          mode: trackMode,
+          onModeChange: setTrackMode,
+          dateFrom: trackDateFrom,
+          dateTo: trackDateTo,
+          onDateChange: ({ from, to }) => {
+            if (from != null) setTrackDateFrom(from)
+            if (to != null) setTrackDateTo(to)
+          },
+          trips: tracks.trips,
+          selectedTripIds: trackSelectedTripIds,
+          onSelectedTripsChange: setTrackSelectedTripIds,
+          colorMode: trackColorMode,
+          onColorModeChange: setTrackColorMode,
+          recording: tracks.recording,
+          currentTrip: tracks.currentTrip,
+          onEndTrip: tracks.endCurrentTrip,
+        }}
+        onWaypointsOpenChange={setWaypointDropdownOpen}
+        s57FilterVisible={s57LayersVisible && s57RegionCount > 0}
+        s57SubLayerVisibility={s57SubLayerVisibility}
+        onToggleSublayer={handleToggleSublayer}
+        onToggleGroup={handleToggleGroup}
+      />
+
+      {/* RIGHT: compass + zoom */}
+      <div style={{
+        position: 'absolute', top: 128, right: 14, zIndex: 5,
+        display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end',
+      }}>
+        <CompassRose bearing={mapBearing} size={96}/>
+        <ChartZoomStack
+          onZoomIn={() => map.current?.zoomIn()}
+          onZoomOut={() => map.current?.zoomOut()}
+        />
+      </div>
+
+      {/* BOTTOM-LEFT: follow + orientation pills */}
+      <FollowControls
+        trackingMode={trackingMode}
+        onCycleTrackingMode={handleCycleTrackingMode}
+        orientationMode={orientationMode}
+        onCycleOrientation={handleCycleOrientation}
+      />
+
+      {/* BOTTOM-RIGHT: scale bar */}
+      <div style={{ position: 'absolute', bottom: 16, right: 14, zIndex: 5 }}>
+        <ScaleBar/>
+      </div>
+
+      {/* Loading overlay */}
       {(!mapLoaded || !tilesLoaded) && (
-        <div className="absolute inset-0 flex items-center justify-center bg-terminal-bg z-10">
+        <div className="absolute inset-0 flex items-center justify-center z-10"
+             style={{ background: 'var(--bg)' }}>
           <div className="text-center space-y-4">
-            <div className="w-8 h-8 border-4 border-terminal-green border-t-transparent rounded-full animate-spin mx-auto shadow-glow-green"></div>
-            <p className="text-terminal-green-dim">
-              {!mapLoaded ? 'Loading map...' : 'Loading BlueTopo tiles...'}
+            <div style={{
+              width: 32, height: 32,
+              border: '3px solid var(--signal-soft)',
+              borderTopColor: 'var(--signal)',
+              borderRadius: '50%', margin: '0 auto',
+              animation: 'oh-spin 900ms linear infinite',
+            }}/>
+            <p style={{ color: 'var(--fg2)' }}>
+              {!mapLoaded ? 'Loading map…' : 'Loading chart data…'}
             </p>
           </div>
         </div>
       )}
-
-      {/* Top-left control stack: layers button (top) + sublayer filter (below) */}
-      <div className="absolute left-4 top-4 z-20 flex flex-col space-y-2">
-        {/* Layers Button */}
-        <div className="relative">
-          <button
-            onClick={() => { setLayersMenuOpen(v => !v); setS57SubLayerMenuOpen(false) }}
-            className={`bg-terminal-surface hover:bg-terminal-green/10 border rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all ${
-              layersMenuOpen
-                ? 'border-terminal-green bg-terminal-green/20'
-                : 'border-terminal-border hover:border-terminal-green'
-            }`}
-            aria-label="Map layers"
-            title="Map layers"
-          >
-            <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M3 7 L12 3 L21 7 L12 11 L3 7 Z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M3 12 L12 16 L21 12" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M3 17 L12 21 L21 17" />
-            </svg>
-          </button>
-
-          {layersMenuOpen && (
-            <LayersMenu
-              layers={layers}
-              onToggleLayer={handleToggleLayer}
-              onClose={() => setLayersMenuOpen(false)}
-            />
-          )}
-        </div>
-
-        {/* S-57 Sublayer Filter Button - only shows when vector charts are visible */}
-        {s57LayersVisible && s57RegionCount > 0 && (
-          <div className="relative">
-            <button
-              onClick={() => { setS57SubLayerMenuOpen(v => !v); setLayersMenuOpen(false) }}
-              className={`bg-terminal-surface hover:bg-terminal-green/10 border rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all ${
-                s57SubLayerMenuOpen
-                  ? 'border-terminal-green bg-terminal-green/20'
-                  : 'border-terminal-border hover:border-terminal-green'
-              }`}
-              aria-label="Vector chart filter"
-              title="Filter vector chart layers"
-            >
-              <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
-              </svg>
-            </button>
-
-            {s57SubLayerMenuOpen && (
-              <S57SubLayerMenu
-                sublayerVisibility={s57SubLayerVisibility}
-                onToggleSublayer={handleToggleSublayer}
-                onToggleGroup={handleToggleGroup}
-                onClose={() => setS57SubLayerMenuOpen(false)}
-              />
-            )}
-          </div>
-        )}
-      </div>
-
-
-      {/* Top Right Controls */}
-      <div className="absolute top-4 right-4 z-20 flex items-center space-x-2">
-        {/* North Up Toggle Button */}
-        <button
-          onClick={handleToggleNorthUp}
-          className={`bg-terminal-surface hover:bg-terminal-green/10 border rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all ${
-            northUp
-              ? 'border-terminal-green bg-terminal-green/20'
-              : 'border-terminal-border hover:border-terminal-green'
-          }`}
-          aria-label={northUp ? "North up (tap for heading up)" : "Heading up (tap for north up)"}
-          title={northUp ? "North up - tap for heading up" : "Heading up - tap for north up"}
-        >
-          <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            {/* Compass N arrow */}
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={northUp ? 2 : 1.5}
-              fill={northUp ? "currentColor" : "none"}
-              d="M12 3 L8 12 L12 9 L16 12 Z"
-            />
-            {/* N letter */}
-            <text
-              x="12"
-              y="20"
-              textAnchor="middle"
-              fontSize="7"
-              fontWeight="bold"
-              fill="currentColor"
-              stroke="none"
-            >N</text>
-          </svg>
-        </button>
-
-        {/* Center on Boat Button - cycles: off → center → offset → off */}
-        <button
-          onClick={handleCycleTrackingMode}
-          className={`bg-terminal-surface hover:bg-terminal-green/10 border rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all ${
-            trackingMode
-              ? 'border-terminal-green bg-terminal-green/20'
-              : 'border-terminal-border hover:border-terminal-green'
-          }`}
-          aria-label={
-            !trackingMode ? "Center on boat" :
-            trackingMode === 'center' ? "Following (centered)" :
-            "Following (offset)"
-          }
-          title={
-            !trackingMode ? "Center on boat" :
-            trackingMode === 'center' ? "Centered - tap for offset" :
-            "Offset - tap to decouple"
-          }
-        >
-          {/* Unfilled icon when not tracking, filled when tracking */}
-          {trackingMode ? (
-            <svg className="w-6 h-6 text-terminal-green" fill="currentColor" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 3 L7 9 L7 17 L9 21 L15 21 L17 17 L17 9 Z" />
-              <path stroke="#0a3d1f" strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 11 L15 11" />
-              <path stroke="#0a3d1f" strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 6 L12 4 L14 6" />
-            </svg>
-          ) : (
-            <svg className="w-6 h-6 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3 L7 9 L7 17 L9 21 L15 21 L17 17 L17 9 Z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 11 L15 11" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 6 L12 4 L14 6" />
-            </svg>
-          )}
-        </button>
-
-        {/* Waypoints Dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => setWaypointDropdownOpen(!waypointDropdownOpen)}
-            className={`bg-terminal-surface hover:bg-terminal-green/10 border rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all ${
-              waypointDropdownOpen
-                ? 'border-terminal-green bg-terminal-green/20'
-                : 'border-terminal-border hover:border-terminal-green'
-            }`}
-            aria-label="Waypoints"
-            title="Waypoints"
-          >
-            <MapPinIcon className="w-6 h-6 text-terminal-green" />
-            {waypoints.length > 0 && (
-              <span className="absolute -top-1 -right-1 bg-terminal-green text-terminal-bg text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                {waypoints.length}
-              </span>
-            )}
-          </button>
-
-          {waypointDropdownOpen && (
-            <WaypointDropdown
-              waypoints={waypoints}
-              driftCorrections={waypointDriftCorrections}
-              onSelect={handleWaypointSelect}
-              onClose={() => setWaypointDropdownOpen(false)}
-            />
-          )}
-        </div>
-
-        {/* Settings Menu */}
-        <div className="relative">
-          {/* Popup Menu */}
-          {menuOpen && (
-            <>
-              {/* Backdrop to close menu */}
-              <div
-                className="fixed inset-0 z-30"
-                onClick={() => setMenuOpen(false)}
-              />
-
-              {/* Menu Content */}
-              <div className="absolute top-14 right-0 bg-terminal-surface rounded-lg shadow-glow-green border border-terminal-border overflow-hidden z-40 min-w-[200px]">
-                <button
-                  onClick={() => { setHudVisible(v => !v); setMenuOpen(false) }}
-                  className="w-full px-4 py-3 text-left hover:bg-terminal-green/10 transition-colors flex items-center space-x-3 text-terminal-green"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" />
-                  </svg>
-                  <span className="text-sm font-medium">{hudVisible ? 'Hide' : 'Show'} HUD</span>
-                </button>
-                {/* HUD Color Picker */}
-                <div className="px-4 py-3 border-t border-terminal-border">
-                  <span className="text-xs text-terminal-green-dim uppercase tracking-wide">HUD Color</span>
-                  <div className="flex space-x-2 mt-2">
-                    {[
-                      { color: '#22c55e', label: 'Green' },
-                      { color: '#3b82f6', label: 'Blue' },
-                      { color: '#f59e0b', label: 'Amber' },
-                      { color: '#ef4444', label: 'Red' },
-                      { color: '#ffffff', label: 'White' },
-                      { color: '#06b6d4', label: 'Cyan' },
-                    ].map(({ color, label }) => (
-                      <button
-                        key={color}
-                        onClick={() => setHudColor(color)}
-                        title={label}
-                        className="touch-manipulation"
-                        style={{
-                          width: '32px',
-                          height: '32px',
-                          borderRadius: '6px',
-                          backgroundColor: color,
-                          border: hudColor === color ? '3px solid white' : '2px solid rgba(255,255,255,0.2)',
-                          boxShadow: hudColor === color ? `0 0 8px ${color}` : 'none',
-                          cursor: 'pointer'
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <button
-                  onClick={clearCacheAndReload}
-                  className="w-full px-4 py-3 text-left hover:bg-terminal-green/10 transition-colors flex items-center space-x-3 text-terminal-green border-t border-terminal-border"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  <span className="text-sm font-medium">Clear Cache & Reload</span>
-                </button>
-              </div>
-            </>
-          )}
-
-          {/* Settings Button */}
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="bg-terminal-surface hover:bg-terminal-green/10 border border-terminal-border hover:border-terminal-green rounded-lg p-3 shadow-glow-green-sm touch-manipulation transition-all"
-            aria-label="Map settings"
-          >
-            <SettingsIcon className="w-6 h-6 text-terminal-green" />
-          </button>
-        </div>
-      </div>
     </div>
   )
 }

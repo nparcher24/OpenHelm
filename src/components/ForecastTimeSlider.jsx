@@ -83,69 +83,88 @@ function ForecastTimeSlider({ timestamps, currentIndex, onIndexChange, visible, 
 
   // Data age
   const ageHours = downloadedAt ? Math.round((now - new Date(downloadedAt).getTime()) / (1000 * 60 * 60)) : null
-  const ageColor = ageHours == null ? '' : ageHours < 6 ? 'text-green-400' : ageHours < 24 ? 'text-yellow-400' : 'text-red-400'
+  const ageColor = ageHours == null
+    ? 'var(--fg2)'
+    : ageHours < 6 ? 'var(--signal)'
+    : ageHours < 24 ? 'var(--tint-yellow)'
+    : 'var(--tint-red)'
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 bg-terminal-bg/90 backdrop-blur-sm border-t border-terminal-border px-4 py-2 z-20">
-      <div className="flex items-center gap-3">
+    <div style={{
+      position: 'absolute', bottom: 0, left: 0, right: 0,
+      background: 'var(--bg-elev-2)',
+      backdropFilter: 'blur(8px)',
+      WebkitBackdropFilter: 'blur(8px)',
+      borderTop: '0.5px solid var(--bg-hairline-strong)',
+      padding: '8px 16px',
+      zIndex: 20
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         {/* Play/Pause */}
         <button
           onClick={() => setPlaying(p => !p)}
-          className="w-10 h-10 flex items-center justify-center rounded-lg border border-terminal-border text-terminal-green hover:bg-terminal-green/10 transition-colors touch-manipulation flex-shrink-0"
+          style={{
+            width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            borderRadius: 8, border: '0.5px solid var(--bg-hairline-strong)',
+            background: 'transparent', color: 'var(--fg1)', cursor: 'pointer',
+            flexShrink: 0, touchAction: 'manipulation'
+          }}
         >
           {playing ? (
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <svg style={{ width: 20, height: 20 }} fill="currentColor" viewBox="0 0 24 24">
               <rect x="6" y="4" width="4" height="16" />
               <rect x="14" y="4" width="4" height="16" />
             </svg>
           ) : (
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <svg style={{ width: 20, height: 20 }} fill="currentColor" viewBox="0 0 24 24">
               <polygon points="5,3 19,12 5,21" />
             </svg>
           )}
         </button>
 
         {/* Time display */}
-        <div className="text-sm text-terminal-green font-mono min-w-[140px] flex-shrink-0">
+        <div style={{ fontSize: 14, color: 'var(--fg1)', fontFamily: 'monospace', minWidth: 140, flexShrink: 0 }}>
           {timeStr}
         </div>
 
         {/* Track */}
         <div
           ref={trackRef}
-          className="flex-1 h-10 flex items-center cursor-pointer touch-manipulation relative"
+          style={{ flex: 1, height: 40, display: 'flex', alignItems: 'center', cursor: 'pointer', touchAction: 'manipulation', position: 'relative' }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
         >
           {/* Track background */}
-          <div className="w-full h-2 bg-terminal-border rounded-full relative">
+          <div style={{ width: '100%', height: 8, background: 'var(--bg-hairline-strong)', borderRadius: 4, position: 'relative' }}>
             {/* Progress fill */}
             <div
-              className="absolute top-0 left-0 h-full bg-terminal-green/40 rounded-full"
-              style={{ width: `${posRatio * 100}%` }}
+              style={{ position: 'absolute', top: 0, left: 0, height: '100%', background: 'rgba(0,200,100,0.35)', borderRadius: 4, width: `${posRatio * 100}%` }}
             />
 
             {/* "Now" marker */}
             {nowRatio > 0 && nowRatio < 1 && (
               <div
-                className="absolute top-0 w-0.5 h-full bg-yellow-400"
-                style={{ left: `${nowRatio * 100}%` }}
+                style={{ position: 'absolute', top: 0, width: 2, height: '100%', background: 'var(--tint-yellow)', left: `${nowRatio * 100}%` }}
               />
             )}
 
             {/* Thumb */}
             <div
-              className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-terminal-green rounded-full shadow-glow-green-sm border-2 border-terminal-bg"
-              style={{ left: `calc(${posRatio * 100}% - 8px)` }}
+              style={{
+                position: 'absolute', top: '50%', transform: 'translate(-50%,-50%)',
+                width: 16, height: 16, background: 'var(--signal)', borderRadius: '50%',
+                border: '2px solid var(--bg)',
+                left: `${posRatio * 100}%`
+              }}
             />
           </div>
         </div>
 
         {/* Data age indicator */}
         {ageHours != null && (
-          <div className={`text-xs flex-shrink-0 ${ageColor}`}>
+          <div style={{ fontSize: 12, flexShrink: 0, color: ageColor }}>
             {ageHours < 1 ? '<1h' : ageHours < 24 ? `${ageHours}h` : `${Math.round(ageHours / 24)}d`}
           </div>
         )}

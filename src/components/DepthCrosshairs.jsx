@@ -51,53 +51,66 @@ const DepthCrosshairs = React.memo(function DepthCrosshairs({
     >
       {/* Horizontal line */}
       <div
-        className="absolute bg-terminal-green"
         style={{
+          position: 'absolute',
           left: holdComplete ? `${x - size}px` : 0,
-          right: holdComplete ? `auto` : 0,
+          right: holdComplete ? 'auto' : 0,
           top: `${adjustedY}px`,
           width: holdComplete ? `${size * 2}px` : '100%',
           height: '2px',
           transform: 'translateY(-1px)',
-          boxShadow: '0 0 8px rgba(0, 255, 0, 0.6)'
+          background: 'var(--signal)',
+          boxShadow: '0 0 8px rgba(0,200,100,0.6)'
         }}
       />
 
       {/* Vertical line */}
       <div
-        className="absolute bg-terminal-green"
         style={{
+          position: 'absolute',
           left: `${x}px`,
           top: holdComplete ? `${adjustedY - size}px` : 0,
-          bottom: holdComplete ? `auto` : 0,
+          bottom: holdComplete ? 'auto' : 0,
           width: '2px',
           height: holdComplete ? `${size * 2}px` : '100%',
           transform: 'translateX(-1px)',
-          boxShadow: '0 0 8px rgba(0, 255, 0, 0.6)'
+          background: 'var(--signal)',
+          boxShadow: '0 0 8px rgba(0,200,100,0.6)'
         }}
       />
 
       {/* Center circle */}
       <div
-        className="absolute bg-terminal-green rounded-full"
         style={{
+          position: 'absolute',
           left: `${x}px`,
           top: `${adjustedY}px`,
           width: '8px',
           height: '8px',
           transform: 'translate(-4px, -4px)',
-          boxShadow: '0 0 12px rgba(0, 255, 0, 0.8)'
+          background: 'var(--signal)',
+          borderRadius: '50%',
+          boxShadow: '0 0 12px rgba(0,200,100,0.8)'
         }}
       />
 
       {/* Live depth display (up and right) - only during hold, not after */}
       {!holdComplete && depth !== null && depth !== undefined && (
         <div
-          className="absolute text-terminal-green text-xs font-mono font-semibold bg-terminal-surface border border-terminal-green shadow-glow-green px-2 py-1 rounded whitespace-nowrap"
           style={{
+            position: 'absolute',
             left: `${x + 20}px`,
             top: `${adjustedY - 30}px`,
-            pointerEvents: 'none'
+            pointerEvents: 'none',
+            fontSize: 12,
+            color: 'var(--fg1)',
+            fontFamily: 'monospace',
+            fontWeight: 600,
+            background: 'var(--bg-elev)',
+            border: '0.5px solid var(--bg-hairline-strong)',
+            padding: '4px 8px',
+            borderRadius: 6,
+            whiteSpace: 'nowrap'
           }}
         >
           {formatDepthFeet(depth)}
@@ -107,11 +120,19 @@ const DepthCrosshairs = React.memo(function DepthCrosshairs({
       {/* Live position display (down and left) - only during hold, not after */}
       {!holdComplete && lat !== null && lon !== null && (
         <div
-          className="absolute text-terminal-green text-xs font-mono bg-terminal-surface border border-terminal-green shadow-glow-green px-2 py-1 rounded whitespace-nowrap"
           style={{
+            position: 'absolute',
             right: `${window.innerWidth - x + 20}px`,
             top: `${adjustedY + 20}px`,
-            pointerEvents: 'none'
+            pointerEvents: 'none',
+            fontSize: 12,
+            color: 'var(--fg1)',
+            fontFamily: 'monospace',
+            background: 'var(--bg-elev)',
+            border: '0.5px solid var(--bg-hairline-strong)',
+            padding: '4px 8px',
+            borderRadius: 6,
+            whiteSpace: 'nowrap'
           }}
         >
           <div>{formatLatitude(lat)}</div>

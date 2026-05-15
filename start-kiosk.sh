@@ -22,10 +22,8 @@ while [ $WAITED -lt 60 ]; do
 done
 echo "Services ready in ${WAITED}s"
 
-# Disable screen blanking and DPMS power saving (marine display stays on)
-xset s off
-xset s noblank
-xset -dpms
+# Disable display blanking / DPMS (kiosk must stay on 24/7)
+xset s off s noblank -dpms
 
 # Start matchbox window manager (forces all windows fullscreen)
 matchbox-window-manager -use_titlebar no -use_cursor no &

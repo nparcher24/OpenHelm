@@ -1,0 +1,262 @@
+/* =========================================================================
+   OpenHelm Design System — Colors & Type
+   Marine touchscreen helm. Shield-AI-inspired restraint, marine utility.
+   Dark-primary, obsidian base, Signal Orange accent, Beacon Blue secondary.
+   ========================================================================= */
+
+/* -------- Fonts (user-supplied brand fonts) ----------------------------- */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-VariableFont_opsz_wght.ttf') format('truetype-variations');
+  font-weight: 100 900; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-Italic-VariableFont_opsz_wght.ttf') format('truetype-variations');
+  font-weight: 100 900; font-style: italic; font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-VariableFont_wght.ttf') format('truetype-variations');
+  font-weight: 100 800; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Italic-VariableFont_wght.ttf') format('truetype-variations');
+  font-weight: 100 800; font-style: italic; font-display: swap;
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  src: url('/fonts/InstrumentSerif-Regular.ttf') format('truetype');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  src: url('/fonts/InstrumentSerif-Italic.ttf') format('truetype');
+  font-weight: 400; font-style: italic; font-display: swap;
+}
+
+:root {
+  /* =====================================================================
+     TYPOGRAPHY
+     ===================================================================== */
+  --font-ui:      'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Instrument Serif', 'New York', Georgia, serif;
+  --font-mono:    'JetBrains Mono', 'SF Mono', Menlo, monospace;
+
+  --fs-caption2:  11px;
+  --fs-caption:   13px;
+  --fs-footnote:  14px;
+  --fs-subhead:   15px;
+  --fs-body:      17px;
+  --fs-callout:   18px;
+  --fs-headline:  20px;
+  --fs-title3:    22px;
+  --fs-title2:    26px;
+  --fs-title1:    32px;
+  --fs-large:     40px;
+  --fs-display:   56px;
+  --fs-readout:   84px;
+  --fs-readout-xl:128px;
+
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+
+  --lh-tight: 1.1;  --lh-snug: 1.25;  --lh-normal: 1.4;  --lh-relaxed: 1.5;
+  --ls-tight: -0.02em;  --ls-normal: 0em;  --ls-caps: 0.1em;
+
+  /* =====================================================================
+     COLOR — DARK (default / primary mode)
+     Obsidian base, cool-gray surfaces, Signal Orange, Beacon Blue.
+     ===================================================================== */
+  /* Neutral stack — progressively lighter cool grays on obsidian */
+  --bg:          #0A0C0F;   /* obsidian — primary canvas */
+  --bg-elev:     #12151A;   /* card level 1 */
+  --bg-elev-2:   #1A1E24;   /* card level 2 / raised */
+  --bg-elev-3:   #232830;   /* hovered / active surface */
+  --bg-chrome:   rgba(10, 12, 15, 0.78);  /* translucent top bar */
+  --bg-scrim:    rgba(0, 0, 0, 0.64);
+  --bg-hairline: rgba(255, 255, 255, 0.08);
+  --bg-hairline-strong: rgba(255, 255, 255, 0.14);
+
+  /* Foreground — cool whites on obsidian */
+  --fg1: #F2F4F7;                              /* primary label */
+  --fg2: rgba(230, 235, 242, 0.68);            /* secondary */
+  --fg3: rgba(230, 235, 242, 0.48);            /* tertiary */
+  --fg4: rgba(230, 235, 242, 0.26);            /* quaternary / disabled */
+  --fg-on-accent: #0A0C0F;                     /* text on Signal Orange */
+
+  /* Brand accents */
+  --signal:       #E8502D;   /* Signal Orange — primary accent */
+  --signal-hi:    #FF6A45;   /* hover / hot */
+  --signal-lo:    #B83A1E;   /* pressed / deep */
+  --signal-soft:  rgba(232, 80, 45, 0.16);
+  --signal-glow:  rgba(232, 80, 45, 0.32);
+
+  --beacon:       #4A90E2;   /* Beacon Blue — secondary accent */
+  --beacon-hi:    #6BA6E8;
+  --beacon-lo:    #2C6FBF;
+  --beacon-soft:  rgba(74, 144, 226, 0.16);
+
+  /* Aliases kept for back-compat with cards/UI kit already written */
+  --brand:       var(--signal);
+  --brand-deep:  var(--signal-lo);
+  --brand-wake:  var(--beacon);
+  --tint-blue:   var(--beacon);
+  --tint-teal:   #4EB8D0;     /* depth/water — a desaturated sea teal */
+  --tint-cyan:   #5BC0DE;
+  --tint-green:  #2FB56B;     /* safe / engine healthy — restrained */
+  --tint-yellow: #E8B93A;     /* caution — muted, industrial */
+  --tint-orange: var(--signal);
+  --tint-red:    #E54848;     /* alarm — flat, not candy */
+
+  /* Semantic */
+  --sem-safe:    var(--tint-green);
+  --sem-info:    var(--beacon);
+  --sem-caution: var(--tint-yellow);
+  --sem-warning: var(--signal);
+  --sem-alarm:   var(--tint-red);
+
+  /* Fills — used for tracks, inactive controls */
+  --fill-1: rgba(255, 255, 255, 0.10);
+  --fill-2: rgba(255, 255, 255, 0.06);
+  --fill-3: rgba(255, 255, 255, 0.04);
+  --fill-4: rgba(255, 255, 255, 0.02);
+
+  /* =====================================================================
+     SHAPE & ELEVATION — sharper than pure Apple, more utilitarian
+     ===================================================================== */
+  --r-xs: 4px;   --r-sm: 6px;   --r-md: 10px;
+  --r-lg: 12px;  /* standard card — a hair sharper than iPadOS 18 */
+  --r-xl: 16px;
+  --r-2xl: 20px;
+  --r-pill: 999px;
+
+  --hairline: 0.5px solid var(--bg-hairline);
+
+  /* Shadows — subtle in dark mode; rely on hairline + elevation swatch */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.48);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.55), 0 0 0 0.5px rgba(255,255,255,0.04);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.68), 0 0 0 0.5px rgba(255,255,255,0.06);
+  --shadow-xl: 0 24px 64px rgba(0,0,0,0.80), 0 0 0 0.5px rgba(255,255,255,0.08);
+  --shadow-inset: inset 0 0 0 0.5px rgba(255,255,255,0.06);
+  --shadow-signal: 0 0 0 1px rgba(232,80,45,0.4), 0 8px 24px rgba(232,80,45,0.24);
+
+  /* =====================================================================
+     SPACING — 4pt grid
+     ===================================================================== */
+  --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:20px; --s-6:24px;
+  --s-7:32px; --s-8:40px; --s-9:48px; --s-10:64px; --s-11:80px;
+
+  --touch-min:  44px;
+  --touch-rec:  56px;
+  --touch-lg:   72px;
+
+  /* Motion — crisper than pure iPadOS */
+  --ease-standard: cubic-bezier(0.32, 0.0, 0.16, 1);
+  --ease-out:      cubic-bezier(0.0, 0.0, 0.16, 1);
+  --ease-in:       cubic-bezier(0.4, 0.0, 1.0, 1);
+  --ease-spring:   cubic-bezier(0.34, 1.3, 0.64, 1);
+  --dur-1: 100ms; --dur-2: 180ms; --dur-3: 280ms; --dur-4: 440ms;
+
+  --blur-chrome: saturate(140%) blur(18px);
+  --blur-heavy:  saturate(140%) blur(32px);
+}
+
+/* -------- Day mode (bright cockpit) ------------------------------------ */
+:root[data-theme="day"], .theme-day {
+  --bg:          #EDEFF2;
+  --bg-elev:     #FFFFFF;
+  --bg-elev-2:   #F7F8FA;
+  --bg-elev-3:   #EFF1F4;
+  --bg-chrome:   rgba(237, 239, 242, 0.82);
+  --bg-hairline: rgba(15, 20, 28, 0.10);
+  --bg-hairline-strong: rgba(15, 20, 28, 0.18);
+
+  --fg1: #0A0C0F;
+  --fg2: rgba(15, 20, 28, 0.70);
+  --fg3: rgba(15, 20, 28, 0.52);
+  --fg4: rgba(15, 20, 28, 0.28);
+  --fg-on-accent: #FFFFFF;
+
+  --signal: #D94520;   --signal-hi: #E8502D;  --signal-lo: #A63315;
+  --beacon: #2C6FBF;   --beacon-hi: #4A90E2;  --beacon-lo: #1E5290;
+
+  --fill-1: rgba(15,20,28,0.08);
+  --fill-2: rgba(15,20,28,0.05);
+  --fill-3: rgba(15,20,28,0.03);
+  --fill-4: rgba(15,20,28,0.02);
+
+  --shadow-sm: 0 1px 2px rgba(15,20,28,0.06);
+  --shadow-md: 0 4px 12px rgba(15,20,28,0.08), 0 0 0 0.5px rgba(15,20,28,0.04);
+  --shadow-lg: 0 12px 32px rgba(15,20,28,0.12);
+}
+
+/* -------- Red-night (offshore dark-adaptation) ------------------------- */
+:root[data-theme="night"], .theme-night {
+  --bg:          #0A0000;
+  --bg-elev:     #2A0606;
+  --bg-elev-2:   #3A0A0A;
+  --bg-elev-3:   #4A0E0E;
+  --bg-chrome:   rgba(32, 6, 6, 0.85);
+  --bg-hairline: rgba(255, 40, 40, 0.18);
+
+  --fg1: #E54848;
+  --fg2: rgba(229, 72, 72, 0.70);
+  --fg3: rgba(229, 72, 72, 0.48);
+  --fg4: rgba(229, 72, 72, 0.26);
+  --fg-on-accent: #000000;
+
+  --signal: #E54848;  --signal-hi: #FF6A6A;  --signal-lo: #B82020;
+  --beacon: #E54848;  --beacon-hi: #FF6A6A;  --beacon-lo: #B82020;
+  --brand: var(--signal);
+  --tint-blue: var(--signal); --tint-teal: var(--signal); --tint-green: var(--signal);
+  --tint-yellow: #FF8A82; --tint-orange: var(--signal); --tint-red: var(--signal);
+}
+
+/* =========================================================================
+   SEMANTIC / ELEMENT DEFAULTS
+   ========================================================================= */
+body, .oh-body {
+  font-family: var(--font-ui);
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+  color: var(--fg1);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "ss01", "cv11";
+}
+
+h1, .oh-h1 { font-size: var(--fs-title1); font-weight: 600; line-height: var(--lh-tight); letter-spacing: -0.02em; color: var(--fg1); }
+h2, .oh-h2 { font-size: var(--fs-title2); font-weight: 600; line-height: var(--lh-snug); letter-spacing: -0.02em; }
+h3, .oh-h3 { font-size: var(--fs-title3); font-weight: 600; line-height: var(--lh-snug); }
+h4, .oh-h4 { font-size: var(--fs-headline); font-weight: 600; line-height: var(--lh-snug); }
+p,  .oh-p  { font-size: var(--fs-body);    line-height: var(--lh-normal); color: var(--fg1); }
+small, .oh-caption { font-size: var(--fs-caption); color: var(--fg2); }
+
+.oh-display {
+  font-family: var(--font-display);
+  font-size: var(--fs-display);
+  font-weight: 400; line-height: var(--lh-tight); letter-spacing: -0.01em;
+}
+.oh-readout {
+  font-family: var(--font-ui);
+  font-size: var(--fs-readout); font-weight: 500; line-height: 1;
+  letter-spacing: -0.04em; font-variant-numeric: tabular-nums;
+}
+.oh-readout-xl {
+  font-size: var(--fs-readout-xl); font-weight: 600;
+  letter-spacing: -0.05em; font-variant-numeric: tabular-nums; line-height: 1;
+}
+.oh-mono, code, pre {
+  font-family: var(--font-mono);
+  font-size: 0.92em; font-variant-numeric: tabular-nums;
+}
+.oh-eyebrow {
+  font-size: var(--fs-caption); font-weight: 600;
+  letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--fg2);
+}
+.oh-tabular { font-variant-numeric: tabular-nums; }

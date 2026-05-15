@@ -20,6 +20,7 @@ import { setGpsUpdateCallback, startGpsService, startGpsWatcher } from './servic
 import { startSimulator, stopSimulator, isSimulatorRunning } from './services/gpsSimulator.js'
 import vesselRoutes from './routes/vessel.js'
 import { setVesselUpdateCallback, startNmea2000Service } from './services/nmea2000Service.js'
+import { getActiveGps } from './services/gpsArbiter.js'
 import waypointRoutes from './routes/waypoints.js'
 import driftRoutes from './routes/drift.js'
 import ncdsRoutes from './routes/ncds.js'
@@ -27,6 +28,9 @@ import s57Routes from './routes/s57.js'
 import satelliteRoutes from './routes/satellite.js'
 import weatherRoutes from './routes/weather.js'
 import updateRoutes from './routes/update.js'
+import tracksRoutes from './routes/tracks.js'
+import wifiRoutes from './routes/wifi.js'
+import { start as startTrackRecorder, stop as stopTrackRecorder, onPoint as onTrackPoint } from './services/trackRecorderService.js'
 
 const app = express()
 const PORT = 3002
@@ -93,6 +97,8 @@ app.use('/api/s57', s57Routes)
 app.use('/api/satellite', satelliteRoutes)
 app.use('/api/weather', weatherRoutes)
 app.use('/api/update', updateRoutes)
+app.use('/api/tracks', tracksRoutes)
+app.use('/api/wifi', wifiRoutes)
 
 // Static file serving for weather data
 app.use('/weather-data', express.static(path.join(process.cwd(), 'weather-data'), {
@@ -205,9 +211,14 @@ const gpsSubscribers = new Set()
 // Vessel WebSocket subscribers
 const vesselSubscribers = new Set()
 
-// Set up GPS real-time streaming (throttled to 5 Hz)
+// Track-point WebSocket subscribers — pushed by the recorder on every accepted point
+const trackSubscribers = new Set()
+
+// Set up GPS real-time streaming (throttled to 5 Hz).
+// We push the *arbitrated* snapshot, not raw WitMotion, so subscribers
+// transparently see a fallback to N2K GPS when WitMotion goes stale.
 let lastGpsBroadcast = 0
-setGpsUpdateCallback((gpsData) => {
+function broadcastActiveGps() {
   if (gpsSubscribers.size === 0) return
 
   const now = Date.now()
@@ -216,7 +227,7 @@ setGpsUpdateCallback((gpsData) => {
 
   const message = JSON.stringify({
     type: 'gps',
-    data: gpsData,
+    data: getActiveGps(),
     timestamp: Date.now()
   })
 
@@ -231,7 +242,14 @@ setGpsUpdateCallback((gpsData) => {
       gpsSubscribers.delete(ws)
     }
   })
-})
+}
+
+setGpsUpdateCallback(() => broadcastActiveGps())
+
+// Heartbeat broadcast: even when WitMotion is silent (unplugged / fault),
+// we want subscribers to learn that the active source flipped to N2K (or to
+// 'none'). Without this they'd see the last WitMotion frame forever.
+setInterval(broadcastActiveGps, 1000).unref()
 
 // GPS Simulator broadcast — uses the same gpsSubscribers channel
 function broadcastSimGps(gpsData) {
@@ -284,6 +302,26 @@ setVesselUpdateCallback((vesselData) => {
 startGpsWatcher()
 console.log('🛰️ GPS watcher auto-started (will detect device on any USB port)')
 
+// Track recorder — always-on background service that persists vessel positions.
+// Initialized after GPS so the first ticks have a chance of getting a real fix.
+startTrackRecorder().then(() => {
+  console.log('🛤️ Track recorder started')
+  // Forward each accepted point to subscribed WebSocket clients.
+  onTrackPoint((point) => {
+    if (trackSubscribers.size === 0) return
+    const message = JSON.stringify({ type: 'track-point', data: point, timestamp: Date.now() })
+    trackSubscribers.forEach(ws => {
+      if (ws.readyState === ws.OPEN) {
+        try { ws.send(message) } catch { trackSubscribers.delete(ws) }
+      } else {
+        trackSubscribers.delete(ws)
+      }
+    })
+  })
+}).catch(err => {
+  console.log('⚠️ Track recorder failed to start:', err.message)
+})
+
 // Auto-start NMEA 2000 service on server startup
 startNmea2000Service().then(() => {
   console.log('⚓ NMEA 2000 service auto-started')
@@ -312,6 +350,12 @@ wss.on('connection', (ws, req) => {
       } else if (data.type === 'unsubscribe-vessel') {
         vesselSubscribers.delete(ws)
         console.log(`⚓ Client unsubscribed from vessel stream`)
+      } else if (data.type === 'subscribe-track') {
+        trackSubscribers.add(ws)
+        console.log(`🛤️ Client subscribed to track stream`)
+      } else if (data.type === 'unsubscribe-track') {
+        trackSubscribers.delete(ws)
+        console.log(`🛤️ Client unsubscribed from track stream`)
       } else if (data.type === 'subscribe' && data.jobId) {
         // Subscribe client to specific job updates
         if (!global.progressTrackers.has(data.jobId)) {
@@ -337,9 +381,10 @@ wss.on('connection', (ws, req) => {
   })
   
   ws.on('close', () => {
-    // Remove client from GPS and vessel subscriptions
+    // Remove client from GPS, vessel, and track subscriptions
     gpsSubscribers.delete(ws)
     vesselSubscribers.delete(ws)
+    trackSubscribers.delete(ws)
     // Remove client from all job subscriptions
     for (const [jobId, tracker] of global.progressTrackers.entries()) {
       tracker.clients.delete(ws)
@@ -402,12 +447,11 @@ server.listen(PORT, '0.0.0.0', () => {
 })
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('🛑 OpenHelm API Server shutting down...')
+async function shutdown(signal) {
+  console.log(`🛑 OpenHelm API Server shutting down (${signal})...`)
+  try { await stopTrackRecorder() } catch (err) { console.warn('Track recorder stop failed:', err.message) }
   process.exit(0)
-})
+}
 
-process.on('SIGINT', () => {
-  console.log('🛑 OpenHelm API Server shutting down...')
-  process.exit(0)
-})
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT',  () => shutdown('SIGINT'))

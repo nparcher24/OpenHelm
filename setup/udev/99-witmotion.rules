@@ -1,0 +1,25 @@
+# udev rule for the WitMotion JY-GPSIMU / WTGAHRS2 USB-serial adapter.
+#
+# Purpose: pin the WitMotion to a stable device path (/dev/witmotion)
+# regardless of which USB port it lands on or whether other USB-serial
+# devices have been enumerated first. Without this, the kernel hands out
+# /dev/ttyUSB{0,1,...} in plug-in order, which means moving the cable to
+# a different port can break gpsService.findGpsDevice().
+#
+# Match strategy: VID/PID of the CH340 USB-serial bridge that the
+# WitMotion uses. CH340 is generic — the chip has no per-device serial
+# number — so this rule will also match any other CH340 device the user
+# plugs in (Arduino clones, ESP8266 dev boards, etc.). If a second CH340
+# device is ever added to this system, differentiate by KERNELS=="<usb-port>"
+# or by ATTRS{interface}== if the device exposes one.
+#
+# Verified VID/PID on air-segment 2026-04-26 via:
+#   udevadm info -a -n /dev/ttyUSB0 | grep -E 'idVendor|idProduct'
+#
+# To activate after editing:
+#   sudo cp 99-witmotion.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules
+#   sudo udevadm trigger
+#   # Then unplug + replug the adapter.
+
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", SYMLINK+="witmotion", MODE="0660", GROUP="dialout"

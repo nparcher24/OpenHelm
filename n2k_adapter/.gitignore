@@ -1,0 +1,32 @@
+# Sub-project ignores for n2k_adapter/
+# Root .gitignore handles repo-wide concerns (node_modules, logs, dist, etc.).
+# This file covers patterns specific to N2K work.
+
+# --- Captures and replay fixtures ---
+# candump -L output and pcap files generated during bench/live testing.
+# Keep these out of git unless we deliberately commit a small reference capture.
+*.candump
+*.canlog
+*.cap
+*.pcap
+*.pcapng
+captures/
+
+# --- Python (only if we add a Python sniffer; otherwise harmless) ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+*.egg-info/
+
+# --- Node (mirror of root patterns; sub-project may add local tooling later) ---
+node_modules/
+*.log
+
+# --- Editor / OS ---
+.DS_Store
+*.swp
+*.swo

@@ -1,0 +1,36 @@
+# OpenHelm backend: api-server (Node) + Martin tile server.
+#
+# Runs independently of the kiosk so:
+#   - The api-server (NMEA 2000 reader, GPS arbiter, REST API) is up at boot,
+#     even if Chromium / matchbox / startx are not.
+#   - A Chromium crash + kiosk restart does not also tear down the backend.
+#   - SSH-only operators (no display) still get vessel data on the API.
+#
+# Depends on can0.service so the NMEA 2000 interface is up before the
+# api-server tries to attach to it. If can0 isn't up yet the service falls
+# back to demo mode and re-tries on the next /api/vessel request, so this
+# is a soft ordering — not a hard requirement.
+#
+# Install with setup/install.sh.
+
+[Unit]
+Description=OpenHelm backend (api-server + Martin tile server)
+After=network-online.target can0.service
+Wants=network-online.target can0.service
+
+[Service]
+Type=simple
+User=hic
+Group=hic
+WorkingDirectory=/home/hic/OpenHelm
+Environment=HOME=/home/hic
+Environment=PATH=/snap/bin:/home/hic/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+Environment=NODE_ENV=production
+ExecStart=/home/hic/OpenHelm/setup/systemd/openhelm-backend.sh
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/home/hic/OpenHelm/api.log
+StandardError=append:/home/hic/OpenHelm/api.log
+
+[Install]
+WantedBy=multi-user.target

@@ -1,4 +1,5 @@
 import React from 'react'
+import { Glass } from '../ui/primitives'
 
 /**
  * DepthInfoCard Component
@@ -82,7 +83,7 @@ const DepthInfoCard = React.memo(function DepthInfoCard({
 
       {/* Info Card - prevent browser zoom */}
       <div
-        className="absolute bg-terminal-surface rounded-lg shadow-glow-green border-2 border-terminal-green z-50"
+        className="absolute z-50"
         style={{
           left: `${left}px`,
           top: `${top}px`,
@@ -91,34 +92,33 @@ const DepthInfoCard = React.memo(function DepthInfoCard({
           touchAction: 'none'
         }}
       >
-        {/* Content */}
-        <div className="p-4 space-y-3">
+        <Glass radius={12} style={{ padding: 16 }}>
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="w-8 h-8 border-4 border-terminal-green border-t-transparent rounded-full animate-spin shadow-glow-green"></div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 0' }}>
+              <div style={{ width: 32, height: 32, border: '4px solid var(--fg1)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
             </div>
           ) : error ? (
-            <div className="text-terminal-red text-sm">
-              <div className="font-semibold mb-1">[ERROR] No Data</div>
+            <div style={{ color: 'var(--tint-red)', fontSize: 14 }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>[ERROR] No Data</div>
               <div>{error}</div>
             </div>
           ) : (
             <>
               {/* Position - bigger font, 4 decimals */}
-              <div className="space-y-1">
-                <div className="font-mono text-2xl text-terminal-green">
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 20, color: 'var(--fg1)' }}>
                   <div>{formatLatitude(lat)}</div>
                   <div>{formatLongitude(lon)}</div>
                 </div>
               </div>
 
               {/* Depth - feet only */}
-              <div className="space-y-1">
-                <div className="text-3xl font-bold text-terminal-green text-glow">
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--fg1)' }}>
                   {formatDepthFeet(depth)}
                 </div>
                 {uncertainty && uncertainty > 0 && (
-                  <div className="text-xs text-terminal-green-dim">
+                  <div style={{ fontSize: 11, color: 'var(--fg2)' }}>
                     ± {formatDepthFeet(uncertainty)} uncertainty
                   </div>
                 )}
@@ -126,13 +126,13 @@ const DepthInfoCard = React.memo(function DepthInfoCard({
 
               {/* Source */}
               {tileId && (
-                <div className="text-xs text-terminal-green-dim pt-2 border-t border-terminal-border">
+                <div style={{ fontSize: 11, color: 'var(--fg2)', paddingTop: 8, borderTop: '0.5px solid var(--bg-hairline-strong)' }}>
                   Source: BlueTopo {tileId}
                 </div>
               )}
             </>
           )}
-        </div>
+        </Glass>
       </div>
     </>
   )

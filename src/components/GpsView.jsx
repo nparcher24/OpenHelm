@@ -3,9 +3,13 @@ import { useState, useEffect, useRef, lazy, Suspense, useCallback } from 'react'
 import { API_BASE, WS_BASE as WS_URL } from '../utils/apiConfig.js'
 import { fitDriftLinearRegression } from '../utils/driftCalc'
 import { saveDriftCalculation } from '../services/driftService'
+import { TopBar, Glass, Readout, Pill, Badge, Toggle } from '../ui/primitives'
+import { InformationCircleIcon } from '@heroicons/react/24/outline'
 
 // Lazy load the 3D component for better initial load
 const AttitudeIndicator3D = lazy(() => import('./AttitudeIndicator3D'))
+// Lazy load the calibration wizard — only mounted when the user opens it
+const MagCalibrationWizard = lazy(() => import('./MagCalibrationWizard'))
 
 // Drift calibration window length in milliseconds.
 const DRIFT_SAMPLE_WINDOW_MS = 20000
@@ -26,6 +30,9 @@ function GpsView() {
   const [offsetInput, setOffsetInput] = useState('')
   const [calibrationStatus, setCalibrationStatus] = useState(null) // 'saving' | 'saved' | 'error'
   const [autoCalPreview, setAutoCalPreview] = useState(null) // number or null
+  const [showMagCalWizard, setShowMagCalWizard] = useState(false)
+  const [showMagCalInfo, setShowMagCalInfo] = useState(false)
+  const [lastMagCal, setLastMagCal] = useState(null) // { timestamp, stability, stabilityLabel, ... }
   const [updateHz, setUpdateHz] = useState(null)
   // Drift measurement UI state
   const [driftPhase, setDriftPhase] = useState('idle') // 'idle' | 'sampling' | 'saving' | 'done' | 'error'
@@ -101,14 +108,17 @@ function GpsView() {
           const message = JSON.parse(event.data)
           if (message.type === 'gps') {
             setGpsData(prev => {
-              // Skip re-render if key fields unchanged
+              // Skip re-render if key fields unchanged. `source` is included so
+              // the topbar source badge re-renders when the arbiter flips
+              // WitMotion → N2K → none even if everything else looks the same.
               if (prev?.latitude === message.data.latitude &&
                   prev?.longitude === message.data.longitude &&
                   prev?.heading === message.data.heading &&
                   prev?.sog === message.data.sog &&
                   prev?.waveHeight === message.data.waveHeight &&
                   prev?.ax === message.data.ax &&
-                  prev?.az === message.data.az) {
+                  prev?.az === message.data.az &&
+                  prev?.source === message.data.source) {
                 return prev
               }
               return message.data
@@ -312,6 +322,21 @@ function GpsView() {
     }
   }, [])
 
+  // Fetch the persisted last-mag-cal record so the UI can show "Last calibrated…"
+  // Re-fetched whenever the wizard closes — that's when a fresh save may have
+  // updated the record on the backend.
+  const fetchLastMagCal = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/gps/mag-cal/last`)
+      const data = await res.json()
+      setLastMagCal(data?.lastMagCalibration || null)
+    } catch {
+      // Network blip — try again next mount
+    }
+  }, [])
+  useEffect(() => { fetchLastMagCal() }, [fetchLastMagCal])
+  useEffect(() => { if (!showMagCalWizard) fetchLastMagCal() }, [showMagCalWizard, fetchLastMagCal])
+
   // Calculate drift angle (difference between heading and COG)
   const getDriftAngle = () => {
     if (gpsData?.heading === null || gpsData?.cog === null) return null
@@ -354,11 +379,21 @@ function GpsView() {
 
   const isStale = dataAge !== null && dataAge > 2000
 
-  if (loading) {
+  if (loading || !gpsData) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-terminal-green text-glow animate-pulse">
-          INITIALIZING GPS...
+      <div className="h-full w-full" style={{ position: 'relative', background: 'var(--bg)' }}>
+        <TopBar title="GPS" />
+        <div style={{ paddingTop: 130, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+          <div style={{
+            width: 56, height: 56,
+            border: '4px solid var(--signal-soft)',
+            borderTopColor: 'var(--signal)',
+            borderRadius: '50%', margin: '0 auto 20px',
+            animation: 'oh-spin 900ms linear infinite',
+          }}/>
+          <div style={{ color: 'var(--fg2)', fontSize: 22 }}>
+            {error ? error : 'Waiting for GPS…'}
+          </div>
         </div>
       </div>
     )
@@ -367,551 +402,534 @@ function GpsView() {
   const hasFix = gpsData?.fix
   const hasDevice = gpsData?.device
 
+  const SECTION_LABEL = { fontSize: 18, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg3)' }
+  const ROW_LABEL = { color: 'var(--fg3)', fontSize: 20 }
+  const ROW_VALUE = { fontFamily: 'var(--font-mono)', fontSize: 24, color: 'var(--fg1)' }
+
   return (
-    <div className="h-full p-3 flex flex-col">
-      {/* Header row */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-3">
-          <div className={`w-3 h-3 rounded-full ${hasFix ? 'bg-terminal-green animate-pulse' : 'bg-terminal-red'}`} />
-          <span className={`text-sm font-bold uppercase ${hasFix ? 'text-terminal-green' : 'text-terminal-red'}`}>
-            {hasFix ? 'GPS FIX' : 'NO FIX'}
-          </span>
-          <span className="text-terminal-green-dim text-sm">
-            {gpsData?.satellites || 0} sats
-          </span>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className={`text-sm font-mono ${isStale ? 'text-terminal-red font-bold' : 'text-terminal-green-dim'}`}>
-            Data: {formatAge(dataAge)}
-          </span>
-          <span className="text-sm font-mono text-terminal-green-dim">
+    <div className="h-full w-full" style={{ position: 'relative', background: 'var(--bg)', color: 'var(--fg1)', overflow: 'hidden' }}>
+      <TopBar
+        title="GPS"
+        center={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <Badge tone={hasFix ? 'safe' : 'warn'} dot>{hasFix ? 'GPS FIX' : 'NO FIX'}</Badge>
+            <Badge
+              tone={gpsData?.source === 'witmotion' ? 'neutral'
+                  : gpsData?.source === 'n2k' ? 'warn'
+                  : 'alarm'}
+            >
+              {gpsData?.source === 'witmotion' ? 'WitMotion'
+               : gpsData?.source === 'n2k' ? `NMEA 2000${gpsData?.n2kSrc != null ? ` · 0x${gpsData.n2kSrc.toString(16).toUpperCase().padStart(2, '0')}` : ''}`
+               : 'No Source'}
+            </Badge>
+            <Badge tone={isStale ? 'warn' : 'neutral'}>{formatAge(dataAge)}</Badge>
+            <span style={{ color: 'var(--fg3)', fontSize: 18, fontFamily: 'var(--font-mono)' }}>
+              {gpsData?.satellites || 0} sat
+            </span>
+          </div>
+        }
+        right={
+          <span style={{ color: 'var(--fg3)', fontSize: 20, fontFamily: 'var(--font-mono)' }}>
             {updateHz !== null ? `${updateHz.toFixed(1)} Hz` : '-- Hz'}
           </span>
-          <span className="text-terminal-green-dim text-xs">
-            {hasDevice ? gpsData.device : 'No device'}
-          </span>
-        </div>
-      </div>
+        }
+      />
 
-      {error && (
-        <div className="p-2 bg-terminal-surface border border-terminal-red rounded text-terminal-red text-xs mb-2">
-          {error}
-        </div>
-      )}
+      <div style={{
+        position: 'absolute', top: 130, left: 20, right: 20, bottom: 20,
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1.05fr) minmax(0, 1fr) minmax(0, 1.05fr)',
+        gap: 16,
+      }}>
 
-      {/* Main content - 3 columns */}
-      <div className="flex-1 flex gap-3 min-h-0">
-        {/* Left column - 3D Attitude Indicator */}
-        <div className="w-1/3 flex flex-col">
-          <div className="bg-terminal-surface rounded-lg border border-terminal-border flex-1 flex flex-col p-2">
-            <div className="text-xs text-terminal-green-dim uppercase tracking-wide text-center mb-1">
-              Attitude
-            </div>
-            <div className="flex-1 min-h-0">
-              <Suspense fallback={
-                <div className="w-full h-full bg-black rounded flex items-center justify-center">
-                  <span className="text-terminal-green animate-pulse text-xs">Loading 3D...</span>
-                </div>
-              }>
-                <AttitudeIndicator3D
-                  roll={gpsData?.roll || 0}
-                  pitch={gpsData?.pitch || 0}
-                  yaw={gpsData?.heading || 0}
-                  ax={gpsData?.ax || 0}
-                  ay={gpsData?.ay || 0}
-                  az={gpsData?.az || 0}
-                />
-              </Suspense>
-            </div>
-            <div className="flex justify-center gap-4 mt-1 text-xs">
-              <span className="text-red-400">X</span>
-              <span className="text-green-400">Y</span>
-              <span className="text-blue-400">Z</span>
-            </div>
-            {/* Attitude values */}
-            <div className="grid grid-cols-3 gap-1 mt-2 text-center">
-              <div>
-                <div className="text-xs text-terminal-green-dim">Roll</div>
-                <div className="text-sm font-mono text-terminal-green">{formatDecimal(gpsData?.roll, 1)}°</div>
+        {error && (
+          <Glass radius={12} style={{ gridColumn: '1 / -1', padding: 18, border: '0.5px solid var(--tint-red)', color: 'var(--tint-red)', fontSize: 20 }}>
+            {error}
+          </Glass>
+        )}
+
+        {/* LEFT — Attitude */}
+        <Glass radius={14} style={{ padding: 22, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div style={{ ...SECTION_LABEL, textAlign: 'center', marginBottom: 12 }}>Attitude</div>
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <Suspense fallback={
+              <div style={{ width: '100%', height: '100%', background: 'rgba(0,0,0,0.4)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ color: 'var(--fg2)', fontSize: 22 }}>Loading 3D…</span>
               </div>
-              <div>
-                <div className="text-xs text-terminal-green-dim">Pitch</div>
-                <div className="text-sm font-mono text-terminal-green">{formatDecimal(gpsData?.pitch, 1)}°</div>
-              </div>
-              <div>
-                <div className="text-xs text-terminal-green-dim">Hdg</div>
-                <div className="text-sm font-mono text-terminal-green">{formatDecimal(gpsData?.heading, 1)}°</div>
-              </div>
-            </div>
+            }>
+              <AttitudeIndicator3D
+                roll={gpsData?.roll || 0}
+                pitch={gpsData?.pitch || 0}
+                yaw={gpsData?.heading || 0}
+                ax={gpsData?.ax || 0}
+                ay={gpsData?.ay || 0}
+                az={gpsData?.az || 0}
+              />
+            </Suspense>
           </div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 36, marginTop: 16, fontSize: 22, fontWeight: 700 }}>
+            <span style={{ color: '#f87171' }}>X</span>
+            <span style={{ color: '#4ade80' }}>Y</span>
+            <span style={{ color: '#60a5fa' }}>Z</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 16, textAlign: 'center' }}>
+            <Readout label="Roll" value={formatDecimal(gpsData?.roll, 1)} unit="°" size="md" />
+            <Readout label="Pitch" value={formatDecimal(gpsData?.pitch, 1)} unit="°" size="md" />
+            <Readout label="Hdg" value={formatDecimal(gpsData?.heading, 1)} unit="°" size="md" />
+          </div>
+        </Glass>
+
+        {/* MIDDLE — Position & Speed (large readouts) */}
+        <div style={{ display: 'grid', gridTemplateRows: '1fr 1fr 1fr 1fr 1fr', gap: 12, minHeight: 0 }}>
+          <Glass radius={14} style={{ padding: 22, display: 'flex', alignItems: 'center' }}>
+            <Readout label="Latitude" value={formatCoord(gpsData?.latitude, true)} size="md" live={hasFix} />
+          </Glass>
+          <Glass radius={14} style={{ padding: 22, display: 'flex', alignItems: 'center' }}>
+            <Readout label="Longitude" value={formatCoord(gpsData?.longitude, false)} size="md" live={hasFix} />
+          </Glass>
+          <Glass radius={14} style={{ padding: 22, display: 'flex', alignItems: 'center' }}>
+            <Readout
+              label="Ground Speed"
+              value={gpsData?.groundSpeed != null ? (gpsData.groundSpeed * 1.94384).toFixed(1) : '--'}
+              unit="kts"
+              sub={gpsData?.groundSpeed != null ? `${(gpsData.groundSpeed * 3.6).toFixed(1)} km/h` : ''}
+              size="md"
+            />
+          </Glass>
+          <Glass radius={14} style={{ padding: 22, display: 'flex', alignItems: 'center' }}>
+            <Readout
+              label="Course Over Ground"
+              value={gpsData?.cog != null ? `${gpsData.cog.toFixed(0)}°` : '--'}
+              unit={gpsData?.cog != null ? getCompassDirection(gpsData.cog) : ''}
+              sub={(() => {
+                const drift = getDriftAngle()
+                if (drift === null) return ''
+                const absDrift = Math.abs(drift)
+                const dir = drift > 0 ? 'port' : drift < 0 ? 'stbd' : ''
+                return `Drift: ${absDrift.toFixed(0)}° ${dir}`
+              })()}
+              size="md"
+            />
+          </Glass>
+          <Glass radius={14} style={{ padding: 22, display: 'flex', alignItems: 'center' }}>
+            <Readout
+              label="Altitude"
+              value={gpsData?.altitude != null ? gpsData.altitude.toFixed(1) : '--'}
+              unit="m"
+              sub={gpsData?.altitude != null ? `${(gpsData.altitude * 3.28084).toFixed(0)} ft` : ''}
+              size="md"
+            />
+          </Glass>
         </div>
 
-        {/* Middle column - Position & Speed */}
-        <div className="w-1/3 flex flex-col gap-2">
-          {/* Latitude */}
-          <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border">
-            <div className="text-xs text-terminal-green-dim uppercase">Latitude</div>
-            <div className="text-lg font-mono text-terminal-green text-glow">
-              {formatCoord(gpsData?.latitude, true)}
-            </div>
-          </div>
-
-          {/* Longitude */}
-          <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border">
-            <div className="text-xs text-terminal-green-dim uppercase">Longitude</div>
-            <div className="text-lg font-mono text-terminal-green text-glow">
-              {formatCoord(gpsData?.longitude, false)}
-            </div>
-          </div>
-
-          {/* Altitude */}
-          <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border">
-            <div className="text-xs text-terminal-green-dim uppercase">Altitude</div>
-            <div className="text-lg font-mono text-terminal-green text-glow">
-              {gpsData?.altitude !== null ? `${gpsData.altitude.toFixed(1)} m` : '--'}
-            </div>
-            <div className="text-xs text-terminal-green-dim font-mono">
-              {gpsData?.altitude !== null ? `${(gpsData.altitude * 3.28084).toFixed(0)} ft` : ''}
-            </div>
-          </div>
-
-          {/* Ground Speed */}
-          <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border">
-            <div className="text-xs text-terminal-green-dim uppercase">Ground Speed</div>
-            <div className="text-lg font-mono text-terminal-green text-glow">
-              {gpsData?.groundSpeed !== null ? `${(gpsData.groundSpeed * 2.23694).toFixed(1)} mph` : '--'}
-            </div>
-            <div className="text-xs text-terminal-green-dim font-mono">
-              {gpsData?.groundSpeed !== null ? `${(gpsData.groundSpeed * 1.94384).toFixed(1)} kts` : ''}
-            </div>
-          </div>
-
-          {/* Course Over Ground */}
-          <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border">
-            <div className="text-xs text-terminal-green-dim uppercase">Course Over Ground</div>
-            <div className="text-lg font-mono text-terminal-green text-glow">
-              {gpsData?.cog !== null ? `${gpsData.cog.toFixed(0)}° ${getCompassDirection(gpsData.cog)}` : '--'}
-            </div>
-            {/* Drift angle */}
-            {(() => {
-              const drift = getDriftAngle()
-              if (drift === null) return null
-              const absDrift = Math.abs(drift)
-              const dir = drift > 0 ? 'port' : drift < 0 ? 'stbd' : ''
-              return (
-                <div className="text-xs text-terminal-green-dim font-mono">
-                  Drift: {absDrift.toFixed(0)}° {dir}
-                </div>
-              )
-            })()}
-          </div>
-        </div>
-
-        {/* Right column - Compass & Quality */}
-        <div className="w-1/3 flex flex-col gap-2">
+        {/* RIGHT — Compass + Quality + Environment + Motion + collapsibles */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minHeight: 0, overflow: 'auto' }}>
           {/* Compass */}
-          <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border flex-1 flex flex-col items-center justify-center">
-            <div className="text-xs text-terminal-green-dim uppercase mb-1">Compass</div>
-            <div className="relative w-32 h-32">
-              <div className="absolute inset-0 rounded-full border-2 border-terminal-green" />
-              <div className="absolute top-1 left-1/2 -translate-x-1/2 text-terminal-green font-bold text-xs">N</div>
-              <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-terminal-green-dim text-xs">S</div>
-              <div className="absolute left-1 top-1/2 -translate-y-1/2 text-terminal-green-dim text-xs">W</div>
-              <div className="absolute right-1 top-1/2 -translate-y-1/2 text-terminal-green-dim text-xs">E</div>
-              {gpsData?.heading !== null && (
+          <Glass radius={14} style={{ padding: 22, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div style={{ ...SECTION_LABEL, marginBottom: 14 }}>Compass</div>
+            <div style={{ position: 'relative', width: 240, height: 240 }}>
+              <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid var(--signal)', opacity: 0.7 }} />
+              <div style={{ position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)', color: 'var(--signal)', fontWeight: 700, fontSize: 22 }}>N</div>
+              <div style={{ position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)', color: 'var(--fg3)', fontSize: 22 }}>S</div>
+              <div style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--fg3)', fontSize: 22 }}>W</div>
+              <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--fg3)', fontSize: 22 }}>E</div>
+              {gpsData?.heading != null && (
                 <div
-                  className="absolute top-1/2 left-1/2 w-0.5 h-12 bg-terminal-green origin-bottom"
                   style={{
+                    position: 'absolute', top: '50%', left: '50%',
+                    width: 4, height: 96,
+                    background: 'var(--signal)',
+                    transformOrigin: 'bottom center',
                     transform: `translate(-50%, -100%) rotate(${gpsData.heading}deg)`,
                     transition: 'transform 0.2s ease-out',
                     willChange: 'transform',
-                    boxShadow: '0 0 8px rgba(0, 255, 0, 0.5)'
                   }}
                 />
               )}
-              <div className="absolute top-1/2 left-1/2 w-2 h-2 bg-terminal-green rounded-full -translate-x-1/2 -translate-y-1/2" />
+              <div style={{ position: 'absolute', top: '50%', left: '50%', width: 14, height: 14, background: 'var(--signal)', borderRadius: '50%', transform: 'translate(-50%, -50%)' }} />
             </div>
-            <div className="text-lg font-mono text-terminal-green mt-1">
-              {gpsData?.heading !== null ? `${gpsData.heading.toFixed(0)}° ${getCompassDirection(gpsData.heading)}` : '--'}
+            <div style={{ marginTop: 16, fontFamily: 'var(--font-mono)', fontSize: 34, fontWeight: 600, color: 'var(--fg1)', letterSpacing: '-0.02em' }}>
+              {gpsData?.heading != null ? `${gpsData.heading.toFixed(0)}° ${getCompassDirection(gpsData.heading)}` : '--'}
             </div>
-          </div>
-
-          {/* Heading Calibration (Collapsible) */}
-          <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border">
-            <button
-              onClick={() => setShowCalibration(!showCalibration)}
-              className="w-full flex items-center justify-between text-xs text-terminal-green-dim uppercase"
-            >
-              <span>Heading Cal {gpsData?.headingOffset ? `(${gpsData.headingOffset > 0 ? '+' : ''}${gpsData.headingOffset.toFixed(1)}°)` : ''}</span>
-              <span>{showCalibration ? '▼' : '▶'}</span>
-            </button>
-            {showCalibration && (
-              <div className="mt-2 space-y-2">
-                {/* Current offset */}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-terminal-green-dim">Current Offset</span>
-                  <span className="text-sm font-mono text-terminal-green">
-                    {gpsData?.headingOffset != null
-                      ? `${gpsData.headingOffset > 0 ? '+' : ''}${gpsData.headingOffset.toFixed(1)}°`
-                      : '0.0°'}
-                  </span>
-                </div>
-
-                {/* Manual input */}
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={offsetInput}
-                    onChange={(e) => setOffsetInput(e.target.value)}
-                    placeholder="0.0"
-                    className="flex-1 bg-black border border-terminal-border rounded px-2 py-2 text-sm font-mono text-terminal-green outline-none focus:border-terminal-green min-h-[44px]"
-                  />
-                  <button
-                    onClick={() => {
-                      const val = parseFloat(offsetInput)
-                      if (isFinite(val)) saveOffset(val)
-                    }}
-                    disabled={!isFinite(parseFloat(offsetInput))}
-                    className="px-3 min-h-[44px] bg-terminal-surface border border-terminal-green rounded text-xs text-terminal-green uppercase disabled:opacity-30 disabled:border-terminal-border active:bg-terminal-green active:text-black"
-                  >
-                    Set
-                  </button>
-                  <button
-                    onClick={() => { setOffsetInput('0'); saveOffset(0) }}
-                    className="px-2 min-h-[44px] bg-terminal-surface border border-terminal-border rounded text-xs text-terminal-green-dim active:bg-terminal-green active:text-black"
-                  >
-                    Reset
-                  </button>
-                </div>
-
-                {/* Auto-calibrate */}
-                <div className="space-y-1">
-                  {autoCalPreview != null ? (
-                    <div className="space-y-2">
-                      <div className="text-xs text-terminal-green font-mono text-center">
-                        Apply {autoCalPreview > 0 ? '+' : ''}{autoCalPreview.toFixed(1)}° correction?
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => saveOffset(autoCalPreview)}
-                          className="flex-1 min-h-[44px] bg-terminal-green text-black rounded text-xs font-bold uppercase active:opacity-80"
-                        >
-                          Confirm
-                        </button>
-                        <button
-                          onClick={() => setAutoCalPreview(null)}
-                          className="flex-1 min-h-[44px] bg-terminal-surface border border-terminal-border rounded text-xs text-terminal-green-dim active:bg-terminal-green active:text-black"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        if (!canAutoCal) return
-                        const currentOffset = gpsData.headingOffset || 0
-                        let correction = gpsData.cog - gpsData.heading + currentOffset
-                        // Normalize to -180..+180
-                        while (correction > 180) correction -= 360
-                        while (correction < -180) correction += 360
-                        setAutoCalPreview(parseFloat(correction.toFixed(1)))
-                      }}
-                      disabled={!canAutoCal}
-                      className="w-full min-h-[44px] bg-terminal-surface border border-terminal-green rounded text-xs text-terminal-green uppercase disabled:opacity-30 disabled:border-terminal-border active:bg-terminal-green active:text-black"
-                    >
-                      Auto Calibrate
-                    </button>
-                  )}
-                  {!speedAboveThreshold && (
-                    <div className="text-xs text-terminal-green-dim text-center">
-                      Need &gt;5 mph for auto-cal
-                    </div>
-                  )}
-                </div>
-
-                {/* Status */}
-                {calibrationStatus === 'saved' && (
-                  <div className="text-xs text-terminal-green text-center font-bold">Saved</div>
-                )}
-                {calibrationStatus === 'saving' && (
-                  <div className="text-xs text-terminal-green-dim text-center animate-pulse">Saving...</div>
-                )}
-                {calibrationStatus === 'error' && (
-                  <div className="text-xs text-terminal-red text-center">Save failed</div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Drift Calculation */}
-          <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border">
-            <div className="text-xs text-terminal-green-dim uppercase mb-2">
-              Drift Calibration
-            </div>
-
-            {driftPhase === 'idle' && (
-              <button
-                onClick={startDriftCalculation}
-                disabled={!hasFix || gpsData?.latitude == null}
-                className="w-full min-h-[44px] bg-terminal-surface border border-terminal-green rounded text-xs text-terminal-green uppercase disabled:opacity-30 disabled:border-terminal-border active:bg-terminal-green active:text-black"
-              >
-                Calculate Drift
-              </button>
-            )}
-
-            {driftPhase === 'sampling' && (
-              <div className="space-y-1">
-                <button
-                  disabled
-                  className="w-full min-h-[44px] bg-terminal-surface border border-terminal-green rounded text-xs text-terminal-green uppercase opacity-60"
-                >
-                  Sampling... {driftCountdown}s
-                </button>
-                <div className="text-xs text-terminal-green-dim text-center font-mono">
-                  {driftSamplesRef.current.length} samples collected
-                </div>
-              </div>
-            )}
-
-            {driftPhase === 'saving' && (
-              <div className="text-xs text-terminal-green-dim text-center animate-pulse py-2">
-                Saving...
-              </div>
-            )}
-
-            {driftPhase === 'done' && driftResult && (
-              <div className="space-y-1">
-                <div className="grid grid-cols-2 gap-1 text-xs font-mono">
-                  <div className="text-terminal-green-dim">Speed</div>
-                  <div className="text-terminal-green text-right">
-                    {(driftResult.driftSpeedMps ?? driftResult.drift_speed_mps ?? 0).toFixed(2)} m/s
-                    {' '}
-                    ({((driftResult.driftSpeedMps ?? driftResult.drift_speed_mps ?? 0) * 1.94384).toFixed(2)} kn)
-                  </div>
-                  <div className="text-terminal-green-dim">Bearing</div>
-                  <div className="text-terminal-green text-right">
-                    {(driftResult.driftBearingDeg ?? driftResult.drift_bearing_deg ?? 0).toFixed(0)}°
-                  </div>
-                  <div className="text-terminal-green-dim">Samples</div>
-                  <div className="text-terminal-green text-right">
-                    {driftResult.sampleCount ?? driftResult.sample_count ?? 0}
-                  </div>
-                </div>
-                <button
-                  onClick={resetDriftCalculation}
-                  className="w-full min-h-[44px] bg-terminal-surface border border-terminal-border rounded text-xs text-terminal-green-dim uppercase active:bg-terminal-green active:text-black"
-                >
-                  Recalculate
-                </button>
-              </div>
-            )}
-
-            {driftPhase === 'error' && (
-              <div className="space-y-1">
-                <div className="text-xs text-terminal-red text-center">
-                  {driftError || 'Drift measurement failed'}
-                </div>
-                <button
-                  onClick={resetDriftCalculation}
-                  className="w-full min-h-[44px] bg-terminal-surface border border-terminal-border rounded text-xs text-terminal-green-dim uppercase active:bg-terminal-green active:text-black"
-                >
-                  Try Again
-                </button>
-              </div>
-            )}
-          </div>
+          </Glass>
 
           {/* GPS Quality */}
-          <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border">
-            <div className="text-xs text-terminal-green-dim uppercase mb-1">GPS Quality</div>
-            <div className="grid grid-cols-4 gap-1 text-center">
-              <div>
-                <div className="text-xs text-terminal-green-dim">Sats</div>
-                <div className="text-sm font-mono text-terminal-green">{gpsData?.satellites || 0}</div>
-              </div>
-              <div>
-                <div className="text-xs text-terminal-green-dim">PDOP</div>
-                <div className={`text-sm font-mono ${getDopColor(gpsData?.pdop)}`}>
-                  {formatDecimal(gpsData?.pdop, 1)}
+          <Glass radius={14} style={{ padding: 22 }}>
+            <div style={{ ...SECTION_LABEL, marginBottom: 14 }}>GPS Quality</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, textAlign: 'center' }}>
+              {[
+                ['Sats', gpsData?.satellites || 0, 'var(--fg1)'],
+                ['PDOP', formatDecimal(gpsData?.pdop, 1), getDopTokenColor(gpsData?.pdop)],
+                ['HDOP', formatDecimal(gpsData?.hdop, 1), getDopTokenColor(gpsData?.hdop)],
+                ['VDOP', formatDecimal(gpsData?.vdop, 1), getDopTokenColor(gpsData?.vdop)],
+              ].map(([k, v, c]) => (
+                <div key={k}>
+                  <div style={{ fontSize: 16, color: 'var(--fg3)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.08em', fontWeight: 700 }}>{k}</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 26, color: c }}>{v}</div>
                 </div>
-              </div>
-              <div>
-                <div className="text-xs text-terminal-green-dim">HDOP</div>
-                <div className={`text-sm font-mono ${getDopColor(gpsData?.hdop)}`}>
-                  {formatDecimal(gpsData?.hdop, 1)}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-terminal-green-dim">VDOP</div>
-                <div className={`text-sm font-mono ${getDopColor(gpsData?.vdop)}`}>
-                  {formatDecimal(gpsData?.vdop, 1)}
-                </div>
-              </div>
+              ))}
             </div>
-          </div>
+          </Glass>
 
-          {/* Environment */}
-          <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border">
-            <div className="text-xs text-terminal-green-dim uppercase mb-1">Environment</div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-terminal-green-dim">Pressure</span>
-              <span className="text-sm font-mono text-terminal-green">
-                {gpsData?.pressure !== null ? (
+          {/* Environment + Sea State combined */}
+          <Glass radius={14} style={{ padding: 22 }}>
+            <div style={{ ...SECTION_LABEL, marginBottom: 12 }}>Environment</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <span style={ROW_LABEL}>Pressure</span>
+              <span style={ROW_VALUE}>
+                {gpsData?.pressure != null ? (
                   <>
                     {gpsData.pressure.toFixed(1)} hPa{' '}
-                    <span className={
-                      getPressureTrend().trend === 'rising' ? 'text-green-400' :
-                      getPressureTrend().trend === 'falling' ? 'text-red-400' :
-                      'text-terminal-green-dim'
-                    }>
-                      {getPressureTrend().arrow}
-                    </span>
+                    <span style={{
+                      color: getPressureTrend().trend === 'rising' ? 'var(--tint-green)' :
+                             getPressureTrend().trend === 'falling' ? 'var(--tint-red)' :
+                             'var(--fg3)'
+                    }}>{getPressureTrend().arrow}</span>
                   </>
                 ) : '--'}
               </span>
             </div>
-          </div>
-
-          {/* Sea State */}
-          <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border">
-            <div className="text-xs text-terminal-green-dim uppercase mb-1">Sea State</div>
             {gpsData?.seaStateDesc === 'Collecting data...' ? (
-              <div className="text-xs text-terminal-green-dim font-mono animate-pulse">
-                Collecting data...
-              </div>
+              <div style={{ color: 'var(--fg3)', fontSize: 18 }}>Sea state — collecting data…</div>
             ) : gpsData?.waveHeight != null ? (
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-terminal-green-dim">Wave Ht</span>
-                  <span className="text-sm font-mono text-terminal-green">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={ROW_LABEL}>Wave Ht</span>
+                  <span style={ROW_VALUE}>
                     {gpsData.waveHeight.toFixed(2)} m / {(gpsData.waveHeight * 3.28084).toFixed(1)} ft
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-terminal-green-dim">Period</span>
-                  <span className="text-sm font-mono text-terminal-green">
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={ROW_LABEL}>Period</span>
+                  <span style={ROW_VALUE}>
                     {gpsData?.wavePeriod != null ? `${gpsData.wavePeriod.toFixed(1)} s` : '--'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-terminal-green-dim">State</span>
-                  <span className={`text-sm font-mono font-bold ${
-                    gpsData.seaState <= 2 ? 'text-green-400' :
-                    gpsData.seaState <= 4 ? 'text-yellow-400' :
-                    gpsData.seaState <= 6 ? 'text-orange-400' :
-                    'text-red-400'
-                  }`}>
-                    {gpsData.seaState} — {gpsData.seaStateDesc}
-                  </span>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={ROW_LABEL}>State</span>
+                  <span style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 700,
+                    color: gpsData.seaState <= 2 ? 'var(--tint-green)' :
+                           gpsData.seaState <= 4 ? 'var(--tint-yellow)' :
+                           gpsData.seaState <= 6 ? 'var(--tint-orange)' :
+                           'var(--tint-red)'
+                  }}>{gpsData.seaState} — {gpsData.seaStateDesc}</span>
                 </div>
               </div>
-            ) : (
-              <div className="text-xs text-terminal-green-dim font-mono">--</div>
-            )}
-          </div>
+            ) : null}
+          </Glass>
 
-          {/* Motion Data */}
-          <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border">
-            <div className="text-xs text-terminal-green-dim uppercase mb-1">Motion</div>
-            {/* Rate of Turn */}
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-terminal-green-dim">Rate of Turn</span>
-              <span className="text-sm font-mono text-terminal-green">
-                {gpsData?.wz !== null ? (
+          {/* Motion */}
+          <Glass radius={14} style={{ padding: 22 }}>
+            <div style={{ ...SECTION_LABEL, marginBottom: 12 }}>Motion</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+              <span style={ROW_LABEL}>Rate of Turn</span>
+              <span style={ROW_VALUE}>
+                {gpsData?.wz != null ? (
                   <>
                     {Math.abs(gpsData.wz).toFixed(1)}°/s{' '}
-                    <span className="text-terminal-green-dim">
+                    <span style={{ color: 'var(--fg3)' }}>
                       {gpsData.wz > 0.5 ? 'port' : gpsData.wz < -0.5 ? 'stbd' : ''}
                     </span>
                   </>
                 ) : '--'}
               </span>
             </div>
-            {/* Accelerations */}
-            <div className="grid grid-cols-3 gap-1 text-center text-xs">
-              <div>
-                <span className="text-terminal-green-dim">aX</span>
-                <span className="font-mono text-terminal-green ml-1">
-                  {gpsData?.ax !== null ? `${gpsData.ax.toFixed(2)}g` : '--'}
-                </span>
-              </div>
-              <div>
-                <span className="text-terminal-green-dim">aY</span>
-                <span className="font-mono text-terminal-green ml-1">
-                  {gpsData?.ay !== null ? `${gpsData.ay.toFixed(2)}g` : '--'}
-                </span>
-              </div>
-              <div>
-                <span className="text-terminal-green-dim">aZ</span>
-                <span className="font-mono text-terminal-green ml-1">
-                  {gpsData?.az !== null ? `${gpsData.az.toFixed(2)}g` : '--'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Debug Section (Collapsible) */}
-          <div className="bg-terminal-surface p-2 rounded-lg border border-terminal-border">
-            <button
-              onClick={() => setShowDebug(!showDebug)}
-              className="w-full flex items-center justify-between text-xs text-terminal-green-dim uppercase"
-            >
-              <span>Debug</span>
-              <span>{showDebug ? '▼' : '▶'}</span>
-            </button>
-            {showDebug && (
-              <div className="mt-2 space-y-1">
-                {/* Magnetometer */}
-                <div className="text-xs text-terminal-green-dim">Magnetometer</div>
-                <div className="grid grid-cols-3 gap-1 text-center text-xs">
-                  <div>
-                    <span className="text-terminal-green-dim">hX</span>
-                    <span className="font-mono text-terminal-green ml-1">
-                      {gpsData?.hx !== null ? gpsData.hx : '--'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-terminal-green-dim">hY</span>
-                    <span className="font-mono text-terminal-green ml-1">
-                      {gpsData?.hy !== null ? gpsData.hy : '--'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-terminal-green-dim">hZ</span>
-                    <span className="font-mono text-terminal-green ml-1">
-                      {gpsData?.hz !== null ? gpsData.hz : '--'}
-                    </span>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, textAlign: 'center' }}>
+              {['ax', 'ay', 'az'].map(k => (
+                <div key={k}>
+                  <div style={{ fontSize: 16, color: 'var(--fg3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: 4 }}>{k.toUpperCase()}</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, color: 'var(--fg1)' }}>
+                    {gpsData?.[k] != null ? `${gpsData[k].toFixed(2)}g` : '--'}
                   </div>
                 </div>
-                {/* Angular velocities */}
-                <div className="text-xs text-terminal-green-dim mt-2">Angular Velocity</div>
-                <div className="grid grid-cols-3 gap-1 text-center text-xs">
-                  <div>
-                    <span className="text-terminal-green-dim">wX</span>
-                    <span className="font-mono text-terminal-green ml-1">
-                      {gpsData?.wx !== null ? `${gpsData.wx.toFixed(1)}` : '--'}
+              ))}
+            </div>
+          </Glass>
+
+          {/* Heading Calibration (collapsible) */}
+          <Glass radius={14} style={{ padding: 22 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showCalibration ? 14 : 0 }}>
+              <span style={SECTION_LABEL}>
+                Heading Cal{gpsData?.headingOffset ? ` (${gpsData.headingOffset > 0 ? '+' : ''}${gpsData.headingOffset.toFixed(1)}°)` : ''}
+              </span>
+              <Toggle on={showCalibration} onChange={setShowCalibration} />
+            </div>
+            {showCalibration && (() => {
+              // Live compass-vs-COG error: signed delta of the raw mag heading
+              // against ground track. Only meaningful when boat is moving so
+              // COG is reported (gpsArbiter only emits cog when displacement
+              // exceeds its baseline floor — i.e. boat is actually underway).
+              let compassError = null
+              if (gpsData?.headingRaw != null && gpsData?.cog != null) {
+                let d = gpsData.headingRaw - gpsData.cog
+                while (d > 180) d -= 360
+                while (d < -180) d += 360
+                compassError = d
+              }
+              const errorMagnitude = compassError != null ? Math.abs(compassError) : null
+              const errorColor = errorMagnitude == null ? 'var(--fg3)'
+                : errorMagnitude < 5 ? 'var(--tint-green)'
+                : errorMagnitude < 15 ? 'var(--tint-yellow)'
+                : 'var(--tint-red)'
+              return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={ROW_LABEL}>Current Offset</span>
+                  <span style={ROW_VALUE}>
+                    {gpsData?.headingOffset != null
+                      ? `${gpsData.headingOffset > 0 ? '+' : ''}${gpsData.headingOffset.toFixed(1)}°`
+                      : '0.0°'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={ROW_LABEL}>Compass vs COG</span>
+                  <span style={{ ...ROW_VALUE, color: errorColor }}>
+                    {compassError != null
+                      ? `${compassError > 0 ? '+' : ''}${compassError.toFixed(1)}°`
+                      : '— (need COG)'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={offsetInput}
+                    onChange={(e) => setOffsetInput(e.target.value)}
+                    placeholder="0.0"
+                    style={{
+                      flex: 1, background: 'var(--bg)', border: '0.5px solid var(--bg-hairline-strong)',
+                      borderRadius: 10, padding: '14px 18px', fontSize: 22,
+                      fontFamily: 'var(--font-mono)', color: 'var(--fg1)', outline: 'none', minHeight: 60,
+                    }}
+                  />
+                  <Pill
+                    onClick={() => { const val = parseFloat(offsetInput); if (isFinite(val)) saveOffset(val) }}
+                    style={{ minHeight: 60, opacity: isFinite(parseFloat(offsetInput)) ? 1 : 0.35 }}
+                  >Set</Pill>
+                  <Pill
+                    onClick={() => { setOffsetInput('0'); saveOffset(0) }}
+                    style={{ minHeight: 60 }}
+                  >Reset</Pill>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {autoCalPreview != null ? (
+                    <>
+                      <div style={{ fontSize: 20, fontFamily: 'var(--font-mono)', color: 'var(--fg1)', textAlign: 'center' }}>
+                        Apply {autoCalPreview > 0 ? '+' : ''}{autoCalPreview.toFixed(1)}° correction?
+                      </div>
+                      <div style={{ display: 'flex', gap: 10 }}>
+                        <Pill onClick={() => saveOffset(autoCalPreview)} style={{ flex: 1, minHeight: 60, background: 'var(--signal)', color: '#fff' }}>Confirm</Pill>
+                        <Pill onClick={() => setAutoCalPreview(null)} style={{ flex: 1, minHeight: 60 }}>Cancel</Pill>
+                      </div>
+                    </>
+                  ) : (
+                    <Pill
+                      onClick={() => {
+                        if (!canAutoCal) return
+                        const currentOffset = gpsData.headingOffset || 0
+                        let correction = gpsData.cog - gpsData.heading + currentOffset
+                        while (correction > 180) correction -= 360
+                        while (correction < -180) correction += 360
+                        setAutoCalPreview(parseFloat(correction.toFixed(1)))
+                      }}
+                      style={{ minHeight: 60, width: '100%', opacity: canAutoCal ? 1 : 0.35 }}
+                    >Auto Calibrate</Pill>
+                  )}
+                  {!speedAboveThreshold && (
+                    <div style={{ color: 'var(--fg3)', fontSize: 18, textAlign: 'center' }}>
+                      Need &gt;5 mph for auto-cal
+                    </div>
+                  )}
+                </div>
+                {calibrationStatus === 'saved' && <Badge tone="safe" style={{ alignSelf: 'center' }}>Saved</Badge>}
+                {calibrationStatus === 'saving' && <span style={{ color: 'var(--fg3)', fontSize: 18, textAlign: 'center' }}>Saving…</span>}
+                {calibrationStatus === 'error' && <Badge tone="alarm" style={{ alignSelf: 'center' }}>Save failed</Badge>}
+
+                <div style={{ height: 1, background: 'var(--bg-hairline)', margin: '4px 0' }} />
+                {lastMagCal?.timestamp && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                    <span style={ROW_LABEL}>Last Compass Cal</span>
+                    <span style={{ ...ROW_VALUE, fontSize: 18, textAlign: 'right' }}>
+                      {formatRelativeTime(lastMagCal.timestamp)}
+                      {lastMagCal.stabilityLabel && (
+                        <span style={{
+                          marginLeft: 8, fontSize: 14,
+                          color: lastMagCal.stabilityLabel === 'Excellent' ? 'var(--tint-green)'
+                               : lastMagCal.stabilityLabel === 'Good' ? 'var(--tint-yellow)'
+                               : lastMagCal.stabilityLabel === 'Fair' ? 'var(--tint-amber, var(--tint-yellow))'
+                               : 'var(--tint-red)',
+                        }}>
+                          ({lastMagCal.stabilityLabel})
+                        </span>
+                      )}
                     </span>
                   </div>
-                  <div>
-                    <span className="text-terminal-green-dim">wY</span>
-                    <span className="font-mono text-terminal-green ml-1">
-                      {gpsData?.wy !== null ? `${gpsData.wy.toFixed(1)}` : '--'}
-                    </span>
+                )}
+                <div style={{ display: 'flex', alignItems: 'stretch', gap: 10 }}>
+                  <Pill
+                    onClick={() => setShowMagCalWizard(true)}
+                    style={{ minHeight: 60, flex: 1 }}
+                  >Calibrate Compass</Pill>
+                  <button
+                    onClick={() => setShowMagCalInfo(v => !v)}
+                    aria-label={showMagCalInfo ? 'Hide info' : 'Show info'}
+                    aria-expanded={showMagCalInfo}
+                    style={{
+                      minHeight: 60, minWidth: 60,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: showMagCalInfo ? 'var(--bg-elev)' : 'transparent',
+                      border: '0.5px solid var(--bg-hairline-strong)',
+                      borderRadius: 999, color: 'var(--fg2)',
+                      cursor: 'pointer', touchAction: 'manipulation', padding: 0,
+                    }}
+                  >
+                    <InformationCircleIcon style={{ width: 28, height: 28 }} />
+                  </button>
+                </div>
+                {showMagCalInfo && (
+                  <div style={{
+                    background: 'var(--bg)', border: '0.5px solid var(--bg-hairline)',
+                    borderRadius: 12, padding: 16,
+                    fontSize: 16, lineHeight: 1.45, color: 'var(--fg2)',
+                    display: 'flex', flexDirection: 'column', gap: 12,
+                  }}>
+                    <div>
+                      <div style={{ color: 'var(--fg1)', fontWeight: 600, marginBottom: 4 }}>What it is</div>
+                      Triggers the WitMotion sensor's built-in magnetometer calibration. The sensor
+                      collects mag readings while you turn, fits a sphere to them, and stores the
+                      hard-iron correction in its own flash memory.
+                    </div>
+                    <div>
+                      <div style={{ color: 'var(--fg1)', fontWeight: 600, marginBottom: 4 }}>What it does</div>
+                      Removes the constant magnetic bias caused by ferrous metal and electronics
+                      near the sensor (engine block, batteries, wiring, brackets). After saving,
+                      the heading offset above is reset to 0° — the physical calibration replaces it.
+                    </div>
+                    <div>
+                      <div style={{ color: 'var(--fg1)', fontWeight: 600, marginBottom: 4 }}>When to use it</div>
+                      • First install of the GPS / IMU<br/>
+                      • After moving the sensor or anything ferrous near it<br/>
+                      • If the compass reads consistently wrong on multiple headings (a single offset
+                      can't fix heading-dependent error)<br/>
+                      • Periodically — every season, or after major electrical work
+                    </div>
+                    <div>
+                      <div style={{ color: 'var(--fg1)', fontWeight: 600, marginBottom: 4 }}>How to use it</div>
+                      1. Get to open water with no large metal nearby (bridges, steel docks, other
+                      boats)<br/>
+                      2. Settle into a slow steady turn at 3–5 mph<br/>
+                      3. Tap <strong>Calibrate Compass</strong> and follow the wizard — it needs ≥6
+                      of 8 sectors covered (≈one full smooth 360°)<br/>
+                      4. Tap <strong>Finish Calibration</strong>; it writes to the device flash and
+                      survives power cycles
+                    </div>
+                    <div style={{ color: 'var(--fg3)', fontSize: 14 }}>
+                      Cancel exits cleanly without saving — your existing calibration is preserved.
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-terminal-green-dim">wZ</span>
-                    <span className="font-mono text-terminal-green ml-1">
-                      {gpsData?.wz !== null ? `${gpsData.wz.toFixed(1)}` : '--'}
-                    </span>
-                  </div>
+                )}
+              </div>
+              )
+            })()}
+          </Glass>
+
+          {/* Drift Calibration */}
+          <Glass radius={14} style={{ padding: 22 }}>
+            <div style={{ ...SECTION_LABEL, marginBottom: 14 }}>Drift Calibration</div>
+            {driftPhase === 'idle' && (
+              <Pill
+                onClick={startDriftCalculation}
+                style={{ width: '100%', minHeight: 60, opacity: (!hasFix || gpsData?.latitude == null) ? 0.35 : 1 }}
+              >Calculate Drift</Pill>
+            )}
+            {driftPhase === 'sampling' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <Pill style={{ width: '100%', minHeight: 60, opacity: 0.6 }}>
+                  Sampling… {driftCountdown}s
+                </Pill>
+                <div style={{ color: 'var(--fg3)', fontSize: 18, textAlign: 'center', fontFamily: 'var(--font-mono)' }}>
+                  {driftSamplesRef.current.length} samples collected
                 </div>
               </div>
             )}
-          </div>
+            {driftPhase === 'saving' && (
+              <div style={{ color: 'var(--fg3)', fontSize: 20, textAlign: 'center', padding: '10px 0' }}>Saving…</div>
+            )}
+            {driftPhase === 'done' && driftResult && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 20, fontFamily: 'var(--font-mono)' }}>
+                  <div style={{ color: 'var(--fg3)' }}>Speed</div>
+                  <div style={{ color: 'var(--fg1)', textAlign: 'right' }}>
+                    {(driftResult.driftSpeedMps ?? driftResult.drift_speed_mps ?? 0).toFixed(2)} m/s
+                    {' '}({((driftResult.driftSpeedMps ?? driftResult.drift_speed_mps ?? 0) * 1.94384).toFixed(2)} kn)
+                  </div>
+                  <div style={{ color: 'var(--fg3)' }}>Bearing</div>
+                  <div style={{ color: 'var(--fg1)', textAlign: 'right' }}>
+                    {(driftResult.driftBearingDeg ?? driftResult.drift_bearing_deg ?? 0).toFixed(0)}°
+                  </div>
+                  <div style={{ color: 'var(--fg3)' }}>Samples</div>
+                  <div style={{ color: 'var(--fg1)', textAlign: 'right' }}>
+                    {driftResult.sampleCount ?? driftResult.sample_count ?? 0}
+                  </div>
+                </div>
+                <Pill onClick={resetDriftCalculation} style={{ width: '100%', minHeight: 60 }}>Recalculate</Pill>
+              </div>
+            )}
+            {driftPhase === 'error' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <Glass radius={8} style={{ padding: 14, border: '0.5px solid var(--tint-red)', color: 'var(--tint-red)', fontSize: 16 }}>
+                  {driftError || 'Drift measurement failed'}
+                </Glass>
+                <Pill onClick={resetDriftCalculation} style={{ width: '100%', minHeight: 60 }}>Try Again</Pill>
+              </div>
+            )}
+          </Glass>
+
+          {/* Debug (collapsible) */}
+          <Glass radius={14} style={{ padding: 22 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showDebug ? 14 : 0 }}>
+              <span style={SECTION_LABEL}>Debug</span>
+              <Toggle on={showDebug} onChange={setShowDebug} />
+            </div>
+            {showDebug && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ ...SECTION_LABEL, fontSize: 16 }}>Magnetometer</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, textAlign: 'center', fontSize: 20 }}>
+                  {['hx', 'hy', 'hz'].map(k => (
+                    <div key={k}>
+                      <span style={{ color: 'var(--fg3)' }}>{k}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--fg1)', marginLeft: 6 }}>
+                        {gpsData?.[k] != null ? gpsData[k] : '--'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ ...SECTION_LABEL, fontSize: 16, marginTop: 6 }}>Angular Velocity</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, textAlign: 'center', fontSize: 20 }}>
+                  {['wx', 'wy', 'wz'].map(k => (
+                    <div key={k}>
+                      <span style={{ color: 'var(--fg3)' }}>{k}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--fg1)', marginLeft: 6 }}>
+                        {gpsData?.[k] != null ? gpsData[k].toFixed(1) : '--'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Glass>
         </div>
       </div>
+
+      {showMagCalWizard && (
+        <Suspense fallback={null}>
+          <MagCalibrationWizard
+            isOpen={showMagCalWizard}
+            onClose={() => setShowMagCalWizard(false)}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }
@@ -923,12 +941,29 @@ function getCompassDirection(heading) {
   return directions[index]
 }
 
-function getDopColor(dop) {
-  if (dop === null || dop === undefined) return 'text-terminal-green-dim'
-  if (dop <= 2) return 'text-terminal-green'
-  if (dop <= 5) return 'text-yellow-400'
-  if (dop <= 10) return 'text-orange-400'
-  return 'text-terminal-red'
+function formatRelativeTime(ts) {
+  if (!ts) return '—'
+  const diffMs = Date.now() - ts
+  if (diffMs < 0) return 'just now'
+  const sec = Math.floor(diffMs / 1000)
+  if (sec < 60) return 'just now'
+  const min = Math.floor(sec / 60)
+  if (min < 60) return `${min} min ago`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr} hr ago`
+  const days = Math.floor(hr / 24)
+  if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `${months} mo ago`
+  return new Date(ts).toLocaleDateString()
+}
+
+function getDopTokenColor(dop) {
+  if (dop === null || dop === undefined) return 'var(--fg3)'
+  if (dop <= 2) return 'var(--tint-green)'
+  if (dop <= 5) return 'var(--tint-yellow)'
+  if (dop <= 10) return 'var(--tint-orange)'
+  return 'var(--tint-red)'
 }
 
 export default GpsView

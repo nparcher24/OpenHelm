@@ -9,6 +9,7 @@ import { XMarkIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { WAYPOINT_ICONS, WAYPOINT_COLORS, WaypointIcon, formatLatitude, formatLongitude } from '../utils/waypointIcons'
 import { computeDriftCorrected, DEFAULT_DEPTH_M } from '../utils/driftCalc'
 import { getDepthAtLocation } from '../services/blueTopoTileService'
+import { Glass, Pill } from '../ui/primitives'
 
 export default function WaypointEditModal({
   waypoint, // null for create, object for edit
@@ -123,64 +124,64 @@ export default function WaypointEditModal({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 z-50"
+        style={{ position: 'fixed', inset: 0, background: 'var(--bg-scrim)', zIndex: 50 }}
         onClick={onClose}
       />
 
       {/* Modal */}
-      <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 w-[90%] max-w-md">
-        <div className="bg-terminal-surface rounded-lg shadow-glow-green border-2 border-terminal-green overflow-hidden">
+      <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 50, width: '90%', maxWidth: 448 }}>
+        <Glass radius={16} style={{ padding: 0, overflow: 'hidden' }}>
           {/* Header */}
-          <div className="px-4 py-3 border-b border-terminal-border bg-terminal-bg flex items-center justify-between">
-            <h2 className="text-lg font-bold text-terminal-green uppercase tracking-wider">
+          <div style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--bg-hairline-strong)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--fg1)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               {isEdit ? 'Edit Waypoint' : 'Add Waypoint'}
             </h2>
             <button
               onClick={onClose}
-              className="p-1 hover:bg-terminal-green/10 rounded transition-colors"
+              style={{ padding: 4, borderRadius: 6, background: 'transparent', border: 0, cursor: 'pointer', minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
-              <XMarkIcon className="w-6 h-6 text-terminal-green" />
+              <XMarkIcon style={{ width: 24, height: 24, color: 'var(--fg1)' }} />
             </button>
           </div>
 
           {/* Form */}
-          <div className="p-4 space-y-4">
+          <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* Error message */}
             {error && (
-              <div className="p-3 bg-terminal-red/10 border border-terminal-red/50 rounded text-terminal-red text-sm">
+              <div style={{ padding: 12, background: 'rgba(255,80,80,0.08)', border: '0.5px solid var(--tint-red)', borderRadius: 8, color: 'var(--tint-red)', fontSize: 14 }}>
                 {error}
               </div>
             )}
 
             {/* Name input */}
             <div>
-              <label className="block text-sm text-terminal-green-dim mb-1">Name *</label>
+              <label style={{ display: 'block', fontSize: 12, color: 'var(--fg2)', marginBottom: 4 }}>Name *</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Enter waypoint name"
-                className="terminal-input w-full"
                 autoFocus
+                style={{ width: '100%', padding: '8px 12px', background: 'var(--bg)', border: '0.5px solid var(--bg-hairline-strong)', borderRadius: 8, color: 'var(--fg1)', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
               />
             </div>
 
             {/* Description textarea */}
             <div>
-              <label className="block text-sm text-terminal-green-dim mb-1">Description</label>
+              <label style={{ display: 'block', fontSize: 12, color: 'var(--fg2)', marginBottom: 4 }}>Description</label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Optional description"
                 rows={2}
-                className="terminal-input w-full resize-none"
+                style={{ width: '100%', padding: '8px 12px', background: 'var(--bg)', border: '0.5px solid var(--bg-hairline-strong)', borderRadius: 8, color: 'var(--fg1)', fontSize: 14, outline: 'none', resize: 'none', boxSizing: 'border-box' }}
               />
             </div>
 
             {/* Position display (read-only) */}
             <div>
-              <label className="block text-sm text-terminal-green-dim mb-1">Position</label>
-              <div className="font-mono text-lg text-terminal-green bg-terminal-bg px-3 py-2 rounded border border-terminal-border">
+              <label style={{ display: 'block', fontSize: 12, color: 'var(--fg2)', marginBottom: 4 }}>Position</label>
+              <div style={{ fontFamily: 'monospace', fontSize: 18, color: 'var(--fg1)', background: 'var(--bg)', padding: '8px 12px', borderRadius: 8, border: '0.5px solid var(--bg-hairline-strong)' }}>
                 {formatLatitude(lat)} / {formatLongitude(lng)}
               </div>
             </div>
@@ -192,42 +193,42 @@ export default function WaypointEditModal({
                   type="button"
                   onClick={handleCompensateForDrift}
                   disabled={!hasDrift || driftStatus === 'loading'}
-                  className="w-full min-h-[44px] bg-terminal-surface border border-terminal-green rounded text-xs text-terminal-green uppercase disabled:opacity-30 disabled:border-terminal-border active:bg-terminal-green active:text-black"
+                  style={{ width: '100%', minHeight: 44, background: 'var(--bg-elev)', border: '0.5px solid var(--bg-hairline-strong)', borderRadius: 8, fontSize: 12, color: 'var(--fg1)', textTransform: 'uppercase', cursor: hasDrift && driftStatus !== 'loading' ? 'pointer' : 'default', opacity: hasDrift ? 1 : 0.3 }}
                 >
                   {driftStatus === 'loading' ? 'Computing...' : 'Compensate for Drift'}
                 </button>
               )}
               {!hasDrift && driftStatus === 'idle' && (
-                <div className="mt-1 text-xs text-terminal-green-dim text-center">
+                <div style={{ marginTop: 4, fontSize: 12, color: 'var(--fg2)', textAlign: 'center' }}>
                   No drift calibrated — go to GPS page
                 </div>
               )}
               {driftStatus === 'noop' && driftMessage && (
-                <div className="mt-1 text-xs text-terminal-amber text-center">
+                <div style={{ marginTop: 4, fontSize: 12, color: 'var(--tint-yellow)', textAlign: 'center' }}>
                   {driftMessage}
                 </div>
               )}
 
               {driftStatus === 'ready' && driftCorrected && (
-                <div className="mt-1">
-                  <label className="block text-sm text-terminal-cyan mb-1">
+                <div style={{ marginTop: 4 }}>
+                  <label style={{ display: 'block', fontSize: 12, color: 'var(--tint-teal)', marginBottom: 4 }}>
                     Drift-Corrected Hold Position{driftCorrected.approximate ? ' (approx.)' : ''}
                   </label>
-                  <div className="font-mono text-lg text-terminal-cyan bg-terminal-bg px-3 py-2 rounded border border-terminal-cyan/40">
+                  <div style={{ fontFamily: 'monospace', fontSize: 18, color: 'var(--tint-teal)', background: 'var(--bg)', padding: '8px 12px', borderRadius: 8, border: '0.5px solid var(--bg-hairline-strong)' }}>
                     {formatLatitude(driftCorrected.lat)} / {formatLongitude(driftCorrected.lng)}
                   </div>
-                  <div className="mt-1 text-xs text-terminal-green-dim font-mono text-center">
+                  <div style={{ marginTop: 4, fontSize: 12, color: 'var(--fg2)', fontFamily: 'monospace', textAlign: 'center' }}>
                     Offset {driftCorrected.offsetM.toFixed(1)} m @{' '}
                     {driftCorrected.upstreamBearingDeg.toFixed(0)}° (upstream)
                   </div>
-                  <div className="text-xs text-terminal-green-dim font-mono text-center">
+                  <div style={{ fontSize: 12, color: 'var(--fg2)', fontFamily: 'monospace', textAlign: 'center' }}>
                     drift {driftCorrected.driftOffsetM.toFixed(1)} m + boat {driftCorrected.boatLengthM.toFixed(1)} m
                     {' · '}sink {driftCorrected.sinkTimeS.toFixed(0)} s
                   </div>
                   <button
                     type="button"
                     onClick={handleClearDriftCorrection}
-                    className="mt-2 w-full min-h-[36px] bg-terminal-surface border border-terminal-border rounded text-xs text-terminal-green-dim uppercase active:bg-terminal-green active:text-black"
+                    style={{ marginTop: 8, width: '100%', minHeight: 36, background: 'var(--bg-elev)', border: '0.5px solid var(--bg-hairline-strong)', borderRadius: 8, fontSize: 12, color: 'var(--fg2)', textTransform: 'uppercase', cursor: 'pointer' }}
                   >
                     Clear
                   </button>
@@ -237,17 +238,19 @@ export default function WaypointEditModal({
 
             {/* Icon selector */}
             <div>
-              <label className="block text-sm text-terminal-green-dim mb-2">Icon</label>
-              <div className="grid grid-cols-4 gap-2">
+              <label style={{ display: 'block', fontSize: 12, color: 'var(--fg2)', marginBottom: 8 }}>Icon</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
                 {iconIds.map(iconId => (
                   <button
                     key={iconId}
                     onClick={() => setIcon(iconId)}
-                    className={`p-3 rounded border-2 transition-all flex flex-col items-center justify-center touch-manipulation ${
-                      icon === iconId
-                        ? 'border-terminal-green bg-terminal-green/10 shadow-glow-green-sm'
-                        : 'border-terminal-border hover:border-terminal-green/50'
-                    }`}
+                    style={{
+                      padding: 12, borderRadius: 8,
+                      border: icon === iconId ? '2px solid var(--signal)' : '1.5px solid var(--bg-hairline-strong)',
+                      background: icon === iconId ? 'rgba(0,200,100,0.08)' : 'var(--bg)',
+                      cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      touchAction: 'manipulation'
+                    }}
                     title={WAYPOINT_ICONS[iconId].label}
                   >
                     <WaypointIcon iconId={iconId} color={color} className="w-6 h-6" />
@@ -258,18 +261,21 @@ export default function WaypointEditModal({
 
             {/* Color picker */}
             <div>
-              <label className="block text-sm text-terminal-green-dim mb-2">Color</label>
-              <div className="grid grid-cols-4 gap-2">
+              <label style={{ display: 'block', fontSize: 12, color: 'var(--fg2)', marginBottom: 8 }}>Color</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
                 {WAYPOINT_COLORS.map(({ hex, label }) => (
                   <button
                     key={hex}
                     onClick={() => setColor(hex)}
-                    className={`h-10 rounded border-2 transition-all touch-manipulation ${
-                      color === hex
-                        ? 'border-white shadow-lg scale-110'
-                        : 'border-transparent hover:border-white/50'
-                    }`}
-                    style={{ backgroundColor: hex }}
+                    style={{
+                      height: 40, borderRadius: 8,
+                      border: color === hex ? '2px solid #fff' : '2px solid transparent',
+                      background: hex,
+                      cursor: 'pointer',
+                      transform: color === hex ? 'scale(1.1)' : 'scale(1)',
+                      transition: 'all 150ms',
+                      touchAction: 'manipulation'
+                    }}
                     title={label}
                   />
                 ))}
@@ -277,13 +283,13 @@ export default function WaypointEditModal({
             </div>
 
             {/* Preview */}
-            <div className="pt-2 border-t border-terminal-border">
-              <label className="block text-sm text-terminal-green-dim mb-2">Preview</label>
-              <div className="flex items-center space-x-3 bg-terminal-bg p-3 rounded">
+            <div style={{ paddingTop: 8, borderTop: '0.5px solid var(--bg-hairline-strong)' }}>
+              <label style={{ display: 'block', fontSize: 12, color: 'var(--fg2)', marginBottom: 8 }}>Preview</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg)', padding: 12, borderRadius: 8 }}>
                 <WaypointIcon iconId={icon} color={color} className="w-8 h-8" />
                 <div>
-                  <div className="text-terminal-green font-medium">{name || 'Waypoint Name'}</div>
-                  <div className="text-terminal-green-dim text-xs">
+                  <div style={{ color: 'var(--fg1)', fontWeight: 500 }}>{name || 'Waypoint Name'}</div>
+                  <div style={{ color: 'var(--fg2)', fontSize: 12 }}>
                     {WAYPOINT_ICONS[icon]?.label || 'General'}
                   </div>
                 </div>
@@ -292,38 +298,35 @@ export default function WaypointEditModal({
           </div>
 
           {/* Actions */}
-          <div className="px-4 py-3 border-t border-terminal-border bg-terminal-bg flex items-center justify-between">
+          <div style={{ padding: '12px 16px', borderTop: '0.5px solid var(--bg-hairline-strong)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             {isEdit && onDelete ? (
-              <button
+              <Pill
                 onClick={handleDelete}
-                disabled={saving}
-                className="terminal-btn-danger flex items-center space-x-2"
+                style={{ minHeight: 44, background: 'var(--tint-red)', color: '#fff', opacity: saving ? 0.5 : 1 }}
               >
-                <TrashIcon className="w-4 h-4" />
+                <TrashIcon style={{ width: 16, height: 16 }} />
                 <span>Delete</span>
-              </button>
+              </Pill>
             ) : (
               <div />
             )}
 
-            <div className="flex items-center space-x-2">
-              <button
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Pill
                 onClick={onClose}
-                disabled={saving}
-                className="terminal-btn"
+                style={{ minHeight: 44, opacity: saving ? 0.5 : 1 }}
               >
                 Cancel
-              </button>
-              <button
+              </Pill>
+              <Pill
                 onClick={handleSave}
-                disabled={saving || !name.trim()}
-                className="terminal-btn-primary"
+                style={{ minHeight: 44, background: 'var(--signal)', color: '#fff', opacity: (saving || !name.trim()) ? 0.5 : 1 }}
               >
                 {saving ? 'Saving...' : 'Save'}
-              </button>
+              </Pill>
             </div>
           </div>
-        </div>
+        </Glass>
       </div>
     </>
   )

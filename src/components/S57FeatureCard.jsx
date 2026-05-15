@@ -1,6 +1,7 @@
 import React from 'react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import { S57_SUBLAYER_GROUPS } from './S57SubLayerMenu'
+import { Glass } from '../ui/primitives'
 
 // Map S-57 object class names to human-readable names
 const S57_OBJECT_NAMES = {}
@@ -110,58 +111,60 @@ const S57FeatureCard = React.memo(function S57FeatureCard({ feature, onClose }) 
   return (
     <>
       <div
-        className="absolute inset-0 z-40 bg-black/30"
+        className="absolute inset-0 z-40"
+        style={{ background: 'rgba(0,0,0,0.3)', touchAction: 'none' }}
         onClick={onClose}
-        style={{ touchAction: 'none' }}
       />
 
       <div
-        className="absolute bg-terminal-surface rounded-lg shadow-glow-green border-2 border-terminal-green z-50 overflow-hidden"
+        className="absolute z-50"
         style={{ left: `${left}px`, top: `${top}px`, width: `${cardWidth}px`, maxHeight: '70vh', touchAction: 'none' }}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-terminal-border bg-terminal-bg">
-          <div>
-            <div className="text-sm font-semibold text-terminal-green">{info.name}</div>
-            {info.desc && <div className="text-xs text-terminal-green-dim">{info.desc}</div>}
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-terminal-green/10 rounded touch-manipulation"
-            aria-label="Close"
-          >
-            <XMarkIcon className="w-5 h-5 text-terminal-green-dim" />
-          </button>
-        </div>
-
-        {/* Properties */}
-        <div className="p-4 space-y-2 overflow-y-auto" style={{ maxHeight: 'calc(70vh - 56px)' }}>
-          {items.length > 0 ? (
-            items.map((item, i) => (
-              <div key={i} className="flex justify-between text-sm">
-                <span className="text-terminal-green-dim">{item.label}</span>
-                <span className="text-terminal-green font-medium text-right ml-3">{item.value}</span>
-              </div>
-            ))
-          ) : (
-            <div className="text-sm text-terminal-green-dim italic">No additional details</div>
-          )}
-
-          {/* Coordinates */}
-          {lat != null && lng != null && (
-            <div className="pt-2 mt-2 border-t border-terminal-border">
-              <div className="font-mono text-sm text-terminal-green">
-                <div>{Math.abs(lat).toFixed(5)}&deg; {lat >= 0 ? 'N' : 'S'}</div>
-                <div>{Math.abs(lng).toFixed(5)}&deg; {lng >= 0 ? 'E' : 'W'}</div>
-              </div>
+        <Glass radius={12} style={{ padding: 0, overflow: 'hidden', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '0.5px solid var(--bg-hairline-strong)', flexShrink: 0 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--fg1)' }}>{info.name}</div>
+              {info.desc && <div style={{ fontSize: 12, color: 'var(--fg2)' }}>{info.desc}</div>}
             </div>
-          )}
-
-          {/* S-57 object class */}
-          <div className="pt-2 mt-1 border-t border-terminal-border text-xs text-terminal-green-dim">
-            S-57: {objectClass}
+            <button
+              onClick={onClose}
+              style={{ padding: 4, borderRadius: 6, background: 'transparent', border: 0, cursor: 'pointer', minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'manipulation' }}
+              aria-label="Close"
+            >
+              <XMarkIcon style={{ width: 20, height: 20, color: 'var(--fg2)' }} />
+            </button>
           </div>
-        </div>
+
+          {/* Properties */}
+          <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
+            {items.length > 0 ? (
+              items.map((item, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+                  <span style={{ color: 'var(--fg2)' }}>{item.label}</span>
+                  <span style={{ color: 'var(--fg1)', fontWeight: 500, textAlign: 'right', marginLeft: 12 }}>{item.value}</span>
+                </div>
+              ))
+            ) : (
+              <div style={{ fontSize: 14, color: 'var(--fg2)', fontStyle: 'italic' }}>No additional details</div>
+            )}
+
+            {/* Coordinates */}
+            {lat != null && lng != null && (
+              <div style={{ paddingTop: 8, marginTop: 8, borderTop: '0.5px solid var(--bg-hairline-strong)' }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 14, color: 'var(--fg1)' }}>
+                  <div>{Math.abs(lat).toFixed(5)}&deg; {lat >= 0 ? 'N' : 'S'}</div>
+                  <div>{Math.abs(lng).toFixed(5)}&deg; {lng >= 0 ? 'E' : 'W'}</div>
+                </div>
+              </div>
+            )}
+
+            {/* S-57 object class */}
+            <div style={{ paddingTop: 8, marginTop: 4, borderTop: '0.5px solid var(--bg-hairline-strong)', fontSize: 12, color: 'var(--fg2)' }}>
+              S-57: {objectClass}
+            </div>
+          </div>
+        </Glass>
       </div>
     </>
   )

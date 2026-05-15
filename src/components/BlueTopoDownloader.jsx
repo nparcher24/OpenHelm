@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeftIcon, XCircleIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
 import { useJobProgress } from '../hooks/useJobProgress'
+import { Glass, Badge } from '../ui/primitives'
 import {
   getStorageInfo,
   startTileDownload,
@@ -504,23 +505,24 @@ function BlueTopoDownloader() {
   }, [jobProgress.tiles, estimatedSizeMB])
 
   return (
-    <div className="bg-terminal-bg min-h-full">
+    <div className="min-h-full" style={{ background: 'var(--bg)', color: 'var(--fg1)' }}>
       {/* Header */}
-      <div className="bg-terminal-surface border-b border-terminal-border sticky top-0 z-10">
+      <div className="sticky top-0 z-10" style={{ background: 'var(--bg-chrome)', borderBottom: '0.5px solid var(--bg-hairline)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <button
                 onClick={handleBack}
-                className="p-2 rounded-lg hover:bg-terminal-green/10 transition-colors"
+                className="p-2 rounded-lg transition-colors"
+                style={{ color: 'var(--fg1)' }}
               >
-                <ArrowLeftIcon className="h-6 w-6 text-terminal-green" />
+                <ArrowLeftIcon className="h-6 w-6" />
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-terminal-green text-glow uppercase tracking-wider">
+                <h1 className="text-2xl font-bold uppercase tracking-wider" style={{ color: 'var(--fg1)' }}>
                   BlueTopo Tile Downloader
                 </h1>
-                <p className="text-sm text-terminal-green-dim">
+                <p className="text-sm" style={{ color: 'var(--fg2)' }}>
                   {selectedTiles.length > 0 ? `${selectedTiles.length} new tile${selectedTiles.length !== 1 ? 's' : ''} to download` : 'No new tiles selected'}
                   {keptTiles.length > 0 && ` • ${keptTiles.length} existing`}
                 </p>
@@ -529,7 +531,8 @@ function BlueTopoDownloader() {
             {isStarted && (
               <button
                 onClick={handleCancel}
-                className="terminal-btn-danger"
+                className="px-4 py-2 rounded-lg font-medium"
+                style={{ background: 'rgba(229,72,72,0.14)', color: '#E54848', border: '0.5px solid rgba(229,72,72,0.3)' }}
               >
                 Cancel Download
               </button>
@@ -541,58 +544,60 @@ function BlueTopoDownloader() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {/* Error Alert */}
         {error && (
-          <div className="bg-terminal-red/10 border border-terminal-red/50 rounded-lg p-4">
+          <div className="rounded-lg p-4" style={{ background: 'rgba(229,72,72,0.08)', border: '0.5px solid rgba(229,72,72,0.3)' }}>
             <div className="flex items-center space-x-2">
-              <XCircleIcon className="h-5 w-5 text-terminal-red" />
-              <p className="text-terminal-red">{error}</p>
+              <XCircleIcon className="h-5 w-5" style={{ color: '#E54848' }} />
+              <p style={{ color: '#E54848' }}>{error}</p>
             </div>
           </div>
         )}
 
         {/* Storage Info Panel */}
         {!loadingStorage && storageInfo && (
-          <div className="bg-terminal-surface rounded-lg border border-terminal-border p-6">
-            <h2 className="text-lg font-semibold text-terminal-green mb-4 uppercase tracking-wide">
+          <Glass pad={24} radius={12}>
+            <h2 className="text-lg font-semibold mb-4 uppercase tracking-wide" style={{ color: 'var(--fg1)' }}>
               Storage Information
             </h2>
 
             {/* Disk Space Bar */}
             <div className="space-y-2 mb-4">
               <div className="flex justify-between text-sm">
-                <span className="text-terminal-green-dim">Disk Usage</span>
-                <span className="text-terminal-green font-medium">
+                <span style={{ color: 'var(--fg2)' }}>Disk Usage</span>
+                <span className="font-medium" style={{ color: 'var(--fg1)' }}>
                   {storageInfo.disk.freeGB} GB free / {storageInfo.disk.totalGB} GB total
                 </span>
               </div>
-              <div className="w-full bg-terminal-border rounded-full h-4 overflow-hidden">
+              <div style={{ height: 8, borderRadius: 999, background: 'var(--fill-2)', overflow: 'hidden' }}>
                 <div
-                  className={`h-full transition-all duration-300 ${
-                    storageInfo.disk.usedPercent > 90
-                      ? 'bg-terminal-red shadow-glow-red'
+                  style={{
+                    height: '100%',
+                    width: `${storageInfo.disk.usedPercent}%`,
+                    background: storageInfo.disk.usedPercent > 90
+                      ? 'var(--tint-red)'
                       : storageInfo.disk.usedPercent > 75
-                      ? 'bg-terminal-amber shadow-glow-amber'
-                      : 'bg-terminal-green shadow-glow-green-sm'
-                  }`}
-                  style={{ width: `${storageInfo.disk.usedPercent}%` }}
+                      ? 'var(--tint-yellow)'
+                      : 'var(--signal)',
+                    transition: 'width 160ms'
+                  }}
                 />
               </div>
-              <p className="text-xs text-terminal-green-dim">
+              <p className="text-xs" style={{ color: 'var(--fg2)' }}>
                 {storageInfo.disk.usedPercent}% used ({storageInfo.disk.usedGB} GB)
               </p>
             </div>
 
             {/* Download Size Estimate */}
             {selectedTiles.length > 0 && (
-              <div className="flex items-center justify-between p-4 bg-terminal-bg rounded-lg border border-terminal-border">
+              <div className="flex items-center justify-between p-4 rounded-lg" style={{ background: 'var(--bg)', border: '0.5px solid var(--bg-hairline-strong)' }}>
                 <div>
-                  <p className="text-sm font-medium text-terminal-green">
+                  <p className="text-sm font-medium" style={{ color: 'var(--fg1)' }}>
                     Estimated Download Size
                   </p>
-                  <p className="text-xs text-terminal-green-dim">
+                  <p className="text-xs" style={{ color: 'var(--fg2)' }}>
                     {selectedTiles.length} new tile{selectedTiles.length !== 1 ? 's' : ''} × ~170 MB each
                   </p>
                 </div>
-                <p className="text-2xl font-bold text-terminal-cyan text-glow">
+                <p className="text-2xl font-bold" style={{ color: 'var(--tint-teal)' }}>
                   {estimatedSizeGB} GB
                 </p>
               </div>
@@ -600,48 +605,49 @@ function BlueTopoDownloader() {
 
             {/* Selection Summary */}
             {(selectedTiles.length > 0 || keptTiles.length > 0 || tilesToRemove.length > 0) && (
-              <div className="grid grid-cols-3 gap-4 p-4 bg-terminal-bg rounded-lg border border-terminal-border">
+              <div className="grid grid-cols-3 gap-4 p-4 rounded-lg mt-4" style={{ background: 'var(--bg)', border: '0.5px solid var(--bg-hairline-strong)' }}>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-terminal-green">{selectedTiles.length}</p>
-                  <p className="text-xs text-terminal-green-dim">New to download</p>
+                  <p className="text-2xl font-bold" style={{ color: 'var(--signal)' }}>{selectedTiles.length}</p>
+                  <p className="text-xs" style={{ color: 'var(--fg2)' }}>New to download</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-terminal-cyan">{keptTiles.length}</p>
-                  <p className="text-xs text-terminal-green-dim">Already downloaded</p>
+                  <p className="text-2xl font-bold" style={{ color: 'var(--tint-teal)' }}>{keptTiles.length}</p>
+                  <p className="text-xs" style={{ color: 'var(--fg2)' }}>Already downloaded</p>
                 </div>
                 <div className="text-center">
-                  <p className={`text-2xl font-bold ${tilesToRemove.length > 0 ? 'text-terminal-amber' : 'text-terminal-green-dim'}`}>{tilesToRemove.length}</p>
-                  <p className="text-xs text-terminal-green-dim">To be removed</p>
+                  <p className="text-2xl font-bold" style={{ color: tilesToRemove.length > 0 ? 'var(--tint-yellow)' : 'var(--fg2)' }}>{tilesToRemove.length}</p>
+                  <p className="text-xs" style={{ color: 'var(--fg2)' }}>To be removed</p>
                 </div>
               </div>
             )}
 
             {/* Existing Tiles Info */}
             {storageInfo.tiles.existingTiles > 0 && (
-              <div className="mt-4 pt-4 border-t border-terminal-border">
-                <p className="text-sm text-terminal-green-dim">
+              <div className="mt-4 pt-4" style={{ borderTop: '0.5px solid var(--bg-hairline-strong)' }}>
+                <p className="text-sm" style={{ color: 'var(--fg2)' }}>
                   {storageInfo.tiles.existingTiles} BlueTopo tile{storageInfo.tiles.existingTiles !== 1 ? 's' : ''} already downloaded
                   ({storageInfo.tiles.totalSizeMB} MB)
                 </p>
               </div>
             )}
-          </div>
+          </Glass>
         )}
 
         {/* Chart Selector Action Panel */}
-        <div className="bg-terminal-surface rounded-lg border border-terminal-border p-6">
+        <Glass pad={24} radius={12}>
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-terminal-green mb-1 uppercase tracking-wide">
+              <h3 className="text-lg font-semibold mb-1 uppercase tracking-wide" style={{ color: 'var(--fg1)' }}>
                 Select Charts to Download
               </h3>
-              <p className="text-sm text-terminal-green-dim">
+              <p className="text-sm" style={{ color: 'var(--fg2)' }}>
                 Choose BlueTopo regions from the interactive map
               </p>
             </div>
             <button
               onClick={() => navigate('/bluetopo-tiles', { state: { returnTo: '/settings?section=bluetopo' } })}
-              className="terminal-btn-primary flex items-center space-x-2"
+              className="flex items-center space-x-2 px-4 py-2 rounded-lg font-medium"
+              style={{ background: 'var(--signal)', color: '#fff' }}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
@@ -649,25 +655,27 @@ function BlueTopoDownloader() {
               <span>Open Chart Selector</span>
             </button>
           </div>
-        </div>
+        </Glass>
 
         {/* Check for Updates Section */}
         {downloadedTilesMetadata.size > 0 && !isStarted && (
-          <div className="bg-terminal-surface rounded-lg border border-terminal-border p-6">
+          <Glass pad={24} radius={12}>
             <div className="flex items-center justify-between mb-4">
               <button
                 onClick={() => setUpdateCheckExpanded(!updateCheckExpanded)}
-                className="flex items-center space-x-2 text-left hover:text-terminal-green-bright transition-colors"
+                className="flex items-center space-x-2 text-left transition-colors"
+                style={{ color: 'var(--fg1)' }}
               >
                 <svg
-                  className={`w-5 h-5 text-terminal-green transition-transform duration-200 ${updateCheckExpanded ? 'rotate-90' : ''}`}
+                  className={`w-5 h-5 transition-transform duration-200 ${updateCheckExpanded ? 'rotate-90' : ''}`}
+                  style={{ color: 'var(--fg1)' }}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
-                <h2 className="text-lg font-semibold text-terminal-green uppercase tracking-wide">
+                <h2 className="text-lg font-semibold uppercase tracking-wide" style={{ color: 'var(--fg1)' }}>
                   Check for Updates
                 </h2>
               </button>
@@ -675,7 +683,7 @@ function BlueTopoDownloader() {
 
             {updateCheckExpanded && (
               <div className="space-y-4">
-                <p className="text-sm text-terminal-green-dim">
+                <p className="text-sm" style={{ color: 'var(--fg2)' }}>
                   Compare downloaded tiles against NOAA metadata to find newer versions
                 </p>
 
@@ -684,10 +692,11 @@ function BlueTopoDownloader() {
                   <button
                     onClick={() => handleCheckUpdates(false)}
                     disabled={isCheckingUpdates}
-                    className="terminal-btn flex items-center space-x-2"
+                    className="flex items-center space-x-2 px-4 py-2 rounded-lg font-medium"
+                    style={{ background: 'var(--fill-1)', color: 'var(--fg1)', border: '0.5px solid var(--bg-hairline-strong)' }}
                   >
                     {isCheckingUpdates ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-terminal-green"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2" style={{ borderColor: 'var(--signal)' }}></div>
                     ) : (
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -699,10 +708,11 @@ function BlueTopoDownloader() {
                   <button
                     onClick={() => handleCheckUpdates(true)}
                     disabled={isCheckingUpdates}
-                    className="terminal-btn-primary flex items-center space-x-2"
+                    className="flex items-center space-x-2 px-4 py-2 rounded-lg font-medium"
+                    style={{ background: 'var(--signal)', color: '#fff' }}
                   >
                     {isCheckingUpdates ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-terminal-bg"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                     ) : (
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
@@ -712,7 +722,7 @@ function BlueTopoDownloader() {
                   </button>
 
                   {isCheckingUpdates && (
-                    <span className="text-sm text-terminal-green-dim animate-pulse">
+                    <span className="text-sm animate-pulse" style={{ color: 'var(--fg2)' }}>
                       Checking {downloadedTilesMetadata.size} tiles...
                     </span>
                   )}
@@ -723,44 +733,41 @@ function BlueTopoDownloader() {
                   <div className="space-y-4 mt-4">
                     {/* Summary Cards */}
                     <div className="grid grid-cols-3 gap-4">
-                      <div className="bg-terminal-green/10 border border-terminal-green/30 rounded-lg p-4 text-center">
-                        <p className="text-3xl font-bold text-terminal-green text-glow font-mono">
+                      <div className="rounded-lg p-4 text-center" style={{ background: 'rgba(47,181,107,0.1)', border: '0.5px solid rgba(47,181,107,0.3)' }}>
+                        <p className="text-3xl font-bold font-mono" style={{ color: 'var(--signal)' }}>
                           {updateCheckResult.summary.upToDate}
                         </p>
-                        <p className="text-xs text-terminal-green-dim uppercase tracking-wide mt-1">
+                        <p className="text-xs uppercase tracking-wide mt-1" style={{ color: 'var(--fg2)' }}>
                           Up to Date
                         </p>
                       </div>
 
-                      <div className={`border rounded-lg p-4 text-center ${
-                        updateCheckResult.summary.outdated > 0
-                          ? 'bg-terminal-amber/10 border-terminal-amber/30'
-                          : 'bg-terminal-bg border-terminal-border'
-                      }`}>
-                        <p className={`text-3xl font-bold font-mono ${
-                          updateCheckResult.summary.outdated > 0
-                            ? 'text-terminal-amber'
-                            : 'text-terminal-green-dim'
-                        }`}>
+                      <div className="border rounded-lg p-4 text-center" style={{
+                        background: updateCheckResult.summary.outdated > 0 ? 'rgba(232,185,58,0.1)' : 'var(--bg)',
+                        border: `0.5px solid ${updateCheckResult.summary.outdated > 0 ? 'rgba(232,185,58,0.3)' : 'var(--bg-hairline-strong)'}`
+                      }}>
+                        <p className="text-3xl font-bold font-mono" style={{
+                          color: updateCheckResult.summary.outdated > 0 ? 'var(--tint-yellow)' : 'var(--fg2)'
+                        }}>
                           {updateCheckResult.summary.outdated}
                         </p>
-                        <p className="text-xs text-terminal-green-dim uppercase tracking-wide mt-1">
+                        <p className="text-xs uppercase tracking-wide mt-1" style={{ color: 'var(--fg2)' }}>
                           Updates Available
                         </p>
                       </div>
 
-                      <div className="bg-terminal-bg border border-terminal-border rounded-lg p-4 text-center">
-                        <p className="text-3xl font-bold text-terminal-cyan font-mono">
+                      <div className="rounded-lg p-4 text-center" style={{ background: 'var(--bg)', border: '0.5px solid var(--bg-hairline-strong)' }}>
+                        <p className="text-3xl font-bold font-mono" style={{ color: 'var(--tint-teal)' }}>
                           {updateCheckResult.summary.totalChecked}
                         </p>
-                        <p className="text-xs text-terminal-green-dim uppercase tracking-wide mt-1">
+                        <p className="text-xs uppercase tracking-wide mt-1" style={{ color: 'var(--fg2)' }}>
                           Total Checked
                         </p>
                       </div>
                     </div>
 
                     {/* Tile Scheme Info */}
-                    <div className="text-xs text-terminal-green-dim font-mono">
+                    <div className="text-xs font-mono" style={{ color: 'var(--fg2)' }}>
                       Using tile scheme: {updateCheckResult.tileScheme}
                       {updateCheckResult.checkedAt && (
                         <span className="ml-4">
@@ -773,13 +780,14 @@ function BlueTopoDownloader() {
                     {updateCheckResult.summary.outdated > 0 && (
                       <div className="mt-4">
                         <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-sm font-semibold text-terminal-amber uppercase tracking-wide">
+                          <h3 className="text-sm font-semibold uppercase tracking-wide" style={{ color: 'var(--tint-yellow)' }}>
                             Outdated Tiles
                           </h3>
                           <div className="flex items-center space-x-3">
                             <button
                               onClick={toggleAllUpdateSelection}
-                              className="text-xs text-terminal-green hover:text-terminal-green-bright transition-colors"
+                              className="text-xs transition-colors"
+                              style={{ color: 'var(--fg1)' }}
                             >
                               {selectedForUpdate.size === updateCheckResult.tiles.filter(t => t.hasUpdate).length
                                 ? 'Deselect All'
@@ -788,7 +796,8 @@ function BlueTopoDownloader() {
                             <button
                               onClick={handleUpdateSelected}
                               disabled={selectedForUpdate.size === 0}
-                              className="terminal-btn-primary text-sm flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="text-sm flex items-center space-x-2 px-3 py-2 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                              style={{ background: 'var(--signal)', color: '#fff' }}
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -800,14 +809,13 @@ function BlueTopoDownloader() {
 
                         <div className="overflow-x-auto">
                           <table className="w-full text-sm text-left">
-                            <thead className="text-xs uppercase bg-terminal-bg text-terminal-green border-b border-terminal-border">
+                            <thead className="text-xs uppercase" style={{ background: 'var(--bg)', color: 'var(--fg1)', borderBottom: '0.5px solid var(--bg-hairline-strong)' }}>
                               <tr>
                                 <th className="px-4 py-3 w-12">
                                   <input
                                     type="checkbox"
                                     checked={selectedForUpdate.size === updateCheckResult.tiles.filter(t => t.hasUpdate).length && selectedForUpdate.size > 0}
                                     onChange={toggleAllUpdateSelection}
-                                    className="terminal-checkbox"
                                   />
                                 </th>
                                 <th className="px-4 py-3">Tile ID</th>
@@ -821,23 +829,22 @@ function BlueTopoDownloader() {
                                 .map((tile) => (
                                   <tr
                                     key={tile.tileId}
-                                    className="border-b border-terminal-border hover:bg-terminal-amber/5"
+                                    style={{ borderBottom: '0.5px solid var(--bg-hairline-strong)' }}
                                   >
                                     <td className="px-4 py-3">
                                       <input
                                         type="checkbox"
                                         checked={selectedForUpdate.has(tile.tileId)}
                                         onChange={() => toggleUpdateSelection(tile.tileId)}
-                                        className="terminal-checkbox"
                                       />
                                     </td>
-                                    <td className="px-4 py-3 font-medium text-terminal-green font-mono">
+                                    <td className="px-4 py-3 font-medium font-mono" style={{ color: 'var(--fg1)' }}>
                                       {tile.tileId}
                                     </td>
-                                    <td className="px-4 py-3 text-terminal-green-dim font-mono">
+                                    <td className="px-4 py-3 font-mono" style={{ color: 'var(--fg2)' }}>
                                       {tile.localVersion || '—'}
                                     </td>
-                                    <td className="px-4 py-3 text-terminal-amber font-mono font-medium">
+                                    <td className="px-4 py-3 font-mono font-medium" style={{ color: 'var(--tint-yellow)' }}>
                                       {tile.remoteVersion || '—'}
                                     </td>
                                   </tr>
@@ -850,11 +857,11 @@ function BlueTopoDownloader() {
 
                     {/* All Up to Date Message */}
                     {updateCheckResult.summary.outdated === 0 && updateCheckResult.summary.upToDate > 0 && (
-                      <div className="flex items-center space-x-3 p-4 bg-terminal-green/10 border border-terminal-green/30 rounded-lg">
-                        <CheckCircleIcon className="h-6 w-6 text-terminal-green" />
+                      <div className="flex items-center space-x-3 p-4 rounded-lg" style={{ background: 'rgba(47,181,107,0.1)', border: '0.5px solid rgba(47,181,107,0.3)' }}>
+                        <CheckCircleIcon className="h-6 w-6" style={{ color: 'var(--signal)' }} />
                         <div>
-                          <p className="text-terminal-green font-medium">All tiles are up to date!</p>
-                          <p className="text-sm text-terminal-green-dim">
+                          <p className="font-medium" style={{ color: 'var(--signal)' }}>All tiles are up to date!</p>
+                          <p className="text-sm" style={{ color: 'var(--fg2)' }}>
                             {updateCheckResult.summary.upToDate} tile{updateCheckResult.summary.upToDate !== 1 ? 's' : ''} checked against NOAA metadata
                           </p>
                         </div>
@@ -863,15 +870,15 @@ function BlueTopoDownloader() {
 
                     {/* Unknown Versions Warning */}
                     {updateCheckResult.summary.unknown > 0 && (
-                      <div className="flex items-center space-x-3 p-4 bg-terminal-bg border border-terminal-border rounded-lg">
-                        <svg className="h-6 w-6 text-terminal-green-dim" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center space-x-3 p-4 rounded-lg" style={{ background: 'var(--bg)', border: '0.5px solid var(--bg-hairline-strong)' }}>
+                        <svg className="h-6 w-6" style={{ color: 'var(--fg2)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <div>
-                          <p className="text-terminal-green-dim font-medium">
+                          <p className="font-medium" style={{ color: 'var(--fg2)' }}>
                             {updateCheckResult.summary.unknown} tile{updateCheckResult.summary.unknown !== 1 ? 's' : ''} with unknown version
                           </p>
-                          <p className="text-sm text-terminal-green-dim">
+                          <p className="text-sm" style={{ color: 'var(--fg2)' }}>
                             These tiles were downloaded before version tracking was added
                           </p>
                         </div>
@@ -881,22 +888,22 @@ function BlueTopoDownloader() {
                 )}
               </div>
             )}
-          </div>
+          </Glass>
         )}
 
         {/* Selected Tiles for Deletion Panel */}
         {selectedTilesForDeletion.size > 0 && (
-          <div className="bg-terminal-green/5 border-2 border-terminal-green/50 rounded-lg p-6 shadow-glow-green-sm">
+          <Glass pad={24} radius={12}>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <div className="flex items-center justify-center w-12 h-12 bg-terminal-green/20 border border-terminal-green rounded-full">
-                  <span className="text-2xl font-bold text-terminal-green text-glow">{selectedTilesForDeletion.size}</span>
+                <div className="flex items-center justify-center w-12 h-12 rounded-full" style={{ background: 'rgba(47,181,107,0.15)', border: '0.5px solid var(--signal)' }}>
+                  <span className="text-2xl font-bold" style={{ color: 'var(--signal)' }}>{selectedTilesForDeletion.size}</span>
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-terminal-green">
+                  <h3 className="text-lg font-semibold" style={{ color: 'var(--fg1)' }}>
                     {selectedTilesForDeletion.size} Tile{selectedTilesForDeletion.size !== 1 ? 's' : ''} Selected for Deletion
                   </h3>
-                  <p className="text-sm text-terminal-green-dim">
+                  <p className="text-sm" style={{ color: 'var(--fg2)' }}>
                     View selected tiles on the map or clear selection
                   </p>
                 </div>
@@ -919,7 +926,8 @@ function BlueTopoDownloader() {
                       }
                     })
                   }}
-                  className="terminal-btn-primary flex items-center space-x-2"
+                  className="flex items-center space-x-2 px-4 py-2 rounded-lg font-medium"
+                  style={{ background: 'var(--signal)', color: '#fff' }}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
@@ -929,27 +937,28 @@ function BlueTopoDownloader() {
 
                 <button
                   onClick={() => setSelectedTilesForDeletion(new Set())}
-                  className="terminal-btn flex items-center space-x-2"
+                  className="flex items-center space-x-2 px-4 py-2 rounded-lg font-medium"
+                  style={{ background: 'var(--fill-1)', color: 'var(--fg1)', border: '0.5px solid var(--bg-hairline-strong)' }}
                 >
                   <XCircleIcon className="h-5 w-5" />
                   <span>Clear Selection</span>
                 </button>
               </div>
             </div>
-          </div>
+          </Glass>
         )}
 
         {/* Reprocess Progress */}
         {isReprocessing && reprocessProgress && (
-          <div className="bg-terminal-surface rounded-lg border border-terminal-border p-6">
+          <Glass pad={24} radius={12}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-terminal-green uppercase tracking-wide">
+              <h2 className="text-lg font-semibold uppercase tracking-wide" style={{ color: 'var(--fg1)' }}>
                 Reprocessing Raw Files
               </h2>
               {reprocessProgress.connected !== undefined && (
                 <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${reprocessProgress.connected ? 'bg-terminal-green shadow-glow-green-sm' : 'bg-terminal-amber shadow-glow-amber'}`} />
-                  <span className="text-xs text-terminal-green-dim">
+                  <div className="w-2 h-2 rounded-full" style={{ background: reprocessProgress.connected ? 'var(--signal)' : 'var(--tint-yellow)' }} />
+                  <span className="text-xs" style={{ color: 'var(--fg2)' }}>
                     {reprocessProgress.connected ? 'Connected' : 'Polling'}
                   </span>
                 </div>
@@ -959,47 +968,52 @@ function BlueTopoDownloader() {
             {/* Progress Bar */}
             <div className="space-y-2 mb-4">
               <div className="flex justify-between text-sm">
-                <span className="text-terminal-green-dim">
+                <span style={{ color: 'var(--fg2)' }}>
                   {reprocessProgress.summary?.completedTiles || 0} of {reprocessProgress.summary?.totalTiles || 0} tiles reprocessed
                   {reprocessProgress.summary?.failedTiles > 0 && ` (${reprocessProgress.summary.failedTiles} failed)`}
                 </span>
-                <span className="text-terminal-green font-medium">
+                <span className="font-medium" style={{ color: 'var(--fg1)' }}>
                   {reprocessProgress.progress || 0}%
                 </span>
               </div>
-              <div className="w-full bg-terminal-border rounded-full h-4 overflow-hidden">
-                <div
-                  className="h-full bg-terminal-amber shadow-glow-amber transition-all duration-300"
-                  style={{ width: `${reprocessProgress.progress || 0}%` }}
-                />
+              <div style={{ height: 8, borderRadius: 999, background: 'var(--fill-2)', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%',
+                  width: `${reprocessProgress.progress || 0}%`,
+                  background: 'var(--tint-yellow)',
+                  boxShadow: '0 0 8px var(--tint-yellow)',
+                  transition: 'width 160ms'
+                }} />
               </div>
             </div>
 
             {/* Status Message */}
             {reprocessProgress.message && (
-              <p className="mt-4 text-sm text-terminal-green-dim">
+              <p className="mt-4 text-sm" style={{ color: 'var(--fg2)' }}>
                 {reprocessProgress.message}
               </p>
             )}
-          </div>
+          </Glass>
         )}
 
         {/* Downloaded Tiles Table */}
-        <div className="bg-terminal-surface rounded-lg border border-terminal-border p-6">
+        <Glass pad={24} radius={12}>
           <div className="flex items-center justify-between">
             <button
               onClick={() => setDownloadedTilesExpanded(!downloadedTilesExpanded)}
-              className="flex items-center space-x-2 text-left hover:text-terminal-green-bright transition-colors"
+              className="flex items-center space-x-2 text-left transition-colors"
+              style={{ color: 'var(--fg1)' }}
             >
               <svg
-                className={`w-5 h-5 text-terminal-green transition-transform duration-200 ${downloadedTilesExpanded ? 'rotate-90' : ''}`}
+                className={`w-5 h-5 transition-transform duration-200 ${downloadedTilesExpanded ? 'rotate-90' : ''}`}
+                style={{ color: 'var(--fg1)' }}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
-              <h2 className="text-lg font-semibold text-terminal-green uppercase tracking-wide">
+              <h2 className="text-lg font-semibold uppercase tracking-wide" style={{ color: 'var(--fg1)' }}>
                 Downloaded Tiles {!loadingDownloadedTiles && `(${downloadedTilesMetadata.size})`}
               </h2>
             </button>
@@ -1011,7 +1025,8 @@ function BlueTopoDownloader() {
                   <button
                     onClick={handleReprocessRawFiles}
                     disabled={loadingDownloadedTiles || isReprocessing}
-                    className="px-4 py-2 bg-terminal-amber/20 border border-terminal-amber text-terminal-amber rounded-lg hover:bg-terminal-amber/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                    className="px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2 font-medium"
+                    style={{ background: 'rgba(232,185,58,0.14)', color: 'var(--tint-yellow)', border: '0.5px solid rgba(232,185,58,0.3)' }}
                     title="Reprocess all raw GeoTIFF files"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1027,7 +1042,8 @@ function BlueTopoDownloader() {
                     <button
                       onClick={handleDeleteSelectedRawFiles}
                       disabled={isDeleting}
-                      className="px-4 py-2 bg-terminal-amber/20 border border-terminal-amber text-terminal-amber rounded-lg hover:bg-terminal-amber/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                      className="px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2 font-medium"
+                      style={{ background: 'rgba(232,185,58,0.14)', color: 'var(--tint-yellow)', border: '0.5px solid rgba(232,185,58,0.3)' }}
                       title="Delete raw GeoTIFF files only (keeps processed tiles)"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1038,7 +1054,8 @@ function BlueTopoDownloader() {
                     <button
                       onClick={handleDeleteSelected}
                       disabled={isDeleting}
-                      className="terminal-btn-danger flex items-center space-x-2"
+                      className="flex items-center space-x-2 px-4 py-2 rounded-lg font-medium disabled:opacity-50"
+                      style={{ background: 'rgba(229,72,72,0.14)', color: '#E54848', border: '0.5px solid rgba(229,72,72,0.3)' }}
                     >
                       <XCircleIcon className="h-5 w-5" />
                       <span>Delete Tiles ({selectedTilesForDeletion.size})</span>
@@ -1053,24 +1070,23 @@ function BlueTopoDownloader() {
             <div className="mt-4">
               {loadingDownloadedTiles ? (
                 <div className="flex flex-col items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-terminal-green mb-4 shadow-glow-green"></div>
-                  <p className="text-terminal-green-dim">Loading downloaded tiles...</p>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 mb-4" style={{ borderColor: 'var(--signal)' }}></div>
+                  <p style={{ color: 'var(--fg2)' }}>Loading downloaded tiles...</p>
                 </div>
           ) : downloadedTilesMetadata.size === 0 ? (
             <div className="text-center py-12">
-              <p className="text-terminal-green-dim">No tiles downloaded yet. Select tiles from the chart selector to begin.</p>
+              <p style={{ color: 'var(--fg2)' }}>No tiles downloaded yet. Select tiles from the chart selector to begin.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
-                <thead className="text-xs uppercase bg-terminal-bg text-terminal-green border-b border-terminal-border">
+                <thead className="text-xs uppercase" style={{ background: 'var(--bg)', color: 'var(--fg1)', borderBottom: '0.5px solid var(--bg-hairline-strong)' }}>
                   <tr>
                     <th className="px-4 py-3 w-12">
                       <input
                         type="checkbox"
                         checked={selectedTilesForDeletion.size === downloadedTilesMetadata.size && downloadedTilesMetadata.size > 0}
                         onChange={toggleAllTilesSelection}
-                        className="terminal-checkbox"
                       />
                     </th>
                     <th className="px-4 py-3">Tile ID</th>
@@ -1082,27 +1098,27 @@ function BlueTopoDownloader() {
                   {Array.from(downloadedTilesMetadata.values()).map((tile) => (
                     <tr
                       key={tile.tileId}
-                      className="border-b border-terminal-border hover:bg-terminal-green/5"
+                      style={{ borderBottom: '0.5px solid var(--bg-hairline-strong)' }}
                     >
                       <td className="px-4 py-3">
                         <input
                           type="checkbox"
                           checked={selectedTilesForDeletion.has(tile.tileId)}
                           onChange={() => toggleTileSelection(tile.tileId)}
-                          className="terminal-checkbox"
                         />
                       </td>
-                      <td className="px-4 py-3 font-medium text-terminal-green font-mono">
+                      <td className="px-4 py-3 font-medium font-mono" style={{ color: 'var(--fg1)' }}>
                         {tile.tileId}
                       </td>
-                      <td className="px-4 py-3 text-terminal-green-dim font-mono">
+                      <td className="px-4 py-3 font-mono" style={{ color: 'var(--fg2)' }}>
                         {tile.downloadedDate ? new Date(tile.downloadedDate).toLocaleDateString() : '—'}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button
                           onClick={() => handleDeleteTile(tile.tileId)}
                           disabled={isDeleting}
-                          className="text-terminal-red hover:text-terminal-red font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          style={{ color: '#E54848' }}
                         >
                           Delete
                         </button>
@@ -1115,18 +1131,18 @@ function BlueTopoDownloader() {
             )}
             </div>
           )}
-        </div>
+        </Glass>
 
         {isStarted && jobProgress && (
-          <div className="bg-terminal-surface rounded-lg border border-terminal-border p-6">
+          <Glass pad={24} radius={12}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-terminal-green uppercase tracking-wide">
+              <h2 className="text-lg font-semibold uppercase tracking-wide" style={{ color: 'var(--fg1)' }}>
                 Download Progress
               </h2>
               {jobProgress.connected !== undefined && (
                 <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${jobProgress.connected ? 'bg-terminal-green shadow-glow-green-sm' : 'bg-terminal-amber shadow-glow-amber'}`} />
-                  <span className="text-xs text-terminal-green-dim">
+                  <div className="w-2 h-2 rounded-full" style={{ background: jobProgress.connected ? 'var(--signal)' : 'var(--tint-yellow)' }} />
+                  <span className="text-xs" style={{ color: 'var(--fg2)' }}>
                     {jobProgress.connected ? 'Connected' : 'Polling'}
                   </span>
                 </div>
@@ -1136,45 +1152,48 @@ function BlueTopoDownloader() {
             {/* Progress Bar */}
             <div className="space-y-2 mb-4">
               <div className="flex justify-between text-sm">
-                <span className="text-terminal-green-dim">
+                <span style={{ color: 'var(--fg2)' }}>
                   {completedCount} of {selectedTiles.length} tiles complete
                   {failedCount > 0 && ` (${failedCount} failed)`}
                 </span>
-                <span className="text-terminal-green font-medium">
+                <span className="font-medium" style={{ color: 'var(--fg1)' }}>
                   {jobProgress.progress || 0}%
                 </span>
               </div>
-              <div className="w-full bg-terminal-border rounded-full h-4 overflow-hidden">
-                <div
-                  className="h-full bg-terminal-green shadow-glow-green-sm transition-all duration-300"
-                  style={{ width: `${jobProgress.progress || 0}%` }}
-                />
+              <div style={{ height: 8, borderRadius: 999, background: 'var(--fill-2)', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%',
+                  width: `${jobProgress.progress || 0}%`,
+                  background: 'var(--signal)',
+                  boxShadow: '0 0 8px var(--signal-glow)',
+                  transition: 'width 160ms'
+                }} />
               </div>
             </div>
 
             {/* Stats Row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-terminal-bg rounded-lg border border-terminal-border">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-lg" style={{ background: 'var(--bg)', border: '0.5px solid var(--bg-hairline-strong)' }}>
               <div>
-                <p className="text-xs text-terminal-green-dim uppercase tracking-wide">Downloaded</p>
-                <p className="text-lg font-semibold text-terminal-green font-mono">
+                <p className="text-xs uppercase tracking-wide" style={{ color: 'var(--fg2)' }}>Downloaded</p>
+                <p className="text-lg font-semibold font-mono" style={{ color: 'var(--fg1)' }}>
                   {formatBytes(totalDownloadedBytes)} / {formatBytes(totalExpectedBytes)}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-terminal-green-dim uppercase tracking-wide">Speed</p>
-                <p className="text-lg font-semibold text-terminal-cyan font-mono">
+                <p className="text-xs uppercase tracking-wide" style={{ color: 'var(--fg2)' }}>Speed</p>
+                <p className="text-lg font-semibold font-mono" style={{ color: 'var(--tint-teal)' }}>
                   {combinedSpeedMBps.toFixed(1)} MB/s
                 </p>
               </div>
               <div>
-                <p className="text-xs text-terminal-green-dim uppercase tracking-wide">Active Downloads</p>
-                <p className="text-lg font-semibold text-terminal-green font-mono">
+                <p className="text-xs uppercase tracking-wide" style={{ color: 'var(--fg2)' }}>Active Downloads</p>
+                <p className="text-lg font-semibold font-mono" style={{ color: 'var(--fg1)' }}>
                   {downloadingCount}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-terminal-green-dim uppercase tracking-wide">Time Remaining</p>
-                <p className="text-lg font-semibold text-terminal-green font-mono">
+                <p className="text-xs uppercase tracking-wide" style={{ color: 'var(--fg2)' }}>Time Remaining</p>
+                <p className="text-lg font-semibold font-mono" style={{ color: 'var(--fg1)' }}>
                   {jobProgress.estimatedTimeLeft || '--'}
                 </p>
               </div>
@@ -1182,11 +1201,11 @@ function BlueTopoDownloader() {
 
             {/* Status Message */}
             {jobProgress.message && (
-              <p className="mt-4 text-sm text-terminal-green-dim">
+              <p className="mt-4 text-sm" style={{ color: 'var(--fg2)' }}>
                 {jobProgress.message}
               </p>
             )}
-          </div>
+          </Glass>
         )}
 
         {/* Start Button (before download starts) */}
@@ -1195,7 +1214,8 @@ function BlueTopoDownloader() {
             <button
               onClick={handleStartDownload}
               disabled={loadingStorage || !storageInfo}
-              className="px-8 py-4 bg-terminal-green text-terminal-bg text-lg font-bold rounded-lg hover:bg-terminal-green-bright shadow-glow-green disabled:bg-terminal-green-dim disabled:shadow-none disabled:cursor-not-allowed transition-all uppercase tracking-wider"
+              className="px-8 py-4 text-lg font-bold rounded-lg disabled:cursor-not-allowed transition-all uppercase tracking-wider"
+              style={{ background: 'var(--signal)', color: '#fff' }}
             >
               Start Download
             </button>
@@ -1204,8 +1224,8 @@ function BlueTopoDownloader() {
 
         {/* Tile Progress Cards */}
         {isStarted && jobProgress.tiles && (
-          <div className="bg-terminal-surface rounded-lg border border-terminal-border p-6">
-            <h2 className="text-lg font-semibold text-terminal-green mb-4 uppercase tracking-wide">
+          <Glass pad={24} radius={12}>
+            <h2 className="text-lg font-semibold mb-4 uppercase tracking-wide" style={{ color: 'var(--fg1)' }}>
               Individual Tile Progress
             </h2>
 
@@ -1244,7 +1264,7 @@ function BlueTopoDownloader() {
                 )
               })}
             </div>
-          </div>
+          </Glass>
         )}
       </div>
     </div>
@@ -1266,21 +1286,21 @@ function TileProgressCard({
   error,
   downloadedMetadata
 }) {
-  // Status color mapping - terminal theme
-  const statusColors = {
-    waiting: 'bg-terminal-bg border-terminal-border',
-    downloading: 'bg-terminal-cyan/5 border-terminal-cyan/50',
-    converting: 'bg-terminal-amber/5 border-terminal-amber/50',
-    completed: 'bg-terminal-green/5 border-terminal-green/50',
-    failed: 'bg-terminal-red/5 border-terminal-red/50'
+  // Status styles using tokens
+  const statusStyles = {
+    waiting:     { background: 'var(--bg)',                          border: '0.5px solid var(--bg-hairline-strong)' },
+    downloading: { background: 'rgba(74,144,226,0.05)',              border: '0.5px solid rgba(74,144,226,0.4)' },
+    converting:  { background: 'rgba(232,185,58,0.05)',              border: '0.5px solid rgba(232,185,58,0.4)' },
+    completed:   { background: 'rgba(47,181,107,0.05)',              border: '0.5px solid rgba(47,181,107,0.4)' },
+    failed:      { background: 'rgba(229,72,72,0.05)',               border: '0.5px solid rgba(229,72,72,0.4)' },
   }
 
   const statusIcons = {
     waiting: null,
     downloading: null,
     converting: null,
-    completed: <CheckCircleIcon className="h-5 w-5 text-terminal-green" />,
-    failed: <XCircleIcon className="h-5 w-5 text-terminal-red" />
+    completed: <CheckCircleIcon className="h-5 w-5" style={{ color: 'var(--signal)' }} />,
+    failed: <XCircleIcon className="h-5 w-5" style={{ color: '#E54848' }} />
   }
 
   const statusLabels = {
@@ -1291,12 +1311,12 @@ function TileProgressCard({
     failed: '[!!] Failed'
   }
 
-  const statusTextColors = {
-    waiting: 'text-terminal-green-dim',
-    downloading: 'text-terminal-cyan',
-    converting: 'text-terminal-amber',
-    completed: 'text-terminal-green',
-    failed: 'text-terminal-red'
+  const statusTextColor = {
+    waiting:     'var(--fg2)',
+    downloading: 'var(--tint-teal)',
+    converting:  'var(--tint-yellow)',
+    completed:   'var(--signal)',
+    failed:      '#E54848',
   }
 
   function formatBytes(bytes) {
@@ -1306,18 +1326,18 @@ function TileProgressCard({
   }
 
   return (
-    <div className={`border rounded-lg p-4 ${statusColors[status] || statusColors.waiting}`}>
+    <div className="rounded-lg p-4" style={statusStyles[status] || statusStyles.waiting}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center space-x-2">
           {statusIcons[status]}
-          <h3 className="font-semibold text-terminal-green font-mono">
+          <h3 className="font-semibold font-mono" style={{ color: 'var(--fg1)' }}>
             {tileId}
           </h3>
-          <span className="text-xs px-2 py-1 rounded bg-terminal-border text-terminal-green-dim font-mono">
+          <span className="text-xs px-2 py-1 rounded font-mono" style={{ background: 'var(--fill-2)', color: 'var(--fg2)' }}>
             {resolution}
           </span>
         </div>
-        <span className={`text-sm font-mono ${statusTextColors[status]}`}>
+        <span className="text-sm font-mono" style={{ color: statusTextColor[status] }}>
           {statusLabels[status]}
         </span>
       </div>
@@ -1325,26 +1345,27 @@ function TileProgressCard({
       {/* Progress Bar */}
       {(status === 'downloading' || status === 'converting') && (
         <div className="space-y-1">
-          <div className="flex justify-between text-xs text-terminal-green-dim font-mono">
+          <div className="flex justify-between text-xs font-mono" style={{ color: 'var(--fg2)' }}>
             <span>{progress}%</span>
             {totalBytes > 0 && (
               <span>{formatBytes(downloadedBytes)} / {formatBytes(totalBytes)}</span>
             )}
           </div>
-          <div className="w-full bg-terminal-border rounded-full h-2 overflow-hidden">
-            <div
-              className={`h-full transition-all duration-300 ${
-                status === 'converting' ? 'bg-terminal-amber shadow-glow-amber' : 'bg-terminal-cyan shadow-glow-cyan'
-              }`}
-              style={{ width: `${progress}%` }}
-            />
+          <div style={{ height: 8, borderRadius: 999, background: 'var(--fill-2)', overflow: 'hidden' }}>
+            <div style={{
+              height: '100%',
+              width: `${progress}%`,
+              background: status === 'converting' ? 'var(--tint-yellow)' : 'var(--tint-teal)',
+              boxShadow: `0 0 8px ${status === 'converting' ? 'var(--tint-yellow)' : 'var(--tint-teal)'}`,
+              transition: 'width 160ms'
+            }} />
           </div>
         </div>
       )}
 
       {/* Download Stats */}
       {status === 'downloading' && (speedMBps > 0 || estimatedSecondsLeft > 0) && (
-        <div className="mt-2 flex items-center space-x-4 text-xs text-terminal-green-dim font-mono">
+        <div className="mt-2 flex items-center space-x-4 text-xs font-mono" style={{ color: 'var(--fg2)' }}>
           {speedMBps > 0 && (
             <span>Speed: {speedMBps.toFixed(1)} MB/s</span>
           )}
@@ -1356,32 +1377,32 @@ function TileProgressCard({
 
       {/* Error Message */}
       {status === 'failed' && error && (
-        <p className="mt-2 text-sm text-terminal-red font-mono">
+        <p className="mt-2 text-sm font-mono" style={{ color: '#E54848' }}>
           {error}
         </p>
       )}
 
       {/* Completed Info */}
       {status === 'completed' && totalBytes > 0 && (
-        <p className="mt-2 text-sm text-terminal-green font-mono">
+        <p className="mt-2 text-sm font-mono" style={{ color: 'var(--signal)' }}>
           Downloaded {formatBytes(totalBytes)}
         </p>
       )}
 
       {/* Already Downloaded Info */}
       {downloadedMetadata && (
-        <div className="mt-2 pt-2 border-t border-terminal-border">
+        <div className="mt-2 pt-2" style={{ borderTop: '0.5px solid var(--bg-hairline-strong)' }}>
           <div className="flex items-center space-x-2 mb-1">
-            <CheckCircleIcon className="h-4 w-4 text-terminal-green" />
-            <span className="text-xs font-medium text-terminal-green">
+            <CheckCircleIcon className="h-4 w-4" style={{ color: 'var(--signal)' }} />
+            <span className="text-xs font-medium" style={{ color: 'var(--signal)' }}>
               Already Downloaded
             </span>
           </div>
-          <div className="space-y-1 text-xs text-terminal-green-dim font-mono">
+          <div className="space-y-1 text-xs font-mono" style={{ color: 'var(--fg2)' }}>
             {downloadedMetadata.downloadedDate && (
               <div className="flex justify-between">
                 <span>Downloaded on device:</span>
-                <span className="font-medium text-terminal-green">
+                <span className="font-medium" style={{ color: 'var(--fg1)' }}>
                   {new Date(downloadedMetadata.downloadedDate).toLocaleDateString()}
                 </span>
               </div>
@@ -1389,7 +1410,7 @@ function TileProgressCard({
             {downloadedMetadata.publishedDate && (
               <div className="flex justify-between">
                 <span>Published by NOAA:</span>
-                <span className="font-medium text-terminal-green">
+                <span className="font-medium" style={{ color: 'var(--fg1)' }}>
                   {new Date(downloadedMetadata.publishedDate).toLocaleDateString()}
                 </span>
               </div>
@@ -1397,7 +1418,7 @@ function TileProgressCard({
             {downloadedMetadata.version && (
               <div className="flex justify-between">
                 <span>Version:</span>
-                <span className="font-medium text-terminal-cyan">
+                <span className="font-medium" style={{ color: 'var(--tint-teal)' }}>
                   {downloadedMetadata.version}
                 </span>
               </div>

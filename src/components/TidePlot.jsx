@@ -5,7 +5,7 @@
 function TidePlot({ predictions, hiLo, centerTime, width = 260, height = 100 }) {
   if (!predictions || predictions.length === 0) {
     return (
-      <div className="text-xs text-terminal-green/40 text-center py-2">No tide data</div>
+      <div style={{ fontSize: 12, color: 'var(--fg2)', textAlign: 'center', padding: '8px 0' }}>No tide data</div>
     )
   }
 
@@ -26,7 +26,7 @@ function TidePlot({ predictions, hiLo, centerTime, width = 260, height = 100 }) 
 
   if (windowData.length < 2) {
     return (
-      <div className="text-xs text-terminal-green/40 text-center py-2">Insufficient data for this time</div>
+      <div style={{ fontSize: 12, color: 'var(--fg2)', textAlign: 'center', padding: '8px 0' }}>Insufficient data for this time</div>
     )
   }
 
@@ -80,10 +80,10 @@ function TidePlot({ predictions, hiLo, centerTime, width = 260, height = 100 }) 
           <line
             x1={padding.left} y1={toY(v)}
             x2={width - padding.right} y2={toY(v)}
-            stroke="rgba(0,255,136,0.1)" strokeWidth={0.5}
+            stroke="var(--bg-hairline-strong)" strokeWidth={0.5}
           />
           <text x={padding.left - 4} y={toY(v) + 3}
-            textAnchor="end" fill="rgba(0,255,136,0.4)" fontSize={9} fontFamily="monospace">
+            textAnchor="end" fill="var(--fg2)" fontSize={9} fontFamily="monospace">
             {v.toFixed(1)}
           </text>
         </g>
@@ -92,20 +92,20 @@ function TidePlot({ predictions, hiLo, centerTime, width = 260, height = 100 }) 
       {/* X-axis labels */}
       {xLabels.map((xl, i) => (
         <text key={i} x={toX(new Date(xl.t).toISOString())} y={height - 2}
-          textAnchor="middle" fill="rgba(0,255,136,0.4)" fontSize={8} fontFamily="monospace">
+          textAnchor="middle" fill="var(--fg2)" fontSize={8} fontFamily="monospace">
           {xl.label}
         </text>
       ))}
 
       {/* Tide curve */}
-      <path d={pathD} fill="none" stroke="#00ff88" strokeWidth={1.5} />
+      <path d={pathD} fill="none" stroke="var(--signal)" strokeWidth={1.5} />
 
       {/* "Now" line */}
       {nowInWindow && (
         <line
           x1={toX(new Date(now).toISOString())} y1={padding.top}
           x2={toX(new Date(now).toISOString())} y2={padding.top + plotH}
-          stroke="#fbbf24" strokeWidth={1} strokeDasharray="3,3"
+          stroke="var(--tint-yellow)" strokeWidth={1} strokeDasharray="3,3"
         />
       )}
 
@@ -114,7 +114,7 @@ function TidePlot({ predictions, hiLo, centerTime, width = 260, height = 100 }) 
         <line
           x1={toX(centerTime)} y1={padding.top}
           x2={toX(centerTime)} y2={padding.top + plotH}
-          stroke="#ff6b6b" strokeWidth={1} opacity={0.7}
+          stroke="var(--tint-red)" strokeWidth={1} opacity={0.7}
         />
       )}
 
@@ -122,9 +122,9 @@ function TidePlot({ predictions, hiLo, centerTime, width = 260, height = 100 }) 
       {windowHiLo.map((p, i) => (
         <g key={i}>
           <circle cx={toX(p.t)} cy={toY(p.v)} r={3}
-            fill={p.type === 'H' ? '#60a5fa' : '#22d3ee'} />
+            fill={p.type === 'H' ? '#60a5fa' : 'var(--tint-teal)'} />
           <text x={toX(p.t)} y={toY(p.v) + (p.type === 'H' ? -6 : 12)}
-            textAnchor="middle" fill={p.type === 'H' ? '#60a5fa' : '#22d3ee'} fontSize={8} fontFamily="monospace">
+            textAnchor="middle" fill={p.type === 'H' ? '#60a5fa' : 'var(--tint-teal)'} fontSize={8} fontFamily="monospace">
             {p.v.toFixed(1)}
           </text>
         </g>
